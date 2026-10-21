@@ -22,7 +22,11 @@ Saving uses a same-directory temporary file, flush/fsync and os.replace. Tempora
 
 ## Rendering choice
 
-Use VTK's supported PySide6 widget and trackball camera rather than hand-written OpenGL or native OCCT window integration. VTK already comes with the selected OCP wheel. Display code handles face locations and reversed winding. Viewport picking and persistent topology references are deferred.
+Use VTK's supported PySide6 widget and trackball camera rather than hand-written OpenGL or native OCCT window integration. VTK already comes with the selected OCP wheel. `ui/display_geometry.py` builds display meshes with explicit cell-to-OCCT-face/edge indices. Faces retain locations and reversed winding. Unique topological edges are sampled separately at 0.1 mm deflection and drawn with one-pixel unlit lines; triangle-edge rendering is disabled. These samples are display approximations, never modeling geometry.
+
+The picker maps triangles or edge polylines back to the current OCCT subshape. Face mode highlights all cells of that face. Edge mode checks the front surface at the candidate edge's projected position to reject occluded rear edges. Highlight actors are excluded from picking and camera-fit bounds. Qt clicks use device-pixel conversion; drags and modifier gestures retain camera controls.
+
+`Selection(kind, index, shape)` is valid only for the displayed solid. Regeneration clears it and rebuilds mappings. Persistent topological naming is explicitly not solved. Camera scale is clamped to bounding-diagonal-relative limits after wheel and interaction events; standard views and Fit reset clipping. Thin normal edges, lighting and background are retained.
 
 ## Constraints
 

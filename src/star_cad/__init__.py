@@ -1,3 +1,3 @@
 """STAR-CAD: precise solids, local documents, a small desktop interface."""
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"

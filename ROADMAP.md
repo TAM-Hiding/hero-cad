@@ -10,6 +10,10 @@ First slice (v0.0.2): versioned save/load of parameters with validation and atom
 
 Remaining M1: STEP export with round-trip checks and additional simple primitives. Establish feature identities only as required by multiple features.
 
+## v0.0.3 — viewport refinement and transient selection
+
+Address the first physical-laptop report: independent CAD boundary lines, bounded zoom, face/edge picking with highlighting, and compact standard-view presets. Retain the existing lighting, colors and thin default edges. Document Ubuntu 22.04/Python 3.12 and XCB prerequisites. No sketch tools or persistent topology references in this slice.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.

@@ -3,7 +3,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
-    QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
+    QComboBox, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget,
 )
 from star_cad import __version__
@@ -46,6 +46,18 @@ class MainWindow(QMainWindow):
         fit.setShortcut("F")
         fit.triggered.connect(self.viewport.fit)
         toolbar.addAction(fit)
+        self.selection_choice = QComboBox()
+        self.selection_choice.addItems(["Select faces", "Select edges"])
+        self.selection_choice.setToolTip("Click to select; drag to orbit; Escape clears selection")
+        self.selection_choice.currentIndexChanged.connect(
+            lambda index: self.viewport.set_selection_mode('face' if index == 0 else 'edge'))
+        toolbar.addWidget(self.selection_choice)
+        self.view_choice = QComboBox()
+        self.view_choice.addItems(["Isometric", "Front", "Top", "Right"])
+        self.view_choice.setToolTip("Standard views (select a preset to fit the model)")
+        self.view_choice.textActivated.connect(self.viewport.orient)
+        toolbar.addWidget(self.view_choice)
+        self.viewport.selectionChanged.connect(lambda _: self.update_status())
         file_menu = self.menuBar().addMenu("&File")
         self.new_action = self.action(file_menu, "&New", QKeySequence.New, self.new_document)
         self.open_action = self.action(file_menu, "&Open…", QKeySequence.Open, self.open_document)
@@ -198,8 +210,11 @@ class MainWindow(QMainWindow):
         self.refresh(fit=True)
 
     def update_status(self):
+        selected = self.viewport.selection
+        selection_text = (f"Selected {selected.kind} {selected.index + 1}  |  "
+                          if selected is not None else "")
         self.statusBar().showMessage(
-            f"Volume: {volume(self.document.shape):.3f} mm³  |  "
+            f"{selection_text}Volume: {volume(self.document.shape):.3f} mm³  |  "
             "Left drag: orbit · middle/Shift-left drag: pan · wheel: zoom · F: fit"
         )
 
