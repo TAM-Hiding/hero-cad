@@ -1,8 +1,10 @@
 """OCCT display, bounded orthographic camera and transient subshape selection."""
-from math import dist, isfinite
+from math import dist, isfinite, radians, tan
 from itertools import product
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QApplication
+from star_cad.ui.camera_alignment import planar_view_target
 from vtkmodules.vtkFiltersCore import vtkAppendPolyData
 from star_cad.ui.picking import candidates
 from star_cad.ui.sketch_view import SketchView
@@ -10,7 +12,7 @@ import vtkmodules.vtkRenderingOpenGL2  # noqa: F401 registers rendering backend
 import vtkmodules.vtkInteractionStyle  # noqa: F401
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
-from vtkmodules.vtkRenderingCore import vtkActor, vtkCellPicker, vtkPolyDataMapper, vtkRenderer
+from vtkmodules.vtkRenderingCore import vtkActor, vtkCamera, vtkCellPicker, vtkPolyDataMapper, vtkRenderer
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
 from star_cad.ui.display_geometry import (
     Selection, edge_mesh, selected_mesh, subshapes, tessellate,
@@ -23,6 +25,8 @@ class Viewport(QVTKRenderWindowInteractor):
     sketchEntityPicked = Signal(object)
     toolChanged = Signal(str)
     toolHintChanged = Signal(str)
+    viewFeedback = Signal(str)
+    previousViewAvailable = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +38,11 @@ class Viewport(QVTKRenderWindowInteractor):
         self._dragged = False
         self._additive = False
         self._shift_right_pan = False
+        self._right_press = None
+        self._right_dragged = False
+        self._last_right_dragged = False
+        self._consume_right_release = False
+        self._previous_view = None
         self.model_span = 1.0
         self.renderer = vtkRenderer()
         self.renderer.SetBackground(0.09, 0.12, 0.16)
@@ -162,6 +171,63 @@ class Viewport(QVTKRenderWindowInteractor):
             raise ValueError('Selection mode must be face or edge')
         self.selection_mode = mode
 
+    def face_pick_at(self, x, y):
+        """Pick an actual visible OCCT face, independently of selection filters."""
+        if not self.actor.GetVisibility():
+            return None
+        picker = vtkCellPicker()
+        picker.PickFromListOn()
+        picker.AddPickList(self.actor)
+        picker.SetTolerance(0.0005)
+        if not picker.Pick(x, y, 0, self.renderer) or picker.GetCellId() < 0:
+            return None
+        index = self.mapper.GetInput().GetCellData().GetArray('face_id').GetValue(picker.GetCellId())
+        return self.faces[index], picker.GetPickPosition()
+
+    def align_face_at(self, x, y):
+        hit = self.face_pick_at(x, y)
+        if hit is None:
+            self.viewFeedback.emit('No visible face at cursor')
+            return False
+        try:
+            target = planar_view_target(*hit)
+        except ValueError as error:
+            self.viewFeedback.emit(str(error))
+            return False
+        camera = self.renderer.GetActiveCamera()
+        previous = vtkCamera()
+        previous.DeepCopy(camera)
+        scale = camera.GetParallelScale()
+        if not camera.GetParallelProjection():
+            direction, position = camera.GetDirectionOfProjection(), camera.GetPosition()
+            depth = sum((target.point[i]-position[i])*direction[i] for i in range(3))
+            scale = max(depth, .001)*tan(radians(camera.GetViewAngle())/2)
+            if camera.GetUseHorizontalViewAngle():
+                width, height = self.GetRenderWindow().GetSize()
+                scale *= max(height, 1)/max(width, 1)
+        distance = max(camera.GetDistance(), .001)
+        camera.SetFocalPoint(*target.point)
+        camera.SetPosition(*(target.point[i]+target.normal[i]*distance for i in range(3)))
+        camera.SetViewUp(*target.up)
+        camera.ParallelProjectionOn()
+        camera.SetParallelScale(scale)
+        self.clamp_zoom()
+        self._previous_view = previous
+        self.previousViewAvailable.emit(True)
+        self.viewFeedback.emit('View aligned perpendicular to planar face')
+        self.GetRenderWindow().Render()
+        return True
+
+    def previous_view(self):
+        if self._previous_view is None:
+            return False
+        self.renderer.GetActiveCamera().DeepCopy(self._previous_view)
+        self._previous_view = None
+        self.previousViewAvailable.emit(False)
+        self.viewFeedback.emit('Previous view restored')
+        self.GetRenderWindow().Render()
+        return True
+
     def clear_selection(self, render=True):
         self.selections = []
         self.selection = None
@@ -245,6 +311,8 @@ class Viewport(QVTKRenderWindowInteractor):
             self.sketch.clear_snap()
         if event.button() == Qt.RightButton and event.modifiers() & Qt.ShiftModifier:
             self._shift_right_pan = True
+            self._right_press = event.position().toPoint()
+            self._right_dragged = False
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
             self.sketch.event('press', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
             return
@@ -255,6 +323,13 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mousePressEvent(self.navigation_event(event))
 
     def mouseMoveEvent(self, event):
+        if self._consume_right_release and event.buttons() & Qt.RightButton:
+            return
+        if self._shift_right_pan and self._right_press is not None:
+            if (event.position().toPoint()-self._right_press).manhattanLength() >= QApplication.startDragDistance():
+                self._right_dragged = True
+            if not self._right_dragged:
+                return
         if self.sketch.active_id and self.sketch.controller.tool and not (event.buttons() & (Qt.MiddleButton | Qt.RightButton)):
             self.sketch.event('move', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
             return
@@ -264,6 +339,9 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mouseMoveEvent(self.navigation_event(event))
 
     def mouseReleaseEvent(self, event):
+        if event.button() == Qt.RightButton and self._consume_right_release:
+            self._consume_right_release = False
+            return
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
             self.sketch.event('release', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
             return
@@ -274,12 +352,30 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mouseReleaseEvent(self.navigation_event(event))
         self._additive = False
         if event.button() == Qt.RightButton:
+            self._last_right_dragged = self._right_dragged if self._shift_right_pan else False
             self._shift_right_pan = False
+            self._right_press = None
         if click and event.button() == Qt.LeftButton:
             if self.sketch.active_id:
                 self.sketch.pick(*self.display_position(event))
             else:
                 self.pick_at(*self.display_position(event), additive=additive)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.RightButton and event.modifiers() & Qt.ShiftModifier and not self._last_right_dragged:
+            # Qt sends press/release/double-click/release. The double-click
+            # replaces the second press; consume its release rather than send
+            # an unmatched VTK button-up. End any synthetic preceding pan first.
+            if self._shift_right_pan:
+                super().mouseReleaseEvent(self.navigation_event(event))
+            self._shift_right_pan = False
+            self._right_press = self._press = None
+            self._additive = False
+            self._consume_right_release = True
+            self.align_face_at(*self.display_position(event))
+            event.accept()
+            return
+        self.mousePressEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:

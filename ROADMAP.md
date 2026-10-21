@@ -32,6 +32,10 @@ Fix confirmed near-plane clipping after restoring the camera for a larger sketch
 
 Screen-space curve display targeting 0.25-pixel deviation, cached by zoom quality bands; exact center snapping for circles and both slot ends before ordinary grid targets. Independent Center Snap toggle and distinct feedback. Test 0.02 mm circles, zoom/resize, mesh reuse on pan/orbit and all sketch planes. No stored geometry/history/extrusion changes.
 
+## v0.0.8 — contextual face-normal camera views
+
+Shift-right-double-click aligns to the exact plane of the face under the cursor, independent of selection filter, using deterministic up and approximate zoom preservation. Keep Shift-right-drag pan and transient selections. Add one-level Previous View restore and brief nonplanar/miss feedback. Compound-angle fixtures verify the camera without introducing new modeling operations.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.

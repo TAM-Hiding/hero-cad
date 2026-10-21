@@ -61,6 +61,13 @@ class MainWindow(QMainWindow):
         fit.setShortcut("F")
         fit.triggered.connect(self.viewport.fit)
         toolbar.addAction(fit)
+        self.previous_view_action = QAction("Previous View", self)
+        self.previous_view_action.setEnabled(False)
+        self.previous_view_action.setToolTip("Restore the camera from before the latest face-normal alignment (one level)")
+        self.previous_view_action.triggered.connect(self.viewport.previous_view)
+        self.viewport.previousViewAvailable.connect(self.previous_view_action.setEnabled)
+        self.viewport.viewFeedback.connect(lambda text: self.statusBar().showMessage(text, 4000))
+        toolbar.addAction(self.previous_view_action)
         self.selection_choice = QComboBox()
         self.selection_choice.addItems(["Select faces", "Select edges"])
         self.selection_choice.setToolTip("Click to select; drag to orbit; Escape clears selection")
@@ -495,7 +502,7 @@ class MainWindow(QMainWindow):
                           if selected is not None else "")
         self.statusBar().showMessage(
             f"{selection_text}Volume: {volume(self.document.shape):.3f} mm³  |  "
-            "Left drag: orbit · middle/Shift-right drag: pan · wheel: zoom · Shift-click: toggle · F: fit"
+            "Left drag: orbit · middle/Shift-right drag: pan · Shift-right double-click: face normal · wheel: zoom · F: fit"
         )
 
     def closeEvent(self, event):

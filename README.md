@@ -2,7 +2,7 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.7 / adaptive curves and center snapping
+## v0.0.8 / contextual face-normal views
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
@@ -96,6 +96,10 @@ QT_QPA_PLATFORM=xcb star-cad
 Run these commands from a checkout of this repo. Installation needs network access; the application does not. `python -m star_cad` is an alternative entry point. The lock file records the tested development environment; `pip install -e '.[dev]'` resolves transitive dependencies afresh. Binary dependencies are substantial (Qt, OCCT, VTK); lightweight here describes product scope, not a tiny download.
 
 Controls: left drag orbits when no construction tool is active; middle drag or **Shift-right drag** pans; wheel zooms. **F / Fit all** frames visible geometry. Standard Isometric, Front, Top and Right views are available outside sketch mode. Zoom is bounded relative to model size; maximum magnification is reduced by 20% from v0.0.3. Finishing a larger sketch can move the orthographic camera backward along its viewing direction to keep geometry in front of its near plane; scale and focal point are retained. Real solids still occlude curves behind them. Sketch mode starts perpendicular to its plane; orbiting in Select remains possible, and reentering the sketch restores its plane view.
+
+**Shift + right-double-click** on a visible planar solid face aligns the camera exactly perpendicular to it, centers the clicked face location, and switches to orthographic projection. It works in either face or edge selection mode and preserves selections and document parameters. Ordinary **Shift-right drag** still pans; tiny movement within the desktop drag threshold is ignored to keep double-clicks steady.
+
+Alignment keeps orthographic zoom; from perspective it converts apparent scale at the clicked face to an approximate matching orthographic scale. Camera up follows projected world Z, using world Y near the Z poles, so repeated alignment has deterministic roll. The camera views the oriented face from its outward-normal side. **Previous View** restores the full camera state from before the latest successful alignment, including position, pan, zoom and projection; this is a single session-only restore slot, not document Undo or a full view-history stack. Curved faces, empty space and hidden solids produce brief status feedback and leave the camera/previous-view slot unchanged. Analytic OCCT planes are supported; planar fitting of spline surfaces is not included. This camera operation does not create a sketch or face attachment.
 
 Choose **Select faces** or **Select edges** and click for the existing orange highlight. **Shift-click toggles** entities in a mixed face/edge selection; an ordinary click replaces it. Changing the filter retains the selection. Escape/blank clicks clear it. Dragging does not select. Regeneration clears solid selections; transient topology is never saved. The picking-radius control defaults to **6 logical screen pixels**, adjustable from 2–10, independently of the one-pixel edge display and zoom. Hidden solid edges remain unselectable. The same hit radius is used for sketch selection. The radius preference is session-only.
 
