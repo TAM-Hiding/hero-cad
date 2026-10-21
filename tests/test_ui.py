@@ -64,4 +64,9 @@ def test_camera_controls_and_render(qtbot):
     image.Update()
     pixels = vtk_to_numpy(image.GetOutput().GetPointData().GetScalars())
     # A blank background must not count as a successful viewport render.
-    assert np.unique(pixels, axis=0).shape[0] > 10
+    background = np.array([23, 31, 41])  # renderer background, rounded to bytes
+    assert np.mean(np.max(np.abs(pixels.astype(int) - background), axis=1) <= 2) > 0.25
+    # Require a substantial shaded blue-gray surface, not random framebuffer data.
+    surface = ((pixels[:, 0] > 60) & (pixels[:, 0] < 230)
+               & (pixels[:, 2] > pixels[:, 0]) & (pixels[:, 2] > 100))
+    assert np.mean(surface) > 0.03
