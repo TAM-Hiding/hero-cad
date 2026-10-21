@@ -14,7 +14,11 @@ Data flows from editor → validated parameters → OCCT solid → display tesse
 
 The sole feature is a box rooted at (0,0,0), with positive X width, Y depth and Z height. Document initialization creates a real solid. An edit builds and validates a replacement before updating parameters and shape. Errors are reported at the UI boundary. Editing does not reset the camera; Fit all is explicit.
 
-No feature graph is invented for one feature. When additional features arrive, introduce stable feature identities and ordered recomputation in a dedicated history module. Keep feature definitions independent of widget state. Until then `Document.parameters` is the complete feature definition. There is no serialized format yet.
+No feature graph is invented for one feature. When additional features arrive, introduce stable feature identities and ordered recomputation in a dedicated history module. Keep feature definitions independent of widget state. Until then `Document.parameters` is the complete feature definition. The document also owns a path, last-saved parameter snapshot, and two small stacks of immutable parameter snapshots for Undo/Redo. Dirty state compares current and saved parameters, so Undo back to the saved dimensions clears the dirty marker. Rebuild succeeds before history stacks change; no-op edits create no history entry.
+
+Format v1 stores `format: "star-cad"`, integer `version: 1`, `units: "mm"` and `box: {width, depth, height}`. It stores neither B-rep binaries nor display meshes nor undo history. Loading validates the complete schema and constructs a replacement document before the window swaps it in. The UI checks unsaved changes, then rereads the selected file because the Save prompt may update that same file.
+
+Saving uses a same-directory temporary file, flush/fsync and os.replace. Temporary files are cleaned up on failure; path/savepoint update only after replacement. Atomic replacement prevents partial target files, but is not a backup system or a power-loss durability guarantee. There is no concurrent-writer detection. UI pending edits are separate from document history and participate in Save/Discard/Cancel prompts.
 
 ## Rendering choice
 
