@@ -2,7 +2,7 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.8 / contextual face-normal views
+## v0.0.9 / sketch editing and interactive dimensions
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
@@ -40,6 +40,26 @@ Circle and slot display polylines adapt to zoom and viewport resolution, targeti
 
 Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); YZ uses U=+Y/V=+Z (normal +X). Only origin planes are supported.
 
+### Exact dimensions during placement
+
+After starting a shape, move the cursor to establish direction, then **type a dimension**. A small cursor readout shows live millimetre values. **Tab** locks the current value and moves to the next field; **Enter** locks and completes the current construction stage. **Escape** cancels the entire unfinished shape, including typed values. Positive finite values from 0.000001 to 1000000 mm are accepted, subject to entity coordinate limits. Numeric entry bypasses snapping for the specified dimension and retains the cursor direction; untouched mouse-only gestures and Shift modes work as before.
+
+| Placement stage | Typed fields |
+|---|---|
+| Line second point | Length |
+| Circle radius | Radius |
+| Shift-slot radius, then second center | Radius, then Center distance |
+| Diagonal rectangle | Width and Depth (Tab switches) |
+| Shift edge-first rectangle | Width, then perpendicular Depth |
+
+For example, start a circle, drag outward, type `0.02`, then Enter. For a slot, hold Shift at the initial press, type the radius and Enter, move toward the second center, then type its center-to-center distance and Enter. You can release the mouse while the input is open; placement waits for Enter or Escape. Numeric values are stored as double precision without display rounding. For line length, endpoints encode the length at floating-point precision.
+
+### Selection, context actions and deletion
+
+In Select, **Shift-click** toggles sketch entities. The model browser also supports extended selection with Ctrl/Shift. **Delete / Backspace** removes selected sketch entities or entire unreferenced sketches in one transaction; Undo restores the whole batch. These keys keep their normal text-editing behavior in numeric fields. The base box cannot be deleted in this milestone. Features referenced by surviving features cannot be deleted; the status bar explains the dependency.
+
+Right-click a sketch curve or browser entry for **Edit Parameters**, **Edit Sketch** and **Delete**, as applicable. Right-clicking an unselected entry selects it; right-clicking a selected entry retains the batch. Shift-right remains reserved for pan and face-normal alignment. Only implemented context actions are shown. Slot ends retain their shared radius; independently sized ends are deferred (see ROADMAP.md).
+
 ### Documents and editing
 
 The existing box workflow remains: edit Width (X), Depth (Y), Height (Z), then **Apply dimensions**. Box inputs display three decimal places and range from 0.001–100000 mm. Untouched higher-precision values are retained.
@@ -50,7 +70,7 @@ The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Can
 
 Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2/v3 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
 
-This milestone supports **one box and multiple independent sketches**, ordered regeneration and transactional validity/error reporting. It does not include extrusion, booleans, constraints, sketch-on-face references, entity deletion, or feature reordering. Sketch selection is single-entity; solid face/edge selection supports multiple entities. Dependency references establish order but do not yet drive dependent modeling operations.
+This milestone supports **one box and multiple independent sketches**, ordered regeneration and transactional validity/error reporting. It does not include extrusion, booleans, constraints, sketch-on-face references or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity at a time. Dependency references establish order but do not yet drive dependent modeling operations.
 
 ## Ubuntu setup
 

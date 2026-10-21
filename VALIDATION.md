@@ -137,3 +137,20 @@ Manual retest: in either selection filter, Shift-right-double-click different bo
 - Rendered compound-angle alignment and Previous View image restoration pass alongside existing sketch visibility, selection, snapping, gesture, save/reopen and Undo/Redo regressions.
 
 Ready for the physical gesture checks above. No geometry, feature parameters, history or extrusion changes.
+
+## v0.0.9 — sketch editing, deletion and interactive dimensions
+
+User physically accepted v0.0.8 face-normal alignment. This pass adds transactional sketch/entity deletion, multi-selection, context actions and transient cursor dimension entry. No dependencies, schema changes or extrusion. Unequal slot radii were evaluated and deferred with geometry/schema validation requirements in ROADMAP.md.
+
+Targeted tests cover atomic deletion across sketches, dependency rejection, deleting the active sketch, browser and viewport selection/context behavior, native text-field Backspace, numeric circle/slot placement on XY/XZ/YZ, exact radius/distance/rectangle parameters, directed line/edge-first rectangle dimensions, invalid values, cancellation, typed input during mouse release, navigation conflicts, persistence and Undo/Redo. Local Qt offscreen can verify event/document behavior but cannot verify OpenGL pixels; full Xvfb/Mesa CI is required.
+
+Manual acceptance: start circle placement, type radius and Enter; Shift-start a slot, type radius/Enter then center distance/Enter. Try releasing the mouse during typing. Test rectangle Width/Tab/Depth/Enter, rotated edge-first Width then Depth, and line Length. Check invalid/zero/negative/nonfinite values and Escape without document changes. With Select, Shift-click several curves, right-click a selected curve and Delete; Undo/Redo the batch. Repeat through browser selection and Delete/Backspace, delete an active sketch, save/reopen, and verify Shift-right pan/double-click plus snapping still work. Verify cursor readout legibility/position on the physical display.
+
+### Verified v0.0.9 results
+
+- Local full non-render suite before the last right-drag regression: **166 passed, 15 deselected**. Final sketch-editing and face-view gesture checks: **29 passed, 2 deselected**. Document regression suite: **23 passed**. Compileall and whitespace checks passed. The cursor readout was visually inspected and given explicit contrasting text/input colors.
+- Initial pixel regression exposed variable viewport dimensions when property forms resized the docks. The test now fixes viewport dimensions so pixel comparisons measure geometry changes. It detects both selected circles, nonblank remaining geometry after deletion, and baseline restoration after Undo.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39694622555), code/test commit `e45541b15da34f2627979b9ce6fda5f4f6f6016f`: **182 passed on Ubuntu 22.04 and 182 on Ubuntu 24.04**, Python 3.12.15 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Forty-four upstream VTK/NumPy deprecation warnings per job; no render checks skipped.
+- Existing adaptive curves, snapping, visibility/solid occlusion, camera alignment/Previous View, mouse gestures, numeric precision, files and Undo/Redo regressions pass. New rendered checks verify both orange-selected circles, their removal with a visible remaining line, and restored baseline pixels after Undo.
+
+Ready for physical cursor-entry, context-menu and deletion acceptance. Separate End A/End B radii remain deferred. No extrusion implemented.

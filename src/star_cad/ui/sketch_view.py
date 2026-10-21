@@ -16,6 +16,7 @@ class SketchView:
         self.features = ()
         self.active_id = None
         self.entity_id = None
+        self.entity_ids = set()
         self.controller = ToolController()
         self.saved_camera = None
         self.snap_result = None
@@ -72,6 +73,9 @@ class SketchView:
         if self.active_id and self.feature is None:
             self.finish()
         keep = {e.id for f in self.features for e in f.parameters.entities}
+        self.entity_ids.intersection_update(keep)
+        if self.entity_id not in keep:
+            self.entity_id = None
         self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
         self.prepare_display()
         if self.actor.GetVisibility():
@@ -104,9 +108,9 @@ class SketchView:
             self.mapping = [(f.id, e.id) for f, e, _ in rows]
             self.actor.SetVisibility(bool(rows))
             self._display_key = key
-        highlight_key = (key, self.entity_id)
+        highlight_key = (key, frozenset(self.entity_ids))
         if highlight_key != self._highlight_key:
-            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id == self.entity_id]
+            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id in self.entity_ids]
             self.highlight_mapper.SetInputData(paths_mesh(paths))
             self.highlight_actor.SetVisibility(bool(paths))
             self._highlight_key = highlight_key
@@ -151,6 +155,7 @@ class SketchView:
     def finish(self):
         self.active_id = None
         self.entity_id = None
+        self.entity_ids.clear()
         self.set_tool('select')
         self.origin_actor.VisibilityOff()
         self.highlight_actor.VisibilityOff()
@@ -165,6 +170,8 @@ class SketchView:
 
     def set_tool(self, name):
         self.controller.set_tool(name)
+        if hasattr(self.viewport, 'dimensions'):
+            self.viewport.dimensions.reset()
         self.clear_snap()
         self.preview_actor.VisibilityOff()
         self.viewport.toolChanged.emit(name)
@@ -211,12 +218,29 @@ class SketchView:
         point = self.snap_result.point
         self.show_snap(frame)
         entity = self.controller.handle(ToolEvent(phase, point, shift))
+        self.complete_event(entity)
+
+    def complete_event(self, entity):
         self.prepare_display()
         self.viewport.update_clipping()
         self.viewport.toolHintChanged.emit(self.controller.hint)
         if entity is not None:
             self.viewport.entityCreated.emit(entity)
+        self.viewport.dimensions.update_values()
         self.viewport.GetRenderWindow().Render()
+
+    def numeric_preview(self):
+        self.clear_snap()
+        tool = self.controller.tool
+        if tool and tool.last_point is not None:
+            self.controller.handle(ToolEvent('move', tool.last_point))
+            self.complete_event(None)
+
+    def numeric_commit(self):
+        tool = self.controller.tool
+        if tool and tool.last_point is not None:
+            entity = self.controller.handle(ToolEvent(tool.numeric_phase(), tool.last_point))
+            self.complete_event(entity)
 
     def clear_snap(self):
         self.snap_result = None
@@ -248,14 +272,30 @@ class SketchView:
         self.snap_actor.GetProperty().SetColor(*colors[result.target])
         self.snap_actor.GetProperty().SetPointSize(7 if result.target == 'GRID' else 9)
 
-    def pick(self, x, y):
+    def hit(self, x, y):
         self.prepare_display()
         hits = self.viewport.line_candidates(self.mapper.GetInput(), x, y)
-        self.entity_id = self.mapping[hits[0][2]][1] if hits else None
+        hit = next((h for h in hits if not self.viewport.actor.GetVisibility() or self.viewport.visible_edge(h[1])), None)
+        return self.mapping[hit[2]] if hit else None
+
+    def pick(self, x, y, additive=False):
+        hit = self.hit(x, y)
+        identifier = hit[1] if hit else None
+        if additive and identifier:
+            self.entity_ids.symmetric_difference_update({identifier})
+            self.entity_id = identifier if identifier in self.entity_ids else next(iter(self.entity_ids), None)
+        else:
+            self.entity_ids = {identifier} if identifier else set()
+            self.entity_id = identifier
         self.select_entity(self.entity_id)
-        self.viewport.sketchEntityPicked.emit(self.entity_id)
+        current = next((row for row in self.mapping if row[1] == self.entity_id), None)
+        self.viewport.sketchEntityPicked.emit(current)
 
     def select_entity(self, identifier):
         self.entity_id = identifier
+        if identifier is None:
+            self.entity_ids.clear()
+        elif identifier not in self.entity_ids:
+            self.entity_ids = {identifier}
         self.prepare_display()
         self.viewport.GetRenderWindow().Render()
