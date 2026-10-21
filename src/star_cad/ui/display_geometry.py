@@ -97,3 +97,18 @@ class Selection:
     kind: str
     index: int
     shape: object
+
+
+def paths_mesh(paths):
+    points, cells = vtkPoints(), vtkCellArray()
+    points.SetDataTypeToDouble()
+    for path in paths:
+        if len(path) < 2:
+            continue
+        cells.InsertNextCell(len(path))
+        for point in path:
+            cells.InsertCellPoint(points.InsertNextPoint(*point))
+    result = vtkPolyData()
+    result.SetPoints(points)
+    result.SetLines(cells)
+    return result

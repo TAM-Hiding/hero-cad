@@ -70,7 +70,7 @@ def test_face_edge_picking_and_regeneration(qtbot):
     assert v.highlight_actor.GetVisibility()
     assert 'Selected face' in w.statusBar().currentMessage()
     w.selection_choice.setCurrentIndex(1)
-    assert v.selection is None
+    assert v.selection.kind == 'face'  # Changing filters preserves mixed-selection capability.
     x, y = project(v, (20, 0, 0))
     v.pick_at(x, y)
     assert v.selection.kind == 'edge'

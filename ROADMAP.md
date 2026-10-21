@@ -14,12 +14,18 @@ Remaining M1: STEP export with round-trip checks and additional simple primitive
 
 Address the first physical-laptop report: independent CAD boundary lines, bounded zoom, face/edge picking with highlighting, and compact standard-view presets. Retain the existing lighting, colors and thin default edges. Document Ubuntu 22.04/Python 3.12 and XCB prerequisites. No sketch tools or persistent topology references in this slice.
 
+## v0.0.4 — sketch foundation
+
+Ordered feature IDs/references and transactional regeneration; XY/XZ/YZ sketch planes; contextual Line and Rectangle tools (diagonal drag and latched Shift edge-first); numeric entity editing; mixed transient solid selection; adjustable screen-space picking; v2 persistence with legacy migration; undo/redo. Preserve thin edges and the established orange. Tighten maximum zoom-in by 20%.
+
+Physical acceptance gate: test each sketch plane, live previews, both rectangle gestures, numeric edits, reentry, Save/Open, Undo/Redo, multi-selection and navigation on the laptop. **Do not start extrusion until this milestone is physically tested and accepted.**
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.
 
 ## Later
 
-Ordered feature history, fillets/chamfers, assemblies only if needed, packaging and STR-GZR OS integration. Evaluate performance with real mechanical parts.
+History presentation/reordering, bold/construction line styles, contextual circles/slots, fillets/chamfers, assemblies only if needed, packaging and STR-GZR OS integration. Evaluate performance with real mechanical parts.
 
 AI-assisted modeling eventually proposes explicit, reviewable feature/parameter edits through the same document operations as the UI. It must not bypass validation or become a prerequisite. No AI implementation in M0.
