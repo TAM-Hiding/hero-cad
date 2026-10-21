@@ -73,3 +73,31 @@ Outstanding manual checks: Circle drag/release; Shift-slot radius release and se
 - Rendered checks detect cyan curved entities, orange slot selection, visible grid pixels and restored output when the grid is switched off. Existing solid-render/navigation and sketch-preview checks also pass.
 
 Ready for physical testing; v0.0.5 has not yet been accepted on the laptop. No extrusion implemented.
+
+## v0.0.6 — sketch visibility and precision grid
+
+Physical v0.0.5 feedback: user confirms circles/slots work well and reports save/close/reopen success. Reported a partial, angle-dependent loss of outer-circle segments after Finish/orbit/zoom out. The original document and exact dimensions were not supplied.
+
+### Investigation before changing rendering
+
+Reproduced on unmodified v0.0.5 using a radius-150 XY circle and Slot(-30,0,10,60,20), finished back into the pre-sketch camera, then set parallel scale to 210. To isolate clipping, hid the solid/boundary actors and origin axes; no grid is visible outside sketch mode. At the original restored eye distance 104.033395 mm, 25 of 247 sampled curve points lay outside the near plane; normalized projected depth ranged from −0.020457 to 0.466834. Azimuth changes altered the missing set. Fit moved the eye to 819.574524 mm and recovered the scene. This reproduces the reported visual mechanism without any occluding solid, grid or axes.
+
+Actual confirmed cause in this reproduction: the restored orthographic eye can lie inside the enlarged scene. Resetting a positive near/far range cannot show curve segments behind that eye; parallel zoom alone does not move it. Curve points and display bounds remain present. Ordinary solid occlusion after Finish is separately expected behavior, not the reproduced defect.
+
+Fix: move the orthographic eye backward only enough to contain visible scene bounds plus a positive depth margin, retaining focal point, orientation and scale, then recompute near/far. The same reproduction has zero clipped points at the tested angles (first recovered distance 184.583247 mm, scale still 210). No global depth-disable or new sketch depth offset. Hidden solids and real visible-solid occlusion have separate rendered regressions.
+
+### Automated and manual coverage
+
+New checks reproduce the legacy clipping state before applying the fix and verify unchanged screen XY coordinates afterward. They cover large circles/slots on all three planes after orbit/pan/zoom/Fit, major/minor model-space distances and bounded density, snapping within/outside the screen tolerance at three zooms on every plane, hidden-grid snapping, origin priority and independent origin toggle, local offset-frame semantics, snapped line/rectangle/both circle-slot gestures, numeric precision, save/load and undo/redo. Rendered tests sample points around the full outer circle; check visible solids occlude and hidden solids do not; distinguish minor grid pixels and gold/magenta feedback.
+
+Local OpenGL remains unavailable; numeric projection and Qt event checks run offscreen. Full pixel verification requires Ubuntu Xvfb/Mesa CI.
+
+Manual retest: draw an outer circle larger than the initial box view with slots inside it; Finish, orbit through shallow/steep angles, zoom out/in, pan and Fit. Confirm the full unobstructed outer circumference remains visible. Repeat on XY/XZ/YZ and with grid/axes toggled. A curve genuinely behind the visible box must still be obscured. Then try both snapping toggles, hidden-grid snaps, origin priority, automatic/manual intervals and all construction gestures, plus Save/close/reopen and Undo/Redo. If missing segments persist, supply the .starcad file and camera/view steps; the exact original scene has not been available.
+
+### Verified v0.0.6 results
+
+- Local: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q -k 'not render and not visible_solids'`: **109 passed, 9 deselected**. `tests/test_document.py`: **23 passed**. Compileall, `uv pip check` and whitespace checks passed.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39668415360), code commit `14ac13582d39966a6f86a54208501653a79f76c2`: **118 passed on Ubuntu 22.04 and 118 on Ubuntu 24.04**, Python 3.12.15, Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Thirty-three upstream VTK/NumPy deprecation warnings per job. No render checks skipped.
+- Render verification passes for unobstructed outer-circle sample patches on every origin plane at multiple viewing angles, slots in the same scene, zoom/Fit recovery, real opaque solid occlusion, hidden-solid non-occlusion, major/minor grid pixels and distinct grid/origin snap markers. Existing thin-line selection, gestures, documents and undo/redo checks pass.
+
+PR #6 is ready for the targeted physical retest above. The reproduced clipping mechanism is fixed; the original user scene still needs laptop confirmation. No extrusion implemented.

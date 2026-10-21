@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
         self.edit_sketch_action = QAction("Edit Sketch", self)
         self.edit_sketch_action.triggered.connect(self.edit_sketch)
         toolbar.addAction(self.edit_sketch_action)
+        self.addToolBarBreak()
         self.sketch_toolbar = self.addToolBar("Sketch construction")
         self.tool_choice = QComboBox()
         self.tool_choice.addItems(["Select", "Line", "Rectangle", "Circle"])
@@ -100,9 +101,32 @@ class MainWindow(QMainWindow):
         self.grid_action = QAction("Grid", self)
         self.grid_action.setCheckable(True)
         self.grid_action.setChecked(True)
-        self.grid_action.setToolTip("Visual sketch grid; does not snap or change geometry")
+        self.grid_action.setToolTip("Show major and minor grid lines; independent of snapping")
         self.grid_action.toggled.connect(self.viewport.sketch.guides.set_grid_visible)
         self.sketch_toolbar.addAction(self.grid_action)
+        self.snap_grid_action = QAction("Snap to Grid", self)
+        self.snap_origin_action = QAction("Origin Snap", self)
+        self.auto_grid_action = QAction("Auto Grid", self)
+        for action, option in ((self.snap_grid_action, 'snap_grid'),
+                               (self.snap_origin_action, 'snap_origin'),
+                               (self.auto_grid_action, 'automatic')):
+            action.setCheckable(True)
+            action.setChecked(True)
+            action.toggled.connect(lambda checked, name=option: self.viewport.sketch.guides.set_option(name, checked))
+            self.sketch_toolbar.addAction(action)
+        self.snap_grid_action.setToolTip("Snap construction points within 8 screen pixels to minor grid intersections")
+        self.snap_origin_action.setToolTip("Prioritize the local sketch origin within 8 screen pixels, independent of grid snapping")
+        self.manual_grid_spacing = QDoubleSpinBox()
+        self.manual_grid_spacing.setDecimals(6)
+        self.manual_grid_spacing.setRange(0.000001, 100000)
+        self.manual_grid_spacing.setValue(1)
+        self.manual_grid_spacing.setSuffix(" mm minor")
+        self.manual_grid_spacing.setKeyboardTracking(False)
+        self.manual_grid_spacing.setToolTip("Manual minor interval; major interval is 10 times this value. Disable Auto Grid to edit.")
+        self.manual_grid_spacing.setEnabled(False)
+        self.auto_grid_action.toggled.connect(lambda checked: self.manual_grid_spacing.setEnabled(not checked))
+        self.manual_grid_spacing.valueChanged.connect(lambda value: self.viewport.sketch.guides.set_option('manual_spacing', value))
+        self.sketch_toolbar.addWidget(self.manual_grid_spacing)
         self.finish_sketch_action = QAction("Finish Sketch", self)
         self.finish_sketch_action.triggered.connect(self.finish_sketch)
         self.sketch_toolbar.addAction(self.finish_sketch_action)
@@ -460,7 +484,8 @@ class MainWindow(QMainWindow):
 
     def update_status(self):
         if self.viewport.sketch.active_id:
-            self.statusBar().showMessage(self.viewport.sketch.controller.hint + " | Middle / Shift-right: Pan | Wheel: Zoom")
+            self.statusBar().showMessage(self.viewport.sketch.controller.hint + ' | ' + self.viewport.sketch.precision_hint
+                                        + " | Middle / Shift-right: Pan | Wheel: Zoom")
             return
         selected = self.viewport.selection
         selection_text = (f"Selected {selected.kind} {selected.index + 1} ({len(self.viewport.selections)} total)  |  "
