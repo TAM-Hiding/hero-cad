@@ -1,6 +1,7 @@
 """Rendered clipping and real-depth regression checks; requires working OpenGL."""
 import numpy as np
 import pytest
+from math import cos, pi, sin
 from vtkmodules.util.numpy_support import vtk_to_numpy
 from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
 from star_cad.sketch import Circle, Slot
@@ -44,12 +45,12 @@ def test_large_circle_slots_render_after_finish_orbit_zoom_fit(qtbot, plane):
         camera.OrthogonalizeViewUp()
         v.clamp_zoom()
         pixels = capture(v)
-        mesh = v.sketch.mapper.GetInput()
-        cell = mesh.GetCell(0)
+        frame = w.document.feature(identifier).parameters.frame
         checked = 0
-        # Sample the outer circle all around, not just a nonblank framebuffer.
-        for index in range(0, cell.GetNumberOfPoints()-1, 4):
-            point = mesh.GetPoint(cell.GetPointId(index))
+        # Sample exact model positions, independent of display quality bands.
+        for index in range(32):
+            angle = 2*pi*index/32
+            point = frame.to_world((150*cos(angle), 150*sin(angle)))
             v.renderer.SetWorldPoint(*point, 1)
             v.renderer.WorldToDisplay()
             x, y, depth = v.renderer.GetDisplayPoint()
