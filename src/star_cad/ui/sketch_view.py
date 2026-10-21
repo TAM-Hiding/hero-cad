@@ -6,7 +6,8 @@ from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from star_cad.tools import ToolController, ToolEvent
 from star_cad.ui.display_geometry import paths_mesh
 from star_cad.ui.guides import ViewGuides
-from star_cad.ui.snapping import snap_point
+from star_cad.ui.snapping import center_targets, snap_point
+from star_cad.ui.curve_display import display_points, segment_count
 
 
 class SketchView:
@@ -55,8 +56,11 @@ class SketchView:
         self.highlight_actor.VisibilityOff()
         self.preview_actor.VisibilityOff()
         self.mapping = []
+        self._path_cache = {}
+        self._display_key = self._highlight_key = self._preview_key = None
         self.guides = ViewGuides(viewport)
         self.axes_mapper, self.axes_actor = self.guides.axes[0]
+        viewport.GetRenderWindow().AddObserver('StartEvent', lambda *_: self.prepare_display())
 
     @property
     def feature(self):
@@ -67,23 +71,56 @@ class SketchView:
         self.features = tuple(features)
         if self.active_id and self.feature is None:
             self.finish()
-        paths, self.mapping = [], []
-        for feature in self.features:
-            if self.active_id and feature.id != self.active_id:
-                continue
-            for entity in feature.parameters.entities:
-                paths.append([feature.parameters.frame.to_world(p) for p in entity.points])
-                self.mapping.append((feature.id, entity.id))
-        mesh = paths_mesh(paths)
-        self.mapper.SetInputData(mesh)
-        self.actor.SetVisibility(bool(paths))
-        if paths:
-            bounds = mesh.GetBounds()
+        keep = {e.id for f in self.features for e in f.parameters.entities}
+        self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
+        self.prepare_display()
+        if self.actor.GetVisibility():
+            bounds = self.mapper.GetInput().GetBounds()
             self.viewport.model_span = max(self.viewport.model_span, dist(bounds[::2], bounds[1::2]))
-        if self.entity_id:
-            self.select_entity(self.entity_id)
         self.guides.update()
         self.viewport.clamp_zoom()
+
+    @property
+    def pixels_per_mm(self):
+        camera = self.viewport.renderer.GetActiveCamera()
+        return max(self.viewport.GetRenderWindow().GetSize()[1], 1)/(2*camera.GetParallelScale())
+
+    def world_path(self, feature, entity, count):
+        key = (feature.parameters.plane, entity, count)
+        previous = self._path_cache.get(entity.id)
+        if previous is None or previous[0] != key:
+            path = tuple(feature.parameters.frame.to_world(p) for p in display_points(entity, count))
+            self._path_cache[entity.id] = (key, path)
+        return self._path_cache[entity.id][1]
+
+    def prepare_display(self):
+        """Refresh quality bands before rendering, never recursively render here."""
+        ppm = self.pixels_per_mm
+        visible = tuple(f for f in self.features if not self.active_id or f.id == self.active_id)
+        rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
+        key = (visible, tuple(count for _, _, count in rows))
+        if key != self._display_key:
+            self.mapper.SetInputData(paths_mesh([self.world_path(f, e, n) for f, e, n in rows]))
+            self.mapping = [(f.id, e.id) for f, e, _ in rows]
+            self.actor.SetVisibility(bool(rows))
+            self._display_key = key
+        highlight_key = (key, self.entity_id)
+        if highlight_key != self._highlight_key:
+            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id == self.entity_id]
+            self.highlight_mapper.SetInputData(paths_mesh(paths))
+            self.highlight_actor.SetVisibility(bool(paths))
+            self._highlight_key = highlight_key
+        tool = self.controller.tool
+        preview_entity = tool.preview_entity if tool else None
+        preview = self.controller.preview
+        count = segment_count(preview_entity, ppm)
+        preview_key = (self.active_id, preview_entity, count, preview if preview_entity is None else ())
+        if preview_key != self._preview_key:
+            path = display_points(preview_entity, count) if preview_entity else preview
+            paths = [[self.feature.parameters.frame.to_world(p) for p in path]] if self.feature and path else []
+            self.preview_mapper.SetInputData(paths_mesh(paths))
+            self.preview_actor.SetVisibility(bool(paths))
+            self._preview_key = preview_key
 
     def enter(self, identifier):
         if not any(f.id == identifier for f in self.features):
@@ -169,14 +206,12 @@ class SketchView:
         scale = self.viewport.GetRenderWindow().GetSize()[1]/max(self.viewport.height(), 1)
         self.snap_result = snap_point(point, (x, y), project, self.guides.spacing,
                                       grid=self.guides.snap_grid, origin=self.guides.snap_origin,
+                                      centers=center_targets(self.feature.parameters.entities) if self.guides.snap_center else (),
                                       tolerance=8*scale)
         point = self.snap_result.point
         self.show_snap(frame)
         entity = self.controller.handle(ToolEvent(phase, point, shift))
-        preview = self.controller.preview
-        self.preview_mapper.SetInputData(paths_mesh(
-            [[self.feature.parameters.frame.to_world(p) for p in preview]] if preview else []))
-        self.preview_actor.SetVisibility(bool(preview))
+        self.prepare_display()
         self.viewport.update_clipping()
         self.viewport.toolHintChanged.emit(self.controller.hint)
         if entity is not None:
@@ -192,7 +227,7 @@ class SketchView:
         interval = f'Grid: {self.guides.major_spacing:g} / {self.guides.spacing:g} mm'
         if self.snap_result:
             u, v = self.snap_result.point
-            return f'U: {u:.3f} mm | V: {v:.3f} mm | SNAP: {self.snap_result.target} | {interval}'
+            return f'U: {u:.9g} mm | V: {v:.9g} mm | SNAP: {self.snap_result.target} | {interval}'
         return interval
 
     def show_snap(self, frame):
@@ -209,11 +244,12 @@ class SketchView:
         mesh.SetPoints(points)
         mesh.SetVerts(cells)
         self.snap_mapper.SetInputData(mesh)
-        origin = result.target == 'ORIGIN'
-        self.snap_actor.GetProperty().SetColor(*((1., .35, .9) if origin else (1., .85, .25)))
-        self.snap_actor.GetProperty().SetPointSize(9 if origin else 7)
+        colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
+        self.snap_actor.GetProperty().SetColor(*colors[result.target])
+        self.snap_actor.GetProperty().SetPointSize(7 if result.target == 'GRID' else 9)
 
     def pick(self, x, y):
+        self.prepare_display()
         hits = self.viewport.line_candidates(self.mapper.GetInput(), x, y)
         self.entity_id = self.mapping[hits[0][2]][1] if hits else None
         self.select_entity(self.entity_id)
@@ -221,11 +257,5 @@ class SketchView:
 
     def select_entity(self, identifier):
         self.entity_id = identifier
-        paths = []
-        for feature in self.features:
-            for entity in feature.parameters.entities:
-                if entity.id == identifier:
-                    paths.append([feature.parameters.frame.to_world(p) for p in entity.points])
-        self.highlight_mapper.SetInputData(paths_mesh(paths))
-        self.highlight_actor.SetVisibility(bool(paths))
+        self.prepare_display()
         self.viewport.GetRenderWindow().Render()

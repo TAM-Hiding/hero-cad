@@ -19,6 +19,7 @@ class ConstructionTool:
         self.stage = 'start'
         self.a = self.b = self.cursor = None
         self.preview = ()
+        self.preview_entity = None
 
     def finish(self, entity):
         self.cancel()
@@ -98,14 +99,17 @@ class CircleTool(ConstructionTool):
                 return self.finish(circle)
             self.radius = radius
             self.preview = circle.points
+            self.preview_entity = circle
             self.stage = 'center'
         elif event.phase == 'move' and self.stage != 'start':
             try:
                 entity = (slot_from_centers(self.a, event.point, self.radius) if self.stage == 'center'
                           else Circle(*self.a, hypot(event.point[0]-self.a[0], event.point[1]-self.a[1])))
                 self.preview = entity.points
+                self.preview_entity = entity
             except ValueError:
                 self.preview = ()
+                self.preview_entity = None
 
 
 class ToolController:

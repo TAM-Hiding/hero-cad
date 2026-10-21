@@ -106,9 +106,11 @@ class MainWindow(QMainWindow):
         self.sketch_toolbar.addAction(self.grid_action)
         self.snap_grid_action = QAction("Snap to Grid", self)
         self.snap_origin_action = QAction("Origin Snap", self)
+        self.snap_center_action = QAction("Center Snap", self)
         self.auto_grid_action = QAction("Auto Grid", self)
         for action, option in ((self.snap_grid_action, 'snap_grid'),
                                (self.snap_origin_action, 'snap_origin'),
+                               (self.snap_center_action, 'snap_center'),
                                (self.auto_grid_action, 'automatic')):
             action.setCheckable(True)
             action.setChecked(True)
@@ -116,6 +118,7 @@ class MainWindow(QMainWindow):
             self.sketch_toolbar.addAction(action)
         self.snap_grid_action.setToolTip("Snap construction points within 8 screen pixels to minor grid intersections")
         self.snap_origin_action.setToolTip("Prioritize the local sketch origin within 8 screen pixels, independent of grid snapping")
+        self.snap_center_action.setToolTip("Snap to exact circle and slot-end centers before grid intersections, independent of grid snapping")
         self.manual_grid_spacing = QDoubleSpinBox()
         self.manual_grid_spacing.setDecimals(6)
         self.manual_grid_spacing.setRange(0.000001, 100000)
