@@ -3,10 +3,10 @@
 ## Responsibilities
 
 - `features.py`: immutable feature definitions, box parameters, stable UUIDs and regeneration status/errors.
-- `sketch.py`: immutable line/rectangle/sketch parameters and canonical local-to-world plane frames.
+- `sketch.py`: immutable line/rectangle/circle/slot/sketch parameters and canonical local-to-world plane frames.
 - `document.py`: ordered regeneration, transactional edits, saved state and undo/redo snapshots.
 - `persistence.py`: strict versioned JSON serialization and legacy migration.
-- `geometry.py`: OCCT solids and analytic sketch edges/closed rectangle wires; kernel validity checks.
+- `geometry.py`: OCCT solids and analytic sketch lines, circular edges, rectangle wires and tangent slot wires; kernel validity checks.
 - `tools.py`: UI-independent construction state machines, latched Shift mode, preview/completion/cancellation.
 - `ui/main_window.py`: browser, contextual actions, numeric properties and file lifecycle.
 - `ui/viewport.py`: camera/navigation routing, transient mixed solid selection and display orchestration.
@@ -29,7 +29,7 @@ Local XY coordinates map through an explicit orthonormal plane frame. XY uses +X
 
 The viewport distinguishes button presses, moves/drags, releases and modifiers. It routes navigation separately from construction; Shift-right is latched and translated to a middle-button pan. Shift-left selection never becomes VTK's Shift-left pan. `ToolController` forwards construction events to one state machine; the viewport does not contain per-tool stages. Rectangle stages are start, diagonal drag, first edge, depth. Shift is sampled at initiation only. Line uses start/end clicks. Invalid zero-length geometry remains uncommitted with inline feedback. Escape drops the preview and returns to selection; completing a valid entity starts the next placement with the same tool. Browser changes, Undo/Redo and regeneration clear unfinished previews.
 
-A future circle/slot tool can implement the same handle/hint/preview interface: press/drag/release locks radius, then a second-center stage completes the slot. No constraint solver or speculative plugin registry is introduced.
+The Circle tool uses the same handle/hint/preview interface: normal press/drag/release commits a circle; Shift at initiation latches slot mode, release locks radius, and a second-center click commits the slot. Slot parameters are first center, radius, center-to-center distance and angle. The kernel wire consists of two tangent straight edges and two exact semicircular arcs. Circles use an exact gp_Circ edge. Curved display polylines use 0.02 mm target sag with a bounded sample count (up to 4096 segments per arc); this display approximation is never used for kernel geometry. No constraint solver or speculative plugin registry is introduced.
 
 Sketch mode hides the solid and other sketches, saves the model camera, and shows the active sketch axes/origin. Finish restores the camera and all completed geometry. Select allows orbit; mouse coordinates always intersect the actual plane rather than assuming screen coordinates equal model coordinates. Reentering restores a perpendicular view. Numeric changes use the document transaction path and preserve unchanged values beyond displayed precision.
 
@@ -43,12 +43,18 @@ Camera parallel scale is clamped relative to the bounding diagonal; increasing i
 
 ## Persistence
 
-V2 stores format, version, units, ordered features with IDs/types/references, and parameters. Sketch parameters include canonical plane ID, origin/U/V frame and typed entities with UUIDs. Explicit stored frames must match the canonical origin plane; arbitrary frames are not supported. V1 box files migrate to one box feature with a new UUID, retained on the next v2 save. Files store no B-reps, meshes, selections, camera, tool previews or undo stacks.
+V3 stores format, version, units, ordered features with IDs/types/references, and parameters. Sketch parameters include canonical plane ID, origin/U/V frame and typed entities with UUIDs. Explicit stored frames must match the canonical origin plane; arbitrary frames are not supported. V1 box files migrate to one box feature with a new UUID, retained on the next save. Files store no B-reps, meshes, selections, camera, tool previews or undo stacks.
 
-Schema validation rejects unknown fields and versions, duplicate keys, invalid dimensions/IDs/frames and dependency errors. The loader builds a replacement document before swapping it into the window. After an unsaved-change Save prompt it rereads the selected file, since Save may have updated it. V2 is limited to 4 MiB; save enforces the same limit before touching a destination. Legacy v1 retains 64 KiB. Feature/entity count limits bound synchronous work but are not performance guarantees.
+Schema validation rejects unknown fields and versions, duplicate keys, invalid dimensions/IDs/frames and dependency errors. The loader builds a replacement document before swapping it into the window. After an unsaved-change Save prompt it rereads the selected file, since Save may have updated it. V2/v3 are limited to 4 MiB; save enforces the same limit before touching a destination. Legacy v1 retains 64 KiB. Feature/entity count limits bound synchronous work but are not performance guarantees.
 
 Saving uses a same-directory temporary file, flush/fsync and os.replace; cleanup occurs on failure, and the path/savepoint update only after replacement. This prevents partial target files, not all power-loss scenarios or concurrent writes. Pending numeric property edits participate in Save/Discard/Cancel. Browser selection changes commit valid pending edits; invalid edits retain the previous selection. Untouched displayed decimals preserve the stored value.
 
 ## Scope and future work
 
 One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature deletion/reordering, constraints, dependent solids and persistent topology references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.
+
+## View guides
+
+`ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; spacing uses 1/2/5 steps targeting about 45 logical pixels, with at most 320 lines. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
+
+The loader accepts v1/v2 files; v2 permits only its original line and rectangle types. V3 extends the entity set with circles and slots and retains all prior validation and atomic saving.

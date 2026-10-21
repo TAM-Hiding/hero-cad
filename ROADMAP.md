@@ -20,12 +20,16 @@ Ordered feature IDs/references and transactional regeneration; XY/XZ/YZ sketch p
 
 Physical acceptance gate: test each sketch plane, live previews, both rectangle gestures, numeric edits, reentry, Save/Open, Undo/Redo, multi-selection and navigation on the laptop. **Do not start extrusion until this milestone is physically tested and accepted.**
 
+## v0.0.5 — light sketch additions
+
+Circle and latched Shift-slot construction using the existing tool controller; editable curve parameters and analytic kernel geometry. Add a visual adaptive sketch-grid toggle and red X/yellow Y/blue Z world-origin-axis toggle. V3 files retain loading of v1/v2. No snapping, solver, extrusion or other modeling expansion.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.
 
 ## Later
 
-History presentation/reordering, bold/construction line styles, contextual circles/slots, fillets/chamfers, assemblies only if needed, packaging and STR-GZR OS integration. Evaluate performance with real mechanical parts.
+History presentation/reordering, bold/construction line styles, fillets/chamfers, assemblies only if needed, packaging and STR-GZR OS integration. Evaluate performance with real mechanical parts.
 
 AI-assisted modeling eventually proposes explicit, reviewable feature/parameter edits through the same document operations as the UI. It must not bypass validation or become a prerequisite. No AI implementation in M0.

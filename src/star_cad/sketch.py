@@ -1,6 +1,6 @@
 """Exact stored sketch parameters and canonical origin-plane frames (millimetres)."""
 from dataclasses import dataclass, field
-from math import atan2, cos, degrees, hypot, isfinite, radians, sin
+from math import acos, atan2, ceil, cos, degrees, hypot, isfinite, pi, radians, sin
 from uuid import UUID, uuid4
 
 
@@ -106,6 +106,71 @@ def edge_rectangle(a, b, cursor):
     return Rectangle(*origin, width, abs(depth), degrees(atan2(dy, dx)))
 
 
+def arc_points(x, y, radius, start, sweep):
+    """Disposable display samples; curved model geometry remains analytic."""
+    step = 2*acos(max(-1, 1-min(0.02/radius, 1)))
+    count = max(16, min(4096, ceil(abs(sweep)/step)))
+    return tuple((x+radius*cos(start+sweep*i/count), y+radius*sin(start+sweep*i/count))
+                 for i in range(count+1))
+
+
+@dataclass(frozen=True)
+class Circle:
+    x: float
+    y: float
+    radius: float
+    id: str = field(default_factory=new_id)
+
+    def __post_init__(self):
+        valid_id(self.id)
+        numbers(self.x, self.y, self.radius)
+        if self.radius < 1e-6:
+            raise ValueError('Circle radius must be at least 0.000001 mm')
+        numbers(self.x-self.radius, self.x+self.radius, self.y-self.radius, self.y+self.radius)
+
+    @property
+    def points(self):
+        points = arc_points(self.x, self.y, self.radius, 0, 2*pi)
+        return points[:-1] + (points[0],)
+
+
+@dataclass(frozen=True)
+class Slot:
+    x: float
+    y: float
+    radius: float
+    distance: float
+    angle: float = 0.0
+    id: str = field(default_factory=new_id)
+
+    def __post_init__(self):
+        valid_id(self.id)
+        numbers(self.x, self.y, self.radius, self.distance, self.angle)
+        if min(self.radius, self.distance) < 1e-6:
+            raise ValueError('Slot radius and center distance must be at least 0.000001 mm')
+        a, b = (self.x, self.y), self.second_center
+        for x, y in (a, b):
+            numbers(x-self.radius, x+self.radius, y-self.radius, y+self.radius)
+
+    @property
+    def second_center(self):
+        angle = radians(self.angle)
+        return self.x+self.distance*cos(angle), self.y+self.distance*sin(angle)
+
+    @property
+    def points(self):
+        angle = radians(self.angle)
+        b = self.second_center
+        right = arc_points(*b, self.radius, angle-pi/2, pi)
+        left = arc_points(self.x, self.y, self.radius, angle+pi/2, pi)
+        return (left[-1],) + right + left[:-1] + (left[-1],)
+
+
+def slot_from_centers(a, b, radius):
+    return Slot(*a, radius, hypot(b[0]-a[0], b[1]-a[1]),
+                degrees(atan2(b[1]-a[1], b[0]-a[0])))
+
+
 @dataclass(frozen=True)
 class SketchParameters:
     plane: str
@@ -114,7 +179,7 @@ class SketchParameters:
     def __post_init__(self):
         if not isinstance(self.plane, str) or self.plane not in PLANES:
             raise ValueError('Sketch reference must be XY, XZ or YZ')
-        if not isinstance(self.entities, tuple) or any(type(e) not in (Line, Rectangle) for e in self.entities):
+        if not isinstance(self.entities, tuple) or any(type(e) not in (Line, Rectangle, Circle, Slot) for e in self.entities):
             raise ValueError('Unsupported sketch entities')
         if len(self.entities) > 10000:
             raise ValueError('A sketch supports at most 10000 entities')

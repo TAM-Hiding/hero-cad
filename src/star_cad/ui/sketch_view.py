@@ -5,6 +5,7 @@ from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from star_cad.tools import ToolController, ToolEvent
 from star_cad.ui.display_geometry import paths_mesh
+from star_cad.ui.guides import ViewGuides
 
 
 class SketchView:
@@ -32,22 +33,22 @@ class SketchView:
         self.origin_actor.VisibilityOff()
         self.mapper, self.actor = viewport.add_actor((0.4, 0.85, 0.95))
         self.preview_mapper, self.preview_actor = viewport.add_actor((0.65, 0.95, 0.7))
-        self.axes_mapper, self.axes_actor = viewport.add_actor((0.25, 0.38, 0.46))
         self.highlight_mapper, self.highlight_actor = viewport.add_actor((1.0, 0.65, 0.15))
         for mapper, actor in ((self.mapper, self.actor), (self.preview_mapper, self.preview_actor),
-                              (self.axes_mapper, self.axes_actor), (self.highlight_mapper, self.highlight_actor)):
+                              (self.highlight_mapper, self.highlight_actor)):
             mapper.SetInputData(paths_mesh([]))
             actor.GetProperty().LightingOff()
             actor.GetProperty().SetLineWidth(1)
             actor.PickableOff()
-        for actor in (self.preview_actor, self.axes_actor, self.highlight_actor):
+        for actor in (self.preview_actor, self.highlight_actor):
             actor.UseBoundsOff()
         self.highlight_actor.GetProperty().SetLineWidth(2)
         self.actor.VisibilityOff()
-        self.axes_actor.VisibilityOff()
         self.highlight_actor.VisibilityOff()
         self.preview_actor.VisibilityOff()
         self.mapping = []
+        self.guides = ViewGuides(viewport)
+        self.axes_mapper, self.axes_actor = self.guides.axes[0]
 
     @property
     def feature(self):
@@ -72,6 +73,7 @@ class SketchView:
             self.viewport.model_span = max(self.viewport.model_span, dist(bounds[::2], bounds[1::2]))
         if self.entity_id:
             self.select_entity(self.entity_id)
+        self.guides.update()
 
     def enter(self, identifier):
         if not any(f.id == identifier for f in self.features):
@@ -94,11 +96,7 @@ class SketchView:
         camera.SetParallelScale(max(self.viewport.model_span*0.6, 10))
         if self.feature.parameters.entities:
             self.viewport.renderer.ResetCamera()
-        extent = max(self.viewport.model_span, 20)
-        axes = [[frame.to_world(p) for p in path] for path in
-                (((-extent, 0), (extent, 0)), ((0, -extent), (0, extent)))]
-        self.axes_mapper.SetInputData(paths_mesh(axes))
-        self.axes_actor.VisibilityOn()
+        self.guides.update()
         self.origin_actor.VisibilityOn()
         self.viewport.clamp_zoom()
         self.viewport.GetRenderWindow().Render()
@@ -107,7 +105,6 @@ class SketchView:
         self.active_id = None
         self.entity_id = None
         self.set_tool('select')
-        self.axes_actor.VisibilityOff()
         self.origin_actor.VisibilityOff()
         self.highlight_actor.VisibilityOff()
         self.viewport.actor.VisibilityOn()

@@ -63,7 +63,7 @@ def test_sketch_edit_undo_precision_and_persistence(tmp_path):
     assert BRepCheck_Analyzer(loaded.sketch_shapes[identifier]).IsValid()
     assert not loaded.can_undo
     data = json.loads(path.read_text())
-    assert data['version'] == 2
+    assert data['version'] == 3
     data['features'][1]['parameters']['frame']['origin'][0] = 123
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match='frame'):
@@ -79,7 +79,7 @@ def test_legacy_box_file_migrates(tmp_path):
     identifier = doc.features[0].id
     doc.save(path)
     assert Document.load(path).features[0].id == identifier
-    assert json.loads(path.read_text())['version'] == 2
+    assert json.loads(path.read_text())['version'] == 3
 
 
 @pytest.mark.parametrize('depth', [8.5, -8.5])

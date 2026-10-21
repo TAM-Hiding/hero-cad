@@ -2,7 +2,7 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.4 / parametric sketching foundation
+## v0.0.5 / circles, slots and view guides
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
@@ -10,7 +10,7 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
 2. The camera faces the plane orthographically; axes and origin appear. The solid is temporarily hidden so it cannot obscure the sketch.
-3. Choose **Line** or **Rectangle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
+3. Choose **Line**, **Rectangle** or **Circle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
 4. Choose **Select**, then click an entity (or its browser entry) to edit numeric parameters in Properties. Click **Apply entity parameters** to commit.
 5. Choose **Finish Sketch** to restore the previous model view. Select an existing sketch and choose **Edit Sketch**, or double-click its browser entry, to return.
 
@@ -19,10 +19,16 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 | Line: click, click | Two endpoints; edit X1/Y1/X2/Y2 later |
 | Rectangle: left press, diagonal drag, release | Axis-aligned rectangle |
 | Rectangle: Shift-click, click, click | First corner, first-edge endpoint, perpendicular depth; arbitrary rotation |
+| Circle: press center, drag radius, release | Editable center X/Y and radius |
+| Circle with Shift at press: drag radius, release, then click | Slot with editable first-center X/Y, radius, center distance and angle |
 | Escape during construction | Cancel preview and return to Select |
 | Escape or blank click in Select | Clear selection |
 
-Shift only needs to be held for the **first** edge-first rectangle click. Both rectangle methods create the same editable entity: X/Y position, width, height and angle in degrees. Positive angles rotate from local U toward V. A negative perpendicular depth shifts the stored corner to keep width and height positive. Line and rectangle parameters use double-precision numbers; they are not snapped to a grid. The sketch editor displays nine decimal places and preserves untouched higher-precision stored values. Coordinates are limited to ±1,000,000 mm; minimum line length and rectangle side are 0.000001 mm. These are input limits, not manufacturing accuracy guarantees.
+Shift only needs to be held for the **first** edge-first rectangle click. Both rectangle methods create the same editable entity: X/Y position, width, height and angle in degrees. Positive angles rotate from local U toward V. A negative perpendicular depth shifts the stored corner to keep width and height positive. Circle radii and slot radii/center distances must be at least 0.000001 mm. Shift only needs to be held at the initial press for slot mode; releasing the radius gesture locks it, and the next click sets the second end center. Zero center distance is rejected; use a circle for that case. Slot distance is **center-to-center**, so total length is distance + twice the radius.
+
+**Grid** toggles a visual grid in the active sketch plane. Spacing follows zoom using 1/2/5 steps; the grid does not snap geometry. **Origin Axes** toggles world-coordinate lines through (0,0,0): **X red, Y yellow, Z blue**, in both sketch and model views. Both default on, retain their setting for the current application session, and are excluded from selection, Fit, document saves and Undo.
+
+Sketch parameters use double-precision numbers; they are not snapped to a grid. The sketch editor displays nine decimal places and preserves untouched higher-precision stored values. Coordinates are limited to ±1,000,000 mm; minimum line length and rectangle side are 0.000001 mm. These are input limits, not manufacturing accuracy guarantees.
 
 Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); YZ uses U=+Y/V=+Z (normal +X). Only origin planes are supported.
 
@@ -32,11 +38,11 @@ The existing box workflow remains: edit Width (X), Depth (Y), Height (Z), then *
 
 **Ctrl+S** saves, **Ctrl+Shift+S** saves as, **Ctrl+O** opens, **Ctrl+N** starts fresh; **Ctrl+Z / Ctrl+Shift+Z** undo/redo feature and entity edits. Undo first cancels unapplied property edits. Changing browser selection or finishing a sketch commits pending property edits; invalid edits keep the current selection. Save also commits pending fields. In-progress cursor previews are not document geometry and are not saved.
 
-The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v2 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v0.0.2/v0.0.3 format-v1 box documents load and are written as v2 on their next save; older app versions cannot open v2 files. Numeric parameters round-trip without deliberate decimal rounding.
+The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1 box files and v2 sketch files still load; saving writes v3, adding circle and slot entity types. Older application versions cannot open v3 files. Numeric parameters round-trip without deliberate decimal rounding.
 
-Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
+Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2/v3 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
 
-This milestone supports **one box and multiple independent sketches**, ordered regeneration and transactional validity/error reporting. It does not include extrusion, booleans, constraints, snapping, sketch-on-face references, circles/slots, entity deletion, or feature reordering. Sketch selection is single-entity; solid face/edge selection supports multiple entities. Dependency references establish order but do not yet drive dependent modeling operations.
+This milestone supports **one box and multiple independent sketches**, ordered regeneration and transactional validity/error reporting. It does not include extrusion, booleans, constraints, snapping, sketch-on-face references, entity deletion, or feature reordering. Sketch selection is single-entity; solid face/edge selection supports multiple entities. Dependency references establish order but do not yet drive dependent modeling operations.
 
 ## Ubuntu setup
 

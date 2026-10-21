@@ -1,7 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
 from star_cad.features import BoxParameters, Feature
-from star_cad.sketch import Line, Rectangle, SketchParameters
+from star_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot
 
 
 def fields(data, expected):
@@ -18,18 +18,18 @@ def serialize(features):
             sketch = feature.parameters
             parameters = {'plane': sketch.plane,
                           'frame': {k: list(getattr(sketch.frame, k)) for k in ('origin', 'u', 'v')},
-                          'entities': [{'type': 'line' if type(e) is Line else 'rectangle',
+                          'entities': [{'type': type(e).__name__.lower(),
                                         'parameters': asdict(e)} for e in sketch.entities]}
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references)})
-    return {'format': 'star-cad', 'version': 2, 'units': 'mm', 'features': result}
+    return {'format': 'star-cad', 'version': 3, 'units': 'mm', 'features': result}
 
 
 def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a STAR-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2):
+    if type(version) is not int or version not in (1, 2, 3):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -55,6 +55,8 @@ def deserialize(data):
             for entity in parameters['entities']:
                 fields(entity, ('type', 'parameters'))
                 cls = {'line': Line, 'rectangle': Rectangle}.get(entity['type'])
+                if version == 3:
+                    cls = {'circle': Circle, 'slot': Slot}.get(entity['type'], cls)
                 if cls is None:
                     raise ValueError('Unsupported sketch entity')
                 fields(entity['parameters'], cls.__dataclass_fields__)
