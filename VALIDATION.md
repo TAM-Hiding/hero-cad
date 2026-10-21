@@ -120,7 +120,7 @@ Local OpenGL remains unavailable; rendered tests require Ubuntu Xvfb/Mesa CI. Ma
 
 Ready for physical small-curve and center-snap acceptance. HiDPI behavior was checked by simulated render-size changes, not a physical HiDPI display. No extrusion or stored geometry/history changes.
 
-## v0.0.8 — contextual face-normal camera alignment (in progress)
+## v0.0.8 — contextual face-normal camera alignment
 
 User reports v0.0.7 merged/pulled and working well. This pass is camera-only: exact analytic planar-face alignment under the cursor with Shift-right-double-click, deterministic up, clicked-point focus, orthographic scale preservation/perspective conversion, and full Previous View snapshot restore. Face/edge filter and selections are untouched.
 
@@ -129,3 +129,11 @@ New tests cover located compound-angle OCCT planes and reversed orientation, pro
 Arbitrary-angle shapes are automated test fixtures only; the application still has no rotation/import modeling command. Source data remains unchanged. Local offscreen checks cannot validate OpenGL output; full Ubuntu Xvfb/Mesa CI remains required. No dependencies changed.
 
 Manual retest: in either selection filter, Shift-right-double-click different box faces at off-center points. Check perpendicular orthographic view, unchanged zoom and selection, then Previous View restoring the panned/orbited view. Pan with Shift-right-drag immediately before/after alignment; try minor pointer jitter and releasing Shift during a pan. Curved faces require a future imported/created curved-solid workflow for physical testing (cylinders are tested in fixtures). During sketch mode, the hidden solid should produce a brief no-visible-face message and leave placement intact. Previous View is one level and session-only; spline-surface plane fitting and sketch-on-face are outside this pass.
+
+### Verified v0.0.8 results
+
+- Local non-render suite: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q -k 'not render and not visible_solids'`: **142 passed, 14 deselected**. Document regression suite: **23 passed**. Final face-specific non-render checks: **13 passed, 1 deselected**. Compileall, dependency compatibility and whitespace checks passed.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39689912673), code/test commit `a5ee7a821ca2b6fed4e09eaccfc34a5019ba00a8`: **156 passed on Ubuntu 22.04 and 156 on Ubuntu 24.04**, with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. No render checks skipped.
+- Rendered compound-angle alignment and Previous View image restoration pass alongside existing sketch visibility, selection, snapping, gesture, save/reopen and Undo/Redo regressions.
+
+Ready for the physical gesture checks above. No geometry, feature parameters, history or extrusion changes.
