@@ -1,5 +1,6 @@
 """OCCT display, bounded orthographic camera and transient subshape selection."""
 from math import dist, isfinite
+from itertools import product
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from vtkmodules.vtkFiltersCore import vtkAppendPolyData
@@ -99,11 +100,44 @@ class Viewport(QVTKRenderWindowInteractor):
         if not isfinite(scale):
             scale = upper
         camera.SetParallelScale(max(lower, min(upper, scale)))
-        self.renderer.ResetCameraClippingRange()
+        self.update_clipping()
+
+    def update_clipping(self):
+        """Keep orthographic geometry in front of the eye without changing its scale.
+
+        Restoring a camera saved before a large sketch was made can put that
+        camera inside the new scene. Resetting near/far alone cannot include
+        geometry behind a positive near plane. Guides intentionally do not
+        contribute bounds; a live preview does contribute clipping bounds.
+        """
+        bounds = list(self.renderer.ComputeVisiblePropBounds())
+        sketch = getattr(self, 'sketch', None)
+        if sketch and sketch.preview_actor.GetVisibility():
+            preview = sketch.preview_actor.GetBounds()
+            if preview and all(isfinite(n) for n in preview) and preview[0] <= preview[1]:
+                if bounds[0] > bounds[1]:
+                    bounds = list(preview)
+                else:
+                    for i in range(3):
+                        bounds[2*i] = min(bounds[2*i], preview[2*i])
+                        bounds[2*i+1] = max(bounds[2*i+1], preview[2*i+1])
+        if not all(isfinite(n) for n in bounds) or any(bounds[i] > bounds[i+1] for i in (0, 2, 4)):
+            return
+        camera = self.renderer.GetActiveCamera()
+        if camera.GetParallelProjection():
+            position, direction = camera.GetPosition(), camera.GetDirectionOfProjection()
+            corners = product(*[(bounds[i], bounds[i+1]) for i in (0, 2, 4)])
+            nearest = min(sum((p[i]-position[i])*direction[i] for i in range(3)) for p in corners)
+            margin = max(dist(bounds[::2], bounds[1::2])*0.02, 0.001)
+            if nearest < margin:
+                camera.SetPosition(*(position[i]-direction[i]*(margin-nearest) for i in range(3)))
+        self.renderer.ResetCameraClippingRange(bounds)
 
     def wheelEvent(self, event):
+        self.sketch.clear_snap()
         super().wheelEvent(event)
         self.clamp_zoom()
+        self.toolHintChanged.emit(self.sketch.controller.hint)
         self.GetRenderWindow().Render()
 
     def fit(self):
@@ -207,6 +241,8 @@ class Viewport(QVTKRenderWindowInteractor):
         return event
 
     def mousePressEvent(self, event):
+        if event.button() != Qt.LeftButton or not self.sketch.controller.tool:
+            self.sketch.clear_snap()
         if event.button() == Qt.RightButton and event.modifiers() & Qt.ShiftModifier:
             self._shift_right_pan = True
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
@@ -255,3 +291,9 @@ class Viewport(QVTKRenderWindowInteractor):
                 self.sketchEntityPicked.emit(None)
         else:
             super().keyPressEvent(event)
+
+    def leaveEvent(self, event):
+        self.sketch.clear_snap()
+        self.toolHintChanged.emit(self.sketch.controller.hint)
+        self.GetRenderWindow().Render()
+        super().leaveEvent(event)

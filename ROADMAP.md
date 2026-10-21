@@ -24,6 +24,10 @@ Physical acceptance gate: test each sketch plane, live previews, both rectangle 
 
 Circle and latched Shift-slot construction using the existing tool controller; editable curve parameters and analytic kernel geometry. Add a visual adaptive sketch-grid toggle and red X/yellow Y/blue Z world-origin-axis toggle. V3 files retain loading of v1/v2. No snapping, solver, extrusion or other modeling expansion.
 
+## v0.0.6 — visibility, grid snapping and precision UX
+
+Fix confirmed near-plane clipping after restoring the camera for a larger sketch. Add exact major/minor grid subdivisions, independent grid/origin snapping, screen-space tolerance, snap markers/readout, and automatic/manual session grid spacing. Preserve real solid occlusion, thin lines, gestures and numeric edits. No extrusion.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.
