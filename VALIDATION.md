@@ -155,10 +155,18 @@ Manual acceptance: start circle placement, type radius and Enter; Shift-start a 
 
 Ready for physical cursor-entry, context-menu and deletion acceptance. Separate End A/End B radii remain deferred. No extrusion implemented.
 
-## v0.0.9 follow-up — accessible live dimensions (in progress)
+## v0.0.9 follow-up — accessible live dimensions
 
 Physical feedback: PR #9 works except the dimension popup did not present a discoverable way to enter values. Code inspection confirms that the field was hidden until a numeric viewport key and the popup ignored all mouse input; it also only refreshed numeric previews on Tab/Enter. A keyboard-focus check on the original code passed locally after activating the window, so focus loss is not claimed as the reproduced root cause.
 
 The follow-up exposes a clickable field, Tab activation and live valid-value previews, with explicit construction focus, stage-anchored popup position and direction preservation during editing. Active editing is independent of field visibility so mouse-only releases still work. New tests use actual QApplication focus routing after selecting a toolbar tool, click-hit testing, Qt Tab traversal, live circle/rectangle previews before any document commit, release while typing and Escape cancellation.
 
 Manual retest: choose Circle, press/drag outward, press Tab before releasing, and type a radius. Confirm the preview updates as each valid number is entered; release the mouse and press Enter to commit. Repeat by typing directly without Tab. Start a Line, click the visible dimension field, type a length and Escape; no line should be committed. Test rectangle Width/Tab/Depth and Shift-slot radius/distance, mouse-only placement and camera gestures. Local OpenGL remains unavailable; full rendered validation requires Xvfb/Mesa CI.
+
+### Verified follow-up results
+
+- Local non-render suite: `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q -k 'not render and not visible_solids'`: **171 passed, 15 deselected**. Final focus-specific rerun after first-key preview refinement: **4 passed**. Compileall and whitespace checks passed. The visible editor was visually inspected with contrasting text and a clear input border.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39696438576), code/test commit `36416e003748c16a4478b9201a29147e78f2f6c9`: **186 passed on Ubuntu 22.04 and 186 on Ubuntu 24.04**, Python 3.12.15 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Forty-four upstream VTK/NumPy deprecation warnings per job; no render checks skipped.
+- New actual-focus, Tab, click access and live preview tests pass alongside mouse-only construction, Shift gestures, snapping, rendering/occlusion, camera alignment, deletion/history and persistence regressions.
+
+Ready for physical input acceptance using the steps above. No document format or modeling-operation changes.
