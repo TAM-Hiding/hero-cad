@@ -82,3 +82,15 @@ Gold/magenta unpickable point actors and status text report snap state; cancella
 `center_targets` reads circle X/Y and slot first/second center directly from current parameters in the active sketch. Snapping preserves origin priority, then picks the nearest eligible entity center before considering the grid, within the existing 8-logical-pixel screen tolerance. Center Snap is independently toggleable, session-only and defaults on. Blue feedback and `SNAP: CENTER` distinguish it from grid/origin. Numeric edits and Undo are reflected on the next pointer event without retaining mesh-derived center references. No constraints or persistent feature references are created by snapping.
 
 No kernel, schema, feature-history or extrusion changes.
+
+## v0.0.8 — face-normal camera alignment
+
+`ui/camera_alignment.py` reads an analytic `GeomAbs_Plane` through `BRepAdaptor_Surface`, including the OCCT face location. It reverses the geometric axis for `TopAbs_REVERSED` and projects the picked point back onto that exact plane. Camera direction is the negative oriented normal. Up is the unit projection of world +Z into the face plane, with world +Y used when |normal.Z| >= 0.95. This deterministic rule is independent of prior camera roll. No B-rep or feature is modified.
+
+`Viewport.face_pick_at` uses a pick list containing only the visible solid surface actor and the existing cell-to-OCCT-face map. The selection filter and selection collections are not involved. Alignment preserves orthographic parallel scale and targets the clicked location without Fit. Perspective conversion uses the picked depth times tan(viewAngle/2), with aspect conversion for horizontal view angles. Existing scale/clipping guards apply.
+
+Qt delivers press/release/double-click/release. Shift-right starts a latched middle-button pan, but cursor motion below `QApplication.startDragDistance` is ignored. A completed drag cannot qualify as the first half of alignment. The qualifying double-click consumes its second release rather than forwarding an unmatched VTK button-up; a following pan/click works normally. No delayed timers or global double-click settings are used. Nonqualifying double-clicks retain the normal press path. A hidden solid during sketch construction rejects alignment without altering the construction state.
+
+After successful validation, a `vtkCamera.DeepCopy` snapshot becomes the single Previous View slot. Restore copies it back into the existing active camera (keeping guide observers attached), clears the slot and updates the action state. Rejecting a curved/missed face preserves that slot. Snapshots preserve projection, position, focal point, view-up, scale, view angle and clipping; they store no geometry/selection references and are not serialized or included in document Undo.
+
+Arbitrary compound-angle and located faces are tested using transformed fixtures; no product transformation, import, sketch-on-face or extrusion operation is added.
