@@ -2,11 +2,17 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.1 / Milestone 0
+## v0.0.2 / local documents
 
 A Qt desktop shell with a 3D viewport, dockable model browser and properties panel. Starts with one Open CASCADE box. Edit width (X), depth (Y), and height (Z), then **Apply dimensions** to regenerate its solid. Dimensions are millimetres, entered to 0.001 mm, in the range 0.001–100000 mm. These are input limits, not a manufacturing accuracy guarantee. Geometry uses OCCT double-precision B-rep; the display mesh is not the model.
 
-This milestone has one in-memory document and one box. **Closing loses edits.** No save/load, export, sketches, boolean tools, undo/redo, or feature timeline yet.
+One document and one box, now with local **New, Open, Save, Save As, Undo and Redo**. No export, sketches, boolean tools, or feature timeline yet.
+
+Documents use `.starcad` files: versioned, human-readable JSON in millimetres. Opening validates the file and rebuilds the CAD solid. Saves write and flush a temporary file in the destination directory, then atomically replace the target; failed writes keep the previous file intact. No autosave or multi-process file locking yet.
+
+**Ctrl+S** saves, **Ctrl+Shift+S** saves as, **Ctrl+O** opens, **Ctrl+N** starts fresh; **Ctrl+Z / Ctrl+Shift+Z** undo/redo. Save includes any pending property edits. Undo first cancels unapplied property edits, then reverses applied dimension changes. Applying a new edit after Undo clears Redo. The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves keep the current document open. Undo history is session-only and resets on New/Open.
+
+The property editor displays three decimal places. Untouched higher-precision dimensions loaded from a file are preserved; their stored values appear in tooltips. Document format v1 accepts only a single box, millimetres, finite numeric dimensions and the defined fields; unknown versions/units/fields, duplicate keys and files larger than 64 KiB are rejected.
 
 ## Ubuntu setup
 

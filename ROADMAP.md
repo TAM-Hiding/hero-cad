@@ -6,7 +6,9 @@ Small Python package; Ubuntu installation; Qt shell; viewport navigation; model 
 
 ## M1 — useful local document
 
-Versioned save/load of parameters with validation and atomic writes, unsaved-change handling, undo/redo for parameter edits, STEP export with round-trip checks, additional simple primitives. Establish feature identities only as required by multiple features.
+First slice (v0.0.2): versioned save/load of parameters with validation and atomic replacement, unsaved-change handling, and undo/redo for parameter edits.
+
+Remaining M1: STEP export with round-trip checks and additional simple primitives. Establish feature identities only as required by multiple features.
 
 ## M2 — small mechanical workflow
 
