@@ -243,3 +243,14 @@ def test_invalid_dimension_text_stays_uncommitted(qtbot, text):
     assert not w.document.feature(sid).parameters.entities
     qtbot.keyClick(v.dimensions.input, Qt.Key_Escape)
     assert not v.sketch.controller.tool and not v.sketch.preview_actor.GetVisibility()
+
+
+def test_context_retains_batch_when_pending_properties_rebuild_tree(qtbot):
+    w, sid, es = populated(qtbot)
+    w.browser.setCurrentItem(w.browser_items[('entity', sid, es[0].id)])
+    w.browser_items[('entity', sid, es[1].id)].setSelected(True)
+    w.entity_fields['radius'].setValue(4)
+    w.viewport_context_menu((sid, es[1].id), w.viewport.mapToGlobal(QPoint(20, 20)))
+    assert w.document.feature(sid).parameters.entities[0].radius == 4
+    assert w.selected_keys() == {('entity', sid, es[0].id), ('entity', sid, es[1].id)}
+    w._context_menu.close()

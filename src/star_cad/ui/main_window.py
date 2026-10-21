@@ -571,12 +571,11 @@ class MainWindow(QMainWindow):
         item = self.browser.itemAt(position)
         if not item:
             return
-        if not item.isSelected():
-            self.browser.setCurrentItem(item)
-        else:
-            self.browser.setCurrentItem(item, 0, QItemSelectionModel.NoUpdate)
         key = item.data(0, Qt.UserRole)
-        menu = self.context_menu(tuple(key) if key else None)
+        key = tuple(key) if key else None
+        if not key or not self.select_for_context(key):
+            return
+        menu = self.context_menu(key)
         if not menu.isEmpty():
             menu.popup(self.browser.viewport().mapToGlobal(position))
             self._context_menu = menu
@@ -585,15 +584,26 @@ class MainWindow(QMainWindow):
         if hit is None:
             return
         key = ('entity', *hit)
-        if key not in self.browser_items:
+        if not self.select_for_context(key):
             return
-        if not self.browser_items[key].isSelected():
-            self.browser.setCurrentItem(self.browser_items[key])
-        else:
-            self.browser.setCurrentItem(self.browser_items[key], 0, QItemSelectionModel.NoUpdate)
         menu = self.context_menu(key)
         menu.popup(position)
         self._context_menu = menu
+
+    def select_for_context(self, key):
+        if key not in self.browser_items:
+            return False
+        selected = self.selected_keys()
+        keep = selected if key in selected else {key}
+        self.browser.setCurrentItem(self.browser_items[key], 0, QItemSelectionModel.NoUpdate)
+        if self.browser_key != key:  # Pending invalid edits rejected the selection change.
+            return False
+        # Applying pending parameters may have rebuilt the tree. Use fresh items.
+        with QSignalBlocker(self.browser):
+            for item_key, item in self.browser_items.items():
+                item.setSelected(item_key in keep)
+        self.browser_multi_selection()
+        return True
 
     def update_status(self):
         if self.viewport.sketch.active_id:
