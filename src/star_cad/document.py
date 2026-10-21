@@ -114,6 +114,32 @@ class Document:
         entities = tuple(entity if e.id == entity.id else e for e in feature.parameters.entities)
         self.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=entities)))
 
+    def delete(self, *, features=(), entities=()):
+        """Delete feature IDs and (sketch ID, entity ID) pairs atomically."""
+        feature_ids, entity_keys = set(features), set(map(tuple, entities))
+        known = {f.id: f for f in self.features}
+        if feature_ids - known.keys():
+            raise ValueError('Unknown feature to delete')
+        if any(known[i].type != 'sketch' for i in feature_ids):
+            raise ValueError('The base box cannot be deleted in this milestone')
+        for sketch_id, entity_id in entity_keys:
+            if sketch_id not in known or known[sketch_id].type != 'sketch' or not any(
+                    e.id == entity_id for e in known[sketch_id].parameters.entities):
+                raise ValueError('Unknown sketch entity to delete')
+        removed = feature_ids | {e for _, e in entity_keys}
+        for feature in self.features:
+            if feature.id not in feature_ids and removed.intersection(feature.references):
+                raise ValueError(f'Cannot delete: {feature.type} {feature.id} references the selected feature')
+        candidate = []
+        for feature in self.features:
+            if feature.id in feature_ids:
+                continue
+            if feature.type == 'sketch':
+                remaining = tuple(e for e in feature.parameters.entities if (feature.id, e.id) not in entity_keys)
+                feature = replace(feature, parameters=replace(feature.parameters, entities=remaining))
+            candidate.append(feature)
+        self.set_features(candidate)
+
     def undo(self):
         self._restore(self._undo, self._redo)
 

@@ -1,11 +1,11 @@
 from pathlib import Path
 from dataclasses import fields as data_fields, replace
 
-from PySide6.QtCore import Qt, QSignalBlocker
+from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
-    QPushButton, QTreeWidget, QTreeWidgetItem, QWidget,
+    QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
 )
 from star_cad import __version__
 from star_cad.document import BoxParameters, Document
@@ -25,6 +25,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
         self.browser.setHeaderLabel("Model · mm")
+        self.browser.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.browser.installEventFilter(self)
+        self.browser.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.browser.customContextMenuRequested.connect(self.browser_context_menu)
         self.box_item = QTreeWidgetItem(self.browser, ["Box"])
         self.browser.setCurrentItem(self.box_item)
         self.add_panel("Model browser", self.browser, Qt.LeftDockWidgetArea)
@@ -55,6 +59,7 @@ class MainWindow(QMainWindow):
         self.property_stack.addWidget(self.property_info)
         self.add_panel("Properties", self.property_stack, Qt.RightDockWidgetArea)
         self.browser.currentItemChanged.connect(self.browser_selection)
+        self.browser.itemSelectionChanged.connect(self.browser_multi_selection)
         self.browser.itemDoubleClicked.connect(lambda *_: self.edit_sketch())
         toolbar = self.addToolBar("View")
         fit = QAction("Fit all", self)
@@ -153,12 +158,24 @@ class MainWindow(QMainWindow):
         edit_menu = self.menuBar().addMenu("&Edit")
         self.undo_action = self.action(edit_menu, "&Undo", QKeySequence.Undo, self.undo)
         self.redo_action = self.action(edit_menu, "&Redo", QKeySequence.Redo, self.redo)
+        self.delete_action = QAction("Delete", self)
+        self.delete_action.setToolTip('Delete / Backspace in the viewport or model browser')
+        self.delete_action.triggered.connect(self.delete_selected)
+        edit_menu.addAction(self.delete_action)
+        self.viewport.deleteRequested.connect(self.delete_selected)
+        self.viewport.sketchContextRequested.connect(self.viewport_context_menu)
         self.refresh(fit=True)
 
     def add_panel(self, title, widget, area):
         dock = QDockWidget(title, self)
         dock.setWidget(widget)
         self.addDockWidget(area, dock)
+
+    def eventFilter(self, watched, event):
+        if watched is self.browser and event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+            self.delete_selected()
+            return True
+        return super().eventFilter(watched, event)
 
     def action(self, menu, title, shortcut, callback):
         action = QAction(title, self)
@@ -200,6 +217,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"STAR-CAD {__version__} — {name}{marker}")
 
     def refresh(self, fit=False):
+        self.viewport.dimensions.reset()
         for name, field in self.fields.items():
             with QSignalBlocker(field):
                 field.setValue(getattr(self.document.parameters, name))
@@ -416,7 +434,7 @@ class MainWindow(QMainWindow):
             return
         self.browser_key = key
         with QSignalBlocker(self.browser):
-            self.browser.setCurrentItem(self.browser_items.get(key))
+            self.browser.setCurrentItem(self.browser_items.get(key), 0, QItemSelectionModel.NoUpdate)
         self.entity_context = (key[1], key[2]) if key and key[0] == 'entity' else None
         self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context else None)
         self.show_properties()
@@ -488,9 +506,94 @@ class MainWindow(QMainWindow):
             self.show_properties()
             self.update_actions()
             return
-        key = ('entity', self.viewport.sketch.active_id, identifier)
+        sketch_id, entity_id = identifier if isinstance(identifier, tuple) else (self.viewport.sketch.active_id, identifier)
+        key = ('entity', sketch_id, entity_id)
         if key in self.browser_items:
+            selected = set(self.viewport.sketch.entity_ids)
             self.browser.setCurrentItem(self.browser_items[key])
+            with QSignalBlocker(self.browser):
+                for k, item in self.browser_items.items():
+                    item.setSelected(k[0] == 'entity' and k[2] in selected)
+            self.viewport.sketch.entity_ids = selected
+            self.viewport.sketch.prepare_display()
+
+    def browser_multi_selection(self):
+        ids = {tuple(i.data(0, Qt.UserRole))[2] for i in self.browser.selectedItems()
+               if i.data(0, Qt.UserRole) and i.data(0, Qt.UserRole)[0] == 'entity'}
+        self.viewport.sketch.entity_ids = ids
+        self.viewport.sketch.prepare_display()
+        self.viewport.GetRenderWindow().Render()
+
+    def selected_keys(self):
+        return {tuple(i.data(0, Qt.UserRole)) for i in self.browser.selectedItems() if i.data(0, Qt.UserRole)}
+
+    def delete_selected(self):
+        # Text fields own Delete/Backspace while editing; never delete geometry there.
+        from PySide6.QtWidgets import QApplication, QAbstractSpinBox
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QAbstractSpinBox)):
+            return
+        keys = self.selected_keys()
+        if not keys:
+            return
+        if any(k[0] not in ('entity', 'sketch') for k in keys):
+            self.statusBar().showMessage('Only sketch entities and unreferenced sketches can be deleted', 4000)
+            return
+        try:
+            self.document.delete(features=[k[1] for k in keys if k[0] == 'sketch'],
+                                 entities=[k[1:] for k in keys if k[0] == 'entity'])
+        except Exception as error:
+            self.statusBar().showMessage(str(error), 5000)
+            return
+        self.entity_context = None
+        self.browser_key = ('sketch', self.viewport.sketch.active_id) if self.viewport.sketch.active_id else None
+        self.viewport.sketch.select_entity(None)
+        self.refresh()
+
+    def context_menu(self, key):
+        """Only implemented actions are exposed; future actions can append here."""
+        menu = QMenu(self)
+        if key and key[0] in ('entity', 'box'):
+            menu.addAction('Edit Parameters', self.focus_parameters)
+        if key and key[0] in ('entity', 'sketch'):
+            action = menu.addAction('Edit Sketch', self.edit_sketch)
+            action.setEnabled(self.viewport.sketch.active_id is None)
+            menu.addAction('Delete', self.delete_selected)
+        return menu
+
+    def focus_parameters(self):
+        self.show_properties()
+        fields = self.entity_fields if self.entity_context else self.fields
+        if fields:
+            next(iter(fields.values())).setFocus()
+
+    def browser_context_menu(self, position):
+        item = self.browser.itemAt(position)
+        if not item:
+            return
+        if not item.isSelected():
+            self.browser.setCurrentItem(item)
+        else:
+            self.browser.setCurrentItem(item, 0, QItemSelectionModel.NoUpdate)
+        key = item.data(0, Qt.UserRole)
+        menu = self.context_menu(tuple(key) if key else None)
+        if not menu.isEmpty():
+            menu.popup(self.browser.viewport().mapToGlobal(position))
+            self._context_menu = menu
+
+    def viewport_context_menu(self, hit, position):
+        if hit is None:
+            return
+        key = ('entity', *hit)
+        if key not in self.browser_items:
+            return
+        if not self.browser_items[key].isSelected():
+            self.browser.setCurrentItem(self.browser_items[key])
+        else:
+            self.browser.setCurrentItem(self.browser_items[key], 0, QItemSelectionModel.NoUpdate)
+        menu = self.context_menu(key)
+        menu.popup(position)
+        self._context_menu = menu
 
     def update_status(self):
         if self.viewport.sketch.active_id:

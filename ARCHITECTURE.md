@@ -39,7 +39,7 @@ Sketch mode hides the solid and other sketches, saves the model camera, and show
 
 OCCT B-rep is authoritative; VTK display data is disposable. Faces tessellate at 0.1 mm linear/0.2 rad angular tolerance, respecting placements and winding. Unique B-rep edges are sampled separately and drawn one pixel wide; triangle edges are disabled. The existing surface colors, background and lighting remain.
 
-Face picking maps VTK cells to whole OCCT faces. Edge picking measures projected segment distance using a 2–10 logical-pixel radius (default 6), converts for device pixels, and rejects candidates behind the front surface. Shift toggles `(kind, index)` members, permitting mixed face/edge selections; switching the filter retains the set. Highlights are combined display meshes, excluded from picking and camera-fit bounds. Geometry regeneration clears the transient set. Sketch picking maps a displayed polyline to its persistent entity UUID, with single-entity editing in this milestone.
+Face picking maps VTK cells to whole OCCT faces. Edge picking measures projected segment distance using a 2–10 logical-pixel radius (default 6), converts for device pixels, and rejects candidates behind the front surface. Shift toggles `(kind, index)` members, permitting mixed face/edge selections; switching the filter retains the set. Highlights are combined display meshes, excluded from picking and camera-fit bounds. Geometry regeneration clears the transient set. Sketch picking maps a displayed polyline to its persistent entity UUID, with a set of selected UUIDs and one current entity for Properties.
 
 Camera parallel scale is clamped relative to the bounding diagonal; increasing its lower bound by 1.25 reduces maximum magnification to 80% of the previous limit. All wheel/dolly interactions reset clipping. Display/pick tolerances do not constrain stored model dimensions.
 
@@ -53,7 +53,7 @@ Saving uses a same-directory temporary file, flush/fsync and os.replace; cleanup
 
 ## Scope and future work
 
-One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature deletion/reordering, constraints, dependent solids and persistent topology references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.
+One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature reordering, constraints, dependent solids and persistent topology references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.
 
 ## View guides
 
@@ -94,3 +94,11 @@ Qt delivers press/release/double-click/release. Shift-right starts a latched mid
 After successful validation, a `vtkCamera.DeepCopy` snapshot becomes the single Previous View slot. Restore copies it back into the existing active camera (keeping guide observers attached), clears the slot and updates the action state. Rejecting a curved/missed face preserves that slot. Snapshots preserve projection, position, focal point, view-up, scale, view angle and clipping; they store no geometry/selection references and are not serialized or included in document Undo.
 
 Arbitrary compound-angle and located faces are tested using transformed fixtures; no product transformation, import, sketch-on-face or extrusion operation is added.
+
+## v0.0.9 — deletion and construction dimensions
+
+`Document.delete` validates target IDs, rejects the base box and references from surviving features, then regenerates the complete candidate before one history snapshot is appended. Multi-feature/entity deletion, including multiple sketches, is atomic. Deletion does not implicitly cascade dependents. Browser and viewport selections share entity UUIDs; regeneration prunes stale IDs and clears construction previews. Deleting the active sketch restores model mode through the existing sketch lifecycle.
+
+Plain right-button press/release is reserved for context menus, with a drag threshold; Shift-right continues through the existing latched pan/double-click route. Menus list implemented actions only. Delete/Backspace are routed only from viewport/browser widgets, preserving native text editing.
+
+`ui/construction_dimensions.py` provides a reusable cursor readout and focused text field. Tools expose stage-specific live dimensions, validate and retain numeric overrides, and constrain cursor points while retaining direction/sign. Enter submits the current tool stage, Tab cycles dimension fields, Escape cancels. Releasing a held construction drag during typing does not commit prematurely. Exact radius/distance/rectangle dimension overrides are passed directly to immutable parameters; line length is represented by its computed endpoints. Values, previews and input widgets remain transient until the normal entity-created document transaction. The v3 schema and analytic geometry are unchanged.

@@ -8,6 +8,7 @@ from star_cad.ui.camera_alignment import planar_view_target
 from vtkmodules.vtkFiltersCore import vtkAppendPolyData
 from star_cad.ui.picking import candidates
 from star_cad.ui.sketch_view import SketchView
+from star_cad.ui.construction_dimensions import ConstructionDimensions
 import vtkmodules.vtkRenderingOpenGL2  # noqa: F401 registers rendering backend
 import vtkmodules.vtkInteractionStyle  # noqa: F401
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -27,6 +28,8 @@ class Viewport(QVTKRenderWindowInteractor):
     toolHintChanged = Signal(str)
     viewFeedback = Signal(str)
     previousViewAvailable = Signal(bool)
+    sketchContextRequested = Signal(object, object)
+    deleteRequested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -73,6 +76,7 @@ class Viewport(QVTKRenderWindowInteractor):
         camera.ParallelProjectionOn()
         self.Initialize()
         self.sketch = SketchView(self)
+        self.dimensions = ConstructionDimensions(self)
 
     def add_actor(self, color):
         mapper, actor = vtkPolyDataMapper(), vtkActor()
@@ -307,6 +311,11 @@ class Viewport(QVTKRenderWindowInteractor):
         return event
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self.dimensions.input.isVisible():
+            return
+        if event.button() == Qt.RightButton and not event.modifiers() & Qt.ShiftModifier:
+            self._context_press = event.position().toPoint()
+            return
         if event.button() != Qt.LeftButton or not self.sketch.controller.tool:
             self.sketch.clear_snap()
         if event.button() == Qt.RightButton and event.modifiers() & Qt.ShiftModifier:
@@ -323,6 +332,8 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mousePressEvent(self.navigation_event(event))
 
     def mouseMoveEvent(self, event):
+        if getattr(self, '_context_press', None) is not None and event.buttons() & Qt.RightButton:
+            return
         if self._consume_right_release and event.buttons() & Qt.RightButton:
             return
         if self._shift_right_pan and self._right_press is not None:
@@ -332,6 +343,7 @@ class Viewport(QVTKRenderWindowInteractor):
                 return
         if self.sketch.active_id and self.sketch.controller.tool and not (event.buttons() & (Qt.MiddleButton | Qt.RightButton)):
             self.sketch.event('move', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            self.dimensions.update_values(event.position())
             return
         if self._press is not None and (event.position().toPoint()-self._press).manhattanLength() > 4:
             self._dragged = True
@@ -339,6 +351,13 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mouseMoveEvent(self.navigation_event(event))
 
     def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self.dimensions.input.isVisible():
+            return
+        if event.button() == Qt.RightButton and getattr(self, '_context_press', None) is not None:
+            start, self._context_press = self._context_press, None
+            if (event.position().toPoint()-start).manhattanLength() < QApplication.startDragDistance():
+                self.sketchContextRequested.emit(self.sketch.hit(*self.display_position(event)), event.globalPosition().toPoint())
+            return
         if event.button() == Qt.RightButton and self._consume_right_release:
             self._consume_right_release = False
             return
@@ -356,8 +375,8 @@ class Viewport(QVTKRenderWindowInteractor):
             self._shift_right_pan = False
             self._right_press = None
         if click and event.button() == Qt.LeftButton:
-            if self.sketch.active_id:
-                self.sketch.pick(*self.display_position(event))
+            if self.sketch.active_id or self.sketch.hit(*self.display_position(event)):
+                self.sketch.pick(*self.display_position(event), additive=additive)
             else:
                 self.pick_at(*self.display_position(event), additive=additive)
 
@@ -378,6 +397,15 @@ class Viewport(QVTKRenderWindowInteractor):
         self.mousePressEvent(event)
 
     def keyPressEvent(self, event):
+        if (self.sketch.active_id and self.sketch.controller.tool
+                and not event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)
+                and event.text() and event.text()[0] in '0123456789.+-'):
+            if self.dimensions.begin(event.text()):
+                event.accept()
+                return
+        if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
+            self.deleteRequested.emit()
+            return
         if event.key() == Qt.Key_Escape:
             if self.sketch.active_id and self.sketch.controller.tool:
                 self.sketch.set_tool('select')

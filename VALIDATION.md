@@ -137,3 +137,11 @@ Manual retest: in either selection filter, Shift-right-double-click different bo
 - Rendered compound-angle alignment and Previous View image restoration pass alongside existing sketch visibility, selection, snapping, gesture, save/reopen and Undo/Redo regressions.
 
 Ready for the physical gesture checks above. No geometry, feature parameters, history or extrusion changes.
+
+## v0.0.9 — sketch editing, deletion and interactive dimensions (in progress)
+
+User physically accepted v0.0.8 face-normal alignment. This pass adds transactional sketch/entity deletion, multi-selection, context actions and transient cursor dimension entry. No dependencies, schema changes or extrusion. Unequal slot radii were evaluated and deferred with geometry/schema validation requirements in ROADMAP.md.
+
+Targeted tests cover atomic deletion across sketches, dependency rejection, deleting the active sketch, browser and viewport selection/context behavior, native text-field Backspace, numeric circle/slot placement on XY/XZ/YZ, exact radius/distance/rectangle parameters, directed line/edge-first rectangle dimensions, invalid values, cancellation, typed input during mouse release, navigation conflicts, persistence and Undo/Redo. Local Qt offscreen can verify event/document behavior but cannot verify OpenGL pixels; full Xvfb/Mesa CI is required.
+
+Manual acceptance: start circle placement, type radius and Enter; Shift-start a slot, type radius/Enter then center distance/Enter. Try releasing the mouse during typing. Test rectangle Width/Tab/Depth/Enter, rotated edge-first Width then Depth, and line Length. Check invalid/zero/negative/nonfinite values and Escape without document changes. With Select, Shift-click several curves, right-click a selected curve and Delete; Undo/Redo the batch. Repeat through browser selection and Delete/Backspace, delete an active sketch, save/reopen, and verify Shift-right pan/double-click plus snapping still work. Verify cursor readout legibility/position on the physical display.

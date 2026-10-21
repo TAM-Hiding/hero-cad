@@ -36,6 +36,14 @@ Screen-space curve display targeting 0.25-pixel deviation, cached by zoom qualit
 
 Shift-right-double-click aligns to the exact plane of the face under the cursor, independent of selection filter, using deterministic up and approximate zoom preservation. Keep Shift-right-drag pan and transient selections. Add one-level Previous View restore and brief nonplanar/miss feedback. Compound-angle fixtures verify the camera without introducing new modeling operations.
 
+## v0.0.9 — sketch editing and dimensions
+
+Atomic multi-entity/sketch deletion with dependency rejection and Undo/Redo; browser/viewport context actions; live cursor dimensions with exact typing for line length, rectangle width/depth, circle radius and slot radius/center distance. Keep camera gestures, snapping and v3 documents. No extrusion.
+
+### Deferred: independently sized slot ends
+
+This needs a deliberate schema migration (independent End A/End B fields with legacy equal-radius loading), analytic external tangent points and non-semicircular cap sweeps, matching adaptive display paths and picking, plus center snaps and preview/property updates. Require `abs(radius_a - radius_b) < center_distance`, valid closed wires and area/bounds checks across arbitrary angles and all sketch planes. Keep center distance independent of the radii and test equal-radius compatibility, undo and persistence. This cross-cutting geometry/format change is deferred from the usability PR; current slots retain one shared radius.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.
