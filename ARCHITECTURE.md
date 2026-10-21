@@ -13,6 +13,8 @@
 - `ui/sketch_view.py`: plane camera, ray/plane mouse conversion, sketch actors and tool adapter.
 - `ui/display_geometry.py`: disposable double-precision VTK meshes with OCCT face/edge mappings.
 - `ui/picking.py`: screen-space distance to projected segments, independent of display width.
+- `ui/snapping.py`: local origin/grid target selection using projected screen distance.
+- `ui/guides.py`: session grid preferences and disposable major/minor/axis meshes.
 - `app.py`: QApplication lifecycle.
 
 ## Feature history and regeneration
@@ -55,7 +57,7 @@ One box, origin-plane sketches and synchronous full regeneration keep this found
 
 ## View guides
 
-`ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; spacing uses 1/2/5 steps targeting about 45 logical pixels, with at most 320 lines. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
+`ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; automatic major spacing uses 1/2/5 steps targeting about 100 logical pixels, with ten minor intervals per major and bounded display line counts. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
 
 The loader accepts v1/v2 files; v2 permits only its original line and rectangle types. V3 extends the entity set with circles and slots and retains all prior validation and atomic saving.
 

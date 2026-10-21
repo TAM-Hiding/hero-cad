@@ -74,7 +74,7 @@ Outstanding manual checks: Circle drag/release; Shift-slot radius release and se
 
 Ready for physical testing; v0.0.5 has not yet been accepted on the laptop. No extrusion implemented.
 
-## v0.0.6 — sketch visibility and precision grid (in progress)
+## v0.0.6 — sketch visibility and precision grid
 
 Physical v0.0.5 feedback: user confirms circles/slots work well and reports save/close/reopen success. Reported a partial, angle-dependent loss of outer-circle segments after Finish/orbit/zoom out. The original document and exact dimensions were not supplied.
 
@@ -93,3 +93,11 @@ New checks reproduce the legacy clipping state before applying the fix and verif
 Local OpenGL remains unavailable; numeric projection and Qt event checks run offscreen. Full pixel verification requires Ubuntu Xvfb/Mesa CI.
 
 Manual retest: draw an outer circle larger than the initial box view with slots inside it; Finish, orbit through shallow/steep angles, zoom out/in, pan and Fit. Confirm the full unobstructed outer circumference remains visible. Repeat on XY/XZ/YZ and with grid/axes toggled. A curve genuinely behind the visible box must still be obscured. Then try both snapping toggles, hidden-grid snaps, origin priority, automatic/manual intervals and all construction gestures, plus Save/close/reopen and Undo/Redo. If missing segments persist, supply the .starcad file and camera/view steps; the exact original scene has not been available.
+
+### Verified v0.0.6 results
+
+- Local: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q -k 'not render and not visible_solids'`: **109 passed, 9 deselected**. `tests/test_document.py`: **23 passed**. Compileall, `uv pip check` and whitespace checks passed.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39668415360), code commit `14ac13582d39966a6f86a54208501653a79f76c2`: **118 passed on Ubuntu 22.04 and 118 on Ubuntu 24.04**, Python 3.12.15, Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Thirty-three upstream VTK/NumPy deprecation warnings per job. No render checks skipped.
+- Render verification passes for unobstructed outer-circle sample patches on every origin plane at multiple viewing angles, slots in the same scene, zoom/Fit recovery, real opaque solid occlusion, hidden-solid non-occlusion, major/minor grid pixels and distinct grid/origin snap markers. Existing thin-line selection, gestures, documents and undo/redo checks pass.
+
+PR #6 is ready for the targeted physical retest above. The reproduced clipping mechanism is fixed; the original user scene still needs laptop confirmation. No extrusion implemented.
