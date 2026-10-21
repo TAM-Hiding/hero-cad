@@ -101,3 +101,13 @@ Manual retest: draw an outer circle larger than the initial box view with slots 
 - Render verification passes for unobstructed outer-circle sample patches on every origin plane at multiple viewing angles, slots in the same scene, zoom/Fit recovery, real opaque solid occlusion, hidden-solid non-occlusion, major/minor grid pixels and distinct grid/origin snap markers. Existing thin-line selection, gestures, documents and undo/redo checks pass.
 
 PR #6 is ready for the targeted physical retest above. The reproduced clipping mechanism is fixed; the original user scene still needs laptop confirmation. No extrusion implemented.
+
+## v0.0.7 — adaptive curves and exact centers (in progress)
+
+Physical v0.0.6 feedback: user reports improved behavior after merging. Additional feedback described polygonal 0.02 mm-radius circles under magnification and requested exact circle/slot-end center snaps; grid snapping was positively accepted.
+
+The prior UI used the fixed 0.02 mm sampling fallback, leaving small full circles at 16 segments. New display-only sampling targets 0.25 physical pixels of sag, with upward power-of-two quality bands and a 32768/full-circle safety cap. The analytic OCCT circle/slot arcs and v3 document precision are unchanged. Cap-limited extreme offscreen cases may exceed the target.
+
+New tests measure actual chord-midpoint deviation for 0.02 mm circles and rotated slot arcs at four pixel densities; verify zoom/resize resampling, mesh reuse on pan/orbit, consistent highlight/pick paths, preview refinement without losing Shift-slot stage, and exact document round trips. Center tests verify stored local target coordinates, both rotated slot centers, entity-before-grid and origin priority, independent toggles, current edited/Undo centers, screen tolerance at two zooms and mouse placement on all three planes. Pixel tests sample analytic locations between the former tiny-circle facets on every plane and detect the blue CENTER marker.
+
+Local OpenGL remains unavailable; rendered tests require Ubuntu Xvfb/Mesa CI. Manual retest: magnify a radius-0.02 mm circle and slot, zoom in/out, pan/orbit and select curves. With grid snapping off, start a line near the center of an existing circle and each slot end; check blue CENTER feedback and exact numeric endpoints. Repeat XY/XZ/YZ and the Shift-slot gesture; Save/reopen and Undo/Redo.

@@ -10,6 +10,7 @@ class ViewGuides:
         self.grid_visible = True
         self.snap_grid = True
         self.snap_origin = True
+        self.snap_center = True
         self.automatic = True
         self.manual_spacing = 1.0  # minor interval in mm
         self.spacing = 1.0

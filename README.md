@@ -2,7 +2,7 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.6 / sketch visibility and precision grid
+## v0.0.7 / adaptive curves and center snapping
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
@@ -28,13 +28,15 @@ Shift only needs to be held for the **first** edge-first rectangle click. Both r
 
 **Grid** toggles exact model-space major/minor grid lines. Automatic spacing follows zoom in 1/2/5 steps, with **ten minor subdivisions per major interval** (for example 10 mm / 1 mm). Major lines are brighter; minor lines are finer in appearance. Disable **Auto Grid** to set the manual **mm minor** interval; majors remain ten times that interval. The status bar reports the current major/minor spacing. Extremely dense manual grids display a bounded subset of reference lines to keep interaction responsive; the chosen snap interval remains unchanged.
 
-**Snap to Grid** snaps new construction points to nearby minor-grid intersections within **8 logical screen pixels**, regardless of grid visibility or line thickness. **Origin Snap** independently prioritizes the local sketch origin within that tolerance; it works with grid snapping off. Both default on. Gold feedback marks a grid snap; a larger magenta marker identifies the origin. The status bar shows local U/V coordinates and `SNAP: GRID`, `ORIGIN` or `FREE`. Feedback is shown while using a construction tool; invalid/edge-on plane intersections do not create points.
+**Snap to Grid** snaps new construction points to nearby minor-grid intersections within **8 logical screen pixels**, regardless of grid visibility or line thickness. **Origin Snap** independently prioritizes the local sketch origin within that tolerance; it works with grid snapping off. Both default on. **Center Snap** independently targets exact circle centers and both slot-end centers in the active sketch. Snap priority is **Origin → Center → Grid**, with the nearest center chosen among competing entities. Center targets come directly from parameters, regardless of display detail. Gold feedback marks a grid snap, magenta identifies the origin, and blue identifies a center. Center snapping defaults on and works with the grid hidden or grid snapping off. The status bar shows local U/V coordinates and `SNAP: GRID`, `ORIGIN`, `CENTER` or `FREE`. Feedback is shown while using a construction tool; invalid/edge-on plane intersections do not create points.
 
-All tools use the same snapped input: line endpoints, rectangle corners/first edge/depth point, circle center/radius endpoint, and slot first center/radius endpoint/second center. For rotated rectangles the final depth is the perpendicular projection of the snapped cursor point. A circle's radius is the distance between the snapped center and radius endpoint; it need not be a multiple of the grid interval. Numeric edits preserve their exact entered values and are never snapped. Existing geometry is unchanged when grid settings change.
+All tools use the same snapped input (including existing circle/slot centers): line endpoints, rectangle corners/first edge/depth point, circle center/radius endpoint, and slot first center/radius endpoint/second center. For rotated rectangles the final depth is the perpendicular projection of the snapped cursor point. A circle's radius is the distance between the snapped center and radius endpoint; it need not be a multiple of the grid interval. Numeric edits preserve their exact entered values and are never snapped. Existing geometry is unchanged when grid settings change.
 
 **Origin Axes** toggles world-coordinate lines through (0,0,0): **X red, Y yellow, Z blue**, in sketch and model views. The sketch origin remains visible independently. Grid, axis and snapping settings last for the application session and are excluded from selection, Fit, document saves and Undo.
 
 The sketch editor displays nine decimal places and preserves untouched higher-precision stored values. Coordinates are limited to ±1,000,000 mm; minimum line length and rectangle side are 0.000001 mm. These are input limits, not manufacturing accuracy guarantees. Storage and the CAD kernel use double-precision coordinates.
+
+Circle and slot display polylines adapt to zoom and viewport resolution, targeting **0.25 physical pixels** of deviation. A 0.02 mm-radius circle gains detail as it is magnified. Live previews, highlights and picking use the same display policy. Pan/orbit reuse meshes; zoom/resize only changes detail when crossing a quality band. Stored parameters and analytic OCCT circles/arcs are unchanged. A safety cap of 32768 segments per full circle bounds work at extreme magnification of enormous mostly-offscreen curves; the pixel target can be exceeded when that cap is reached.
 
 Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); YZ uses U=+Y/V=+Z (normal +X). Only origin planes are supported.
 

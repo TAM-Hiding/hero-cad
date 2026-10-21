@@ -28,6 +28,10 @@ Circle and latched Shift-slot construction using the existing tool controller; e
 
 Fix confirmed near-plane clipping after restoring the camera for a larger sketch. Add exact major/minor grid subdivisions, independent grid/origin snapping, screen-space tolerance, snap markers/readout, and automatic/manual session grid spacing. Preserve real solid occlusion, thin lines, gestures and numeric edits. No extrusion.
 
+## v0.0.7 — adaptive curves and center snapping
+
+Screen-space curve display targeting 0.25-pixel deviation, cached by zoom quality bands; exact center snapping for circles and both slot ends before ordinary grid targets. Independent Center Snap toggle and distinct feedback. Test 0.02 mm circles, zoom/resize, mesh reuse on pan/orbit and all sketch planes. No stored geometry/history/extrusion changes.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.
