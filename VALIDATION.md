@@ -102,7 +102,7 @@ Manual retest: draw an outer circle larger than the initial box view with slots 
 
 PR #6 is ready for the targeted physical retest above. The reproduced clipping mechanism is fixed; the original user scene still needs laptop confirmation. No extrusion implemented.
 
-## v0.0.7 — adaptive curves and exact centers (in progress)
+## v0.0.7 — adaptive curves and exact centers
 
 Physical v0.0.6 feedback: user reports improved behavior after merging. Additional feedback described polygonal 0.02 mm-radius circles under magnification and requested exact circle/slot-end center snaps; grid snapping was positively accepted.
 
@@ -111,3 +111,11 @@ The prior UI used the fixed 0.02 mm sampling fallback, leaving small full circle
 New tests measure actual chord-midpoint deviation for 0.02 mm circles and rotated slot arcs at four pixel densities; verify zoom/resize resampling, mesh reuse on pan/orbit, consistent highlight/pick paths, preview refinement without losing Shift-slot stage, and exact document round trips. Center tests verify stored local target coordinates, both rotated slot centers, entity-before-grid and origin priority, independent toggles, current edited/Undo centers, screen tolerance at two zooms and mouse placement on all three planes. Pixel tests sample analytic locations between the former tiny-circle facets on every plane and detect the blue CENTER marker.
 
 Local OpenGL remains unavailable; rendered tests require Ubuntu Xvfb/Mesa CI. Manual retest: magnify a radius-0.02 mm circle and slot, zoom in/out, pan/orbit and select curves. With grid snapping off, start a line near the center of an existing circle and each slot end; check blue CENTER feedback and exact numeric endpoints. Repeat XY/XZ/YZ and the Shift-slot gesture; Save/reopen and Undo/Redo.
+
+### Verified v0.0.7 results
+
+- Local non-render suite: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest -q -k 'not render and not visible_solids'`: **129 passed, 13 deselected**. Kernel/document/curve regression suite: **36 passed**. Compileall, dependency compatibility and whitespace checks passed.
+- [Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39685266109), code/test commit `3cda0f16ac9b0d96bbdf38ba10155f63562750c3`: **142 passed on Ubuntu 22.04 and 142 on Ubuntu 24.04**, Python 3.12.15, Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Thirty-seven upstream VTK/NumPy warnings per job. No render checks skipped.
+- Pixel checks pass at exact analytic positions between the former 16-sided tiny-circle facets on XY/XZ/YZ, and detect the blue center marker. Existing visibility/occlusion, grid/origin snaps, Shift gestures, precision files and Undo/Redo regressions pass. The outer-circle visibility test now samples fixed analytic positions independently of quality-band sample counts.
+
+Ready for physical small-curve and center-snap acceptance. HiDPI behavior was checked by simulated render-size changes, not a physical HiDPI display. No extrusion or stored geometry/history changes.
