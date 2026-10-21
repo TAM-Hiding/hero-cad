@@ -259,3 +259,21 @@ def test_context_retains_batch_when_pending_properties_rebuild_tree(qtbot):
     assert w.document.feature(sid).parameters.entities[0].radius == 4
     assert w.selected_keys() == {('entity', sid, es[0].id), ('entity', sid, es[1].id)}
     w._context_menu.close()
+
+
+def test_plain_right_drag_retains_camera_zoom_without_context_menu(qtbot):
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+    w, sid, es = populated(qtbot)
+    v = w.viewport
+    camera = v.renderer.GetActiveCamera()
+    before, scale = w.document.features, camera.GetParallelScale()
+    p = QPoint(220, 200)
+    qtbot.mousePress(v, Qt.RightButton, pos=p)
+    moved = p+QPoint(10, 50)
+    QApplication.sendEvent(v, QMouseEvent(QEvent.MouseMove, QPointF(moved), QPointF(v.mapToGlobal(moved)),
+                                         Qt.NoButton, Qt.RightButton, Qt.NoModifier))
+    qtbot.mouseRelease(v, Qt.RightButton, pos=moved)
+    assert camera.GetParallelScale() != scale
+    assert w.document.features == before and not hasattr(w, '_context_menu')

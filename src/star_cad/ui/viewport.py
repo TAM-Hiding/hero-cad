@@ -315,6 +315,8 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         if event.button() == Qt.RightButton and not event.modifiers() & Qt.ShiftModifier:
             self._context_press = event.position().toPoint()
+            self._context_dragged = False
+            super().mousePressEvent(event)
             return
         if event.button() != Qt.LeftButton or not self.sketch.controller.tool:
             self.sketch.clear_snap()
@@ -333,6 +335,10 @@ class Viewport(QVTKRenderWindowInteractor):
 
     def mouseMoveEvent(self, event):
         if getattr(self, '_context_press', None) is not None and event.buttons() & Qt.RightButton:
+            if (event.position().toPoint()-self._context_press).manhattanLength() >= QApplication.startDragDistance():
+                self._context_dragged = True
+            if self._context_dragged:
+                super().mouseMoveEvent(event)
             return
         if self._consume_right_release and event.buttons() & Qt.RightButton:
             return
@@ -355,7 +361,8 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         if event.button() == Qt.RightButton and getattr(self, '_context_press', None) is not None:
             start, self._context_press = self._context_press, None
-            if (event.position().toPoint()-start).manhattanLength() < QApplication.startDragDistance():
+            super().mouseReleaseEvent(event)
+            if not self._context_dragged and (event.position().toPoint()-start).manhattanLength() < QApplication.startDragDistance():
                 self.sketchContextRequested.emit(self.sketch.hit(*self.display_position(event)), event.globalPosition().toPoint())
             return
         if event.button() == Qt.RightButton and self._consume_right_release:
