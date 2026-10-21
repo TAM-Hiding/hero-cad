@@ -220,13 +220,18 @@ def test_sketch_render_preview_and_highlight(qtbot):
         return vtk_to_numpy(capture.GetOutput().GetPointData().GetScalars()).astype(int)
 
     p = pixels()
-    assert np.count_nonzero((p[:, 1] > 200) & (p[:, 0] > 130) & (p[:, 2] > 130)) > 30
+    # One-pixel antialiased lines blend with the background. Require the
+    # preview's green chroma, not its unblended RGB; exclude the white origin.
+    green = (p[:, 1] > 100) & (p[:, 1]-p[:, 0] > 20) & (p[:, 1]-p[:, 2] > 15)
+    assert np.count_nonzero(green) > 30, np.unique(p, axis=0)[-20:]
     click(qtbot, v, frame, (12, 8))
     p = pixels()
-    assert np.count_nonzero((p[:, 0] > 220) & (p[:, 1] > 100) & (p[:, 2] < 100)) > 30
+    orange = (p[:, 0] > 150) & (p[:, 0]-p[:, 1] > 40) & (p[:, 1]-p[:, 2] > 40)
+    assert np.count_nonzero(orange) > 30, np.unique(p, axis=0)[-20:]
     w.tool_choice.setCurrentText('Select')
     qtbot.keyClick(v, Qt.Key_Escape)
     p = pixels()
-    assert np.count_nonzero((p[:, 0] < 150) & (p[:, 1] > 180) & (p[:, 2] > 200)) > 30
+    cyan = (p[:, 2] > 130) & (p[:, 1]-p[:, 0] > 40) & (p[:, 2]-p[:, 0] > 60)
+    assert np.count_nonzero(cyan) > 30, np.unique(p, axis=0)[-20:]
     background = np.array([23, 31, 41])
     assert np.count_nonzero(np.max(np.abs(p - background), axis=1) < 3) > len(p)*0.6
