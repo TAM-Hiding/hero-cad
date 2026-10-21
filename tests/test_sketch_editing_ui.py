@@ -197,6 +197,11 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     from vtkmodules.util.numpy_support import vtk_to_numpy
     w, sid, es = populated(qtbot)
     v, f = w.viewport, w.document.feature(sid).parameters.frame
+    # Different property forms can resize docks. Hold the render size fixed so
+    # image comparisons measure deletion rather than window-layout changes.
+    v.setFixedSize(640, 480)
+    from PySide6.QtWidgets import QApplication
+    QApplication.processEvents()
     w.grid_action.setChecked(False)
     w.axes_action.setChecked(False)
 
