@@ -1,6 +1,7 @@
 """UI-independent construction state machines; Shift is sampled only at initiation."""
 from dataclasses import dataclass
-from star_cad.sketch import Line, diagonal_rectangle, edge_rectangle
+from math import hypot
+from star_cad.sketch import Circle, Line, diagonal_rectangle, edge_rectangle, slot_from_centers
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,38 @@ class RectangleTool(ConstructionTool):
                     self.preview = (self.a, event.point) if self.b is None else (self.a, self.b)
 
 
+class CircleTool(ConstructionTool):
+    @property
+    def hint(self):
+        return {'start': 'CIRCLE | Drag radius | Shift: Slot | Esc: Cancel',
+                'radius': 'CIRCLE | Release to finish | Esc: Cancel',
+                'slot_radius': 'SLOT | Release to lock radius | Esc: Cancel',
+                'center': 'SLOT | Click second end center | Esc: Cancel'}[self.stage]
+
+    def handle(self, event):
+        if event.phase == 'press':
+            if self.stage == 'start':
+                self.a = event.point
+                self.stage = 'slot_radius' if event.shift else 'radius'
+            elif self.stage == 'center':
+                return self.finish(slot_from_centers(self.a, event.point, self.radius))
+        elif event.phase == 'release' and self.stage in ('radius', 'slot_radius'):
+            radius = hypot(event.point[0]-self.a[0], event.point[1]-self.a[1])
+            circle = Circle(*self.a, radius)
+            if self.stage == 'radius':
+                return self.finish(circle)
+            self.radius = radius
+            self.preview = circle.points
+            self.stage = 'center'
+        elif event.phase == 'move' and self.stage != 'start':
+            try:
+                entity = (slot_from_centers(self.a, event.point, self.radius) if self.stage == 'center'
+                          else Circle(*self.a, hypot(event.point[0]-self.a[0], event.point[1]-self.a[1])))
+                self.preview = entity.points
+            except ValueError:
+                self.preview = ()
+
+
 class ToolController:
     """The viewport forwards events here, regardless of the active tool's stages.
 
@@ -85,7 +118,7 @@ class ToolController:
         self.set_tool('select')
 
     def set_tool(self, name):
-        factory = {'select': None, 'line': LineTool, 'rectangle': RectangleTool}
+        factory = {'select': None, 'line': LineTool, 'rectangle': RectangleTool, 'circle': CircleTool}
         if name not in factory:
             raise ValueError('Unknown tool')
         self.name = name

@@ -57,3 +57,11 @@ Manual acceptance outstanding: physical GPU/HiDPI, picking feel, sketch tool ges
 - The first CI run caught an overly strict preview pixel threshold: a one-pixel antialiased line blends with the background. The corrected test requires the preview's green chroma, completed line's cyan chroma, selected entity's orange chroma, sufficient colored pixels, and expected background; the white origin cannot satisfy it. No render checks were skipped in CI.
 
 v0.0.4 is ready for physical acceptance, not yet physically accepted. On the laptop, try all three planes, both rectangle gestures (release Shift after initiation), live line previews, numeric edits, sketch reentry, Save/Open and Undo/Redo. Check Shift-right/middle pan, mixed face/edge Shift-selection, 2/6/10-pixel picking and zoom recovery. **Extrusion remains blocked until that acceptance.**
+
+## v0.0.5 — circles, slots and guides (in progress)
+
+Physical v0.0.4 feedback: user reports easy edge picking, mixed Shift selections across face/edge filters, successful sketches/rectangle Shift method and angle editing, and smooth interaction without observed lag. Save/reopen and sketch Undo/Redo were not explicitly confirmed in that report.
+
+This pass adds Circle/Shift-slot tools, editable radius/center-distance/angle, exact OCCT circular edges/tangent slot wires, a visual sketch grid and a world-axis toggle. New tests cover analytic perimeter and enclosed area on XY/XZ/YZ, gesture latching/cancellation and invalid inputs, exact persistence and v2 compatibility, numeric edits/undo/reentry/picking, guide toggles and plane transforms, camera-independent guide settings, and rendered curves/grid. Local rendering still requires CI's functioning OpenGL. No dependencies changed.
+
+Outstanding manual checks: Circle drag/release; Shift-slot radius release and second center; angle/radius/distance editing; grid at different zoom/pan levels on all planes; red X/yellow Y/blue Z axis toggle in sketch and model views; save/reload and Undo/Redo. Grid is visual only, guides are session-only, circles have no rotation parameter, zero-length slots are rejected.
