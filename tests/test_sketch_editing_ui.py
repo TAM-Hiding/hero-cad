@@ -21,8 +21,12 @@ def test_interactive_circle_slot_exact_entry_and_cancel(qtbot, tmp_path, plane):
     qtbot.mousePress(v, Qt.LeftButton, pos=pixel(v, f.to_world((0, 0))))
     hover(v, pixel(v, f.to_world((8, 6))))
     assert v.dimensions.isVisible() and 'Radius' in v.dimensions.label.text()
-    type_dimension(qtbot, v, '0.0201234567890123')
+    qtbot.keyClicks(v, '0')
+    assert v.dimensions.input.isVisible()
     qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, f.to_world((8, 6))))
+    assert not w.document.feature(sid).parameters.entities
+    qtbot.keyClicks(v.dimensions.input, '.0201234567890123')
+    qtbot.keyClick(v.dimensions.input, Qt.Key_Return)
     circle = w.document.feature(sid).parameters.entities[0]
     assert circle.radius == 0.0201234567890123
     qtbot.mousePress(v, Qt.LeftButton, Qt.ShiftModifier, pos=pixel(v, f.to_world((10, 10))))
@@ -221,3 +225,21 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     assert np.count_nonzero(np.max(abs(deleted-baseline), axis=1) > 5) > 100
     w.undo()
     assert np.max(abs(pixels()-baseline)) < 3
+
+
+@pytest.mark.parametrize('text', ['0', '-1', 'nan', 'inf', 'invalid'])
+def test_invalid_dimension_text_stays_uncommitted(qtbot, text):
+    w = window(qtbot)
+    sid = enter(w)
+    v, f = w.viewport, w.document.feature(sid).parameters.frame
+    w.tool_choice.setCurrentText('Circle')
+    qtbot.mousePress(v, Qt.LeftButton, pos=pixel(v, f.to_world((0, 0))))
+    hover(v, pixel(v, f.to_world((4, 3))))
+    v.dimensions.begin(text)
+    qtbot.keyClick(v.dimensions.input, Qt.Key_Return)
+    assert v.dimensions.input.isVisible()
+    assert not w.document.feature(sid).parameters.entities
+    qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, f.to_world((4, 3))))
+    assert not w.document.feature(sid).parameters.entities
+    qtbot.keyClick(v.dimensions.input, Qt.Key_Escape)
+    assert not v.sketch.controller.tool and not v.sketch.preview_actor.GetVisibility()
