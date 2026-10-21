@@ -1,33 +1,54 @@
 # Architecture
 
-## Boundaries
+## Responsibilities
 
-- `app.py`: QApplication lifecycle and entry point.
-- `document.py`: immutable box parameters and a document owning its regenerated solid. No Qt or VTK imports.
-- `geometry.py`: direct OCP operations and validity/volume queries. No custom geometry kernel or generic backend interface.
-- `ui/main_window.py`: model browser, property editor, explicit Apply action, status and error reporting.
-- `ui/viewport.py`: OCCT face tessellation converted to double-precision VTK points; Qt viewport and camera interaction.
+- `features.py`: immutable feature definitions, box parameters, stable UUIDs and regeneration status/errors.
+- `sketch.py`: immutable line/rectangle/sketch parameters and canonical local-to-world plane frames.
+- `document.py`: ordered regeneration, transactional edits, saved state and undo/redo snapshots.
+- `persistence.py`: strict versioned JSON serialization and legacy migration.
+- `geometry.py`: OCCT solids and analytic sketch edges/closed rectangle wires; kernel validity checks.
+- `tools.py`: UI-independent construction state machines, latched Shift mode, preview/completion/cancellation.
+- `ui/main_window.py`: browser, contextual actions, numeric properties and file lifecycle.
+- `ui/viewport.py`: camera/navigation routing, transient mixed solid selection and display orchestration.
+- `ui/sketch_view.py`: plane camera, ray/plane mouse conversion, sketch actors and tool adapter.
+- `ui/display_geometry.py`: disposable double-precision VTK meshes with OCCT face/edge mappings.
+- `ui/picking.py`: screen-space distance to projected segments, independent of display width.
+- `app.py`: QApplication lifecycle.
 
-Data flows from editor → validated parameters → OCCT solid → display tessellation. The B-rep remains authoritative. Mesh tolerance (0.1 mm linear, 0.2 rad angular) affects visualization only. OCCT tolerances still apply; input decimal places do not imply arbitrary precision.
+## Feature history and regeneration
 
-## Parametric state
+A document stores an ordered tuple of immutable `Feature` values. Each has a UUID, type, typed parameters and optional references. Canonical `plane:XY`, `plane:XZ`, `plane:YZ` references are immutable origin nodes. References must resolve to origin nodes or earlier features: missing, self, cyclic and forward references are rejected. This is ordered history validation, not a general graph scheduler. Exactly one box and zero or more sketches are supported. Box dimensions retain the existing API.
 
-The sole feature is a box rooted at (0,0,0), with positive X width, Y depth and Z height. Document initialization creates a real solid. An edit builds and validates a replacement before updating parameters and shape. Errors are reported at the UI boundary. Editing does not reset the camera; Fit all is explicit.
+All candidate features regenerate in sequence before the document changes. Box generation produces a valid OCCT solid; sketches produce compounds of analytic straight edges and closed rectangle wires transformed into their plane. A successful candidate replaces shapes, feature definitions and per-feature valid statuses together and appends one undo snapshot. Failure leaves the previous features, shapes and undo stacks intact, and exposes `last_failure` with the failing feature ID and invalid/error status. UI displays the error; invalid candidate features are not silently persisted or inserted into history. No downstream geometry operation consumes references yet.
 
-No feature graph is invented for one feature. When additional features arrive, introduce stable feature identities and ordered recomputation in a dedicated history module. Keep feature definitions independent of widget state. Until then `Document.parameters` is the complete feature definition. The document also owns a path, last-saved parameter snapshot, and two small stacks of immutable parameter snapshots for Undo/Redo. Dirty state compares current and saved parameters, so Undo back to the saved dimensions clears the dirty marker. Rebuild succeeds before history stacks change; no-op edits create no history entry.
+No-op edits add no history. Undo/Redo rebuilds and validates before moving the snapshot between stacks. Dirty state compares the current immutable features with the saved snapshot. Stable feature/entity IDs survive edits, undo and persistence; they are not OCCT subshape identities. Persistent topological naming is out of scope.
 
-Format v1 stores `format: "star-cad"`, integer `version: 1`, `units: "mm"` and `box: {width, depth, height}`. It stores neither B-rep binaries nor display meshes nor undo history. Loading validates the complete schema and constructs a replacement document before the window swaps it in. The UI checks unsaved changes, then rereads the selected file because the Save prompt may update that same file.
+## Sketch geometry and input
 
-Saving uses a same-directory temporary file, flush/fsync and os.replace. Temporary files are cleaned up on failure; path/savepoint update only after replacement. Atomic replacement prevents partial target files, but is not a backup system or a power-loss durability guarantee. There is no concurrent-writer detection. UI pending edits are separate from document history and participate in Save/Discard/Cancel prompts.
+Local XY coordinates map through an explicit orthonormal plane frame. XY uses +X/+Y, XZ +X/+Z, YZ +Y/+Z. Rectangle parameters are one position, positive width/height and angle; both construction paths use this single representation. Edge-first depth is the signed perpendicular projection of the third point. For negative depth the corner shifts, preserving positive dimensions and the requested footprint. JSON preserves Python double values; no decimal rounding is applied during serialization. OCCT tolerances still apply.
 
-## Rendering choice
+The viewport distinguishes button presses, moves/drags, releases and modifiers. It routes navigation separately from construction; Shift-right is latched and translated to a middle-button pan. Shift-left selection never becomes VTK's Shift-left pan. `ToolController` forwards construction events to one state machine; the viewport does not contain per-tool stages. Rectangle stages are start, diagonal drag, first edge, depth. Shift is sampled at initiation only. Line uses start/end clicks. Invalid zero-length geometry remains uncommitted with inline feedback. Escape drops the preview and returns to selection; completing a valid entity starts the next placement with the same tool. Browser changes, Undo/Redo and regeneration clear unfinished previews.
 
-Use VTK's supported PySide6 widget and trackball camera rather than hand-written OpenGL or native OCCT window integration. VTK already comes with the selected OCP wheel. `ui/display_geometry.py` builds display meshes with explicit cell-to-OCCT-face/edge indices. Faces retain locations and reversed winding. Unique topological edges are sampled separately at 0.1 mm deflection and drawn with one-pixel unlit lines; triangle-edge rendering is disabled. These samples are display approximations, never modeling geometry.
+A future circle/slot tool can implement the same handle/hint/preview interface: press/drag/release locks radius, then a second-center stage completes the slot. No constraint solver or speculative plugin registry is introduced.
 
-The picker maps triangles or edge polylines back to the current OCCT subshape. Face mode highlights all cells of that face. Edge mode checks the front surface at the candidate edge's projected position to reject occluded rear edges. Highlight actors are excluded from picking and camera-fit bounds. Qt clicks use device-pixel conversion; drags and modifier gestures retain camera controls.
+Sketch mode hides the solid and other sketches, saves the model camera, and shows the active sketch axes/origin. Finish restores the camera and all completed geometry. Select allows orbit; mouse coordinates always intersect the actual plane rather than assuming screen coordinates equal model coordinates. Reentering restores a perpendicular view. Numeric changes use the document transaction path and preserve unchanged values beyond displayed precision.
 
-`Selection(kind, index, shape)` is valid only for the displayed solid. Regeneration clears it and rebuilds mappings. Persistent topological naming is explicitly not solved. Camera scale is clamped to bounding-diagonal-relative limits after wheel and interaction events; standard views and Fit reset clipping. Thin normal edges, lighting and background are retained.
+## Rendering and selection
 
-## Constraints
+OCCT B-rep is authoritative; VTK display data is disposable. Faces tessellate at 0.1 mm linear/0.2 rad angular tolerance, respecting placements and winding. Unique B-rep edges are sampled separately and drawn one pixel wide; triangle edges are disabled. The existing surface colors, background and lighting remain.
 
-All operations are synchronous for this tiny model. Larger operations will need measured responsiveness work before adding background workers. No network code, AI service, telemetry, plugin framework, database, or dependency injection layer. Test actual kernel results and rendered output; never substitute a rendered cube for a CAD solid.
+Face picking maps VTK cells to whole OCCT faces. Edge picking measures projected segment distance using a 2–10 logical-pixel radius (default 6), converts for device pixels, and rejects candidates behind the front surface. Shift toggles `(kind, index)` members, permitting mixed face/edge selections; switching the filter retains the set. Highlights are combined display meshes, excluded from picking and camera-fit bounds. Geometry regeneration clears the transient set. Sketch picking maps a displayed polyline to its persistent entity UUID, with single-entity editing in this milestone.
+
+Camera parallel scale is clamped relative to the bounding diagonal; increasing its lower bound by 1.25 reduces maximum magnification to 80% of the previous limit. All wheel/dolly interactions reset clipping. Display/pick tolerances do not constrain stored model dimensions.
+
+## Persistence
+
+V2 stores format, version, units, ordered features with IDs/types/references, and parameters. Sketch parameters include canonical plane ID, origin/U/V frame and typed entities with UUIDs. Explicit stored frames must match the canonical origin plane; arbitrary frames are not supported. V1 box files migrate to one box feature with a new UUID, retained on the next v2 save. Files store no B-reps, meshes, selections, camera, tool previews or undo stacks.
+
+Schema validation rejects unknown fields and versions, duplicate keys, invalid dimensions/IDs/frames and dependency errors. The loader builds a replacement document before swapping it into the window. After an unsaved-change Save prompt it rereads the selected file, since Save may have updated it. V2 is limited to 4 MiB; save enforces the same limit before touching a destination. Legacy v1 retains 64 KiB. Feature/entity count limits bound synchronous work but are not performance guarantees.
+
+Saving uses a same-directory temporary file, flush/fsync and os.replace; cleanup occurs on failure, and the path/savepoint update only after replacement. This prevents partial target files, not all power-loss scenarios or concurrent writes. Pending numeric property edits participate in Save/Discard/Cancel. Browser selection changes commit valid pending edits; invalid edits retain the previous selection. Untouched displayed decimals preserve the stored value.
+
+## Scope and future work
+
+One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature deletion/reordering, constraints, dependent solids and persistent topology references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.

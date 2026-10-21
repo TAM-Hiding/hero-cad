@@ -1,6 +1,10 @@
 """OCCT display, bounded orthographic camera and transient subshape selection."""
 from math import dist, isfinite
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QMouseEvent
+from vtkmodules.vtkFiltersCore import vtkAppendPolyData
+from star_cad.ui.picking import candidates
+from star_cad.ui.sketch_view import SketchView
 import vtkmodules.vtkRenderingOpenGL2  # noqa: F401 registers rendering backend
 import vtkmodules.vtkInteractionStyle  # noqa: F401
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -14,13 +18,21 @@ from star_cad.ui.display_geometry import (
 
 class Viewport(QVTKRenderWindowInteractor):
     selectionChanged = Signal(object)
+    entityCreated = Signal(object)
+    sketchEntityPicked = Signal(object)
+    toolChanged = Signal(str)
+    toolHintChanged = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selection = None
+        self.selections = []
+        self.edge_tolerance_px = 6
         self.selection_mode = 'face'
         self._press = None
         self._dragged = False
+        self._additive = False
+        self._shift_right_pan = False
         self.model_span = 1.0
         self.renderer = vtkRenderer()
         self.renderer.SetBackground(0.09, 0.12, 0.16)
@@ -50,6 +62,7 @@ class Viewport(QVTKRenderWindowInteractor):
         camera.SetViewUp(0, 0, 1)
         camera.ParallelProjectionOn()
         self.Initialize()
+        self.sketch = SketchView(self)
 
     def add_actor(self, color):
         mapper, actor = vtkPolyDataMapper(), vtkActor()
@@ -77,7 +90,7 @@ class Viewport(QVTKRenderWindowInteractor):
     @property
     def zoom_limits(self):
         # Parallel scale is half the visible height in model units.
-        return self.model_span * 1e-4, self.model_span * 1e3
+        return self.model_span * 1.25e-4, self.model_span * 1e3
 
     def clamp_zoom(self):
         camera = self.renderer.GetActiveCamera()
@@ -114,71 +127,131 @@ class Viewport(QVTKRenderWindowInteractor):
         if mode not in ('face', 'edge'):
             raise ValueError('Selection mode must be face or edge')
         self.selection_mode = mode
-        self.clear_selection()
 
     def clear_selection(self, render=True):
+        self.selections = []
         self.selection = None
         self.highlight_actor.VisibilityOff()
         self.selectionChanged.emit(None)
         if render:
             self.GetRenderWindow().Render()
 
-    def pick_at(self, x, y):
-        """Pick in VTK display pixels (origin bottom left)."""
-        target = self.actor if self.selection_mode == 'face' else self.edge_actor
-        picker = vtkCellPicker()
-        picker.PickFromListOn()
-        picker.AddPickList(target)
-        picker.SetTolerance(0.008 if self.selection_mode == 'edge' else 0.0005)
-        if not picker.Pick(x, y, 0, self.renderer) or picker.GetCellId() < 0:
-            self.clear_selection()
-            return
-        if self.selection_mode == 'edge':
-            # Do not select rear edges through an opaque front face.
-            front = vtkCellPicker()
-            front.PickFromListOn()
-            front.AddPickList(self.actor)
-            front.SetTolerance(0.0005)
-            self.renderer.SetWorldPoint(*picker.GetPickPosition(), 1)
-            self.renderer.WorldToDisplay()
-            edge_x, edge_y, _ = self.renderer.GetDisplayPoint()
-            if front.Pick(edge_x, edge_y, 0, self.renderer):
-                direction = self.renderer.GetActiveCamera().GetDirectionOfProjection()
-                delta = tuple(picker.GetPickPosition()[i] - front.GetPickPosition()[i] for i in range(3))
-                if sum(delta[i] * direction[i] for i in range(3)) > self.model_span * 1e-5:
-                    self.clear_selection()
-                    return
+    def line_candidates(self, mesh, x, y):
+        scale = self.GetRenderWindow().GetSize()[1] / max(self.height(), 1)
+        return candidates(self.renderer, mesh, x, y, self.edge_tolerance_px * scale)
+
+    def visible_edge(self, point):
+        front = vtkCellPicker()
+        front.PickFromListOn()
+        front.AddPickList(self.actor)
+        front.SetTolerance(0.0005)
+        self.renderer.SetWorldPoint(*point, 1)
+        self.renderer.WorldToDisplay()
+        x, y, _ = self.renderer.GetDisplayPoint()
+        if not front.Pick(x, y, 0, self.renderer):
+            return True
+        direction = self.renderer.GetActiveCamera().GetDirectionOfProjection()
+        return sum((point[i]-front.GetPickPosition()[i])*direction[i] for i in range(3)) <= self.model_span*1e-5
+
+    def pick_at(self, x, y, additive=False):
+        """Pick in device pixels. Shift toggles the current subshape in the set."""
         name = self.selection_mode + '_id'
-        mesh = self.mapper.GetInput() if self.selection_mode == 'face' else self.edge_mapper.GetInput()
-        index = mesh.GetCellData().GetArray(name).GetValue(picker.GetCellId())
+        if self.selection_mode == 'edge':
+            mesh = self.edge_mapper.GetInput()
+            hit = next((hit for hit in self.line_candidates(mesh, x, y) if self.visible_edge(hit[1])), None)
+            cell_id = hit[2] if hit else -1
+        else:
+            mesh = self.mapper.GetInput()
+            picker = vtkCellPicker()
+            picker.PickFromListOn()
+            picker.AddPickList(self.actor)
+            picker.SetTolerance(0.0005)
+            cell_id = picker.GetCellId() if picker.Pick(x, y, 0, self.renderer) else -1
+        if cell_id < 0:
+            if not additive:
+                self.clear_selection()
+            return
+        index = mesh.GetCellData().GetArray(name).GetValue(cell_id)
         shapes = self.faces if self.selection_mode == 'face' else self.edges
-        self.selection = Selection(self.selection_mode, index, shapes[index])
-        self.highlight_mapper.SetInputData(selected_mesh(mesh, name, index))
-        self.highlight_actor.VisibilityOn()
+        selected = Selection(self.selection_mode, index, shapes[index])
+        if not additive:
+            self.selections = [selected]
+        elif any(s.kind == selected.kind and s.index == index for s in self.selections):
+            self.selections = [s for s in self.selections if (s.kind, s.index) != (selected.kind, index)]
+        else:
+            self.selections.append(selected)
+        self.selection = self.selections[-1] if self.selections else None
+        if self.selections:
+            append = vtkAppendPolyData()
+            for item in self.selections:
+                data = self.mapper.GetInput() if item.kind == 'face' else self.edge_mapper.GetInput()
+                append.AddInputData(selected_mesh(data, item.kind+'_id', item.index))
+            append.Update()
+            self.highlight_mapper.SetInputData(append.GetOutput())
+        self.highlight_actor.SetVisibility(bool(self.selections))
         self.selectionChanged.emit(self.selection)
         self.GetRenderWindow().Render()
 
+    def display_position(self, event):
+        width, height = self.GetRenderWindow().GetSize()
+        return (event.position().x()*width/max(self.width(), 1),
+                height-1-event.position().y()*height/max(self.height(), 1))
+
+    def navigation_event(self, event):
+        # Shift-right is a latched pan gesture; VTK receives a middle drag.
+        if self._shift_right_pan:
+            button = Qt.MiddleButton if event.button() == Qt.RightButton else event.button()
+            buttons = (event.buttons() & ~Qt.RightButton) | (Qt.MiddleButton if event.buttons() & Qt.RightButton else Qt.NoButton)
+            return QMouseEvent(event.type(), event.position(), event.globalPosition(), button,
+                               buttons, event.modifiers() & ~Qt.ShiftModifier)
+        return event
+
     def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton and event.modifiers() & Qt.ShiftModifier:
+            self._shift_right_pan = True
+        if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
+            self.sketch.event('press', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            return
         self._press = event.position().toPoint() if event.button() == Qt.LeftButton else None
         self._dragged = False
-        super().mousePressEvent(event)
+        self._additive = bool(event.modifiers() & Qt.ShiftModifier) and event.button() == Qt.LeftButton
+        if not self._additive:
+            super().mousePressEvent(self.navigation_event(event))
 
     def mouseMoveEvent(self, event):
-        if self._press is not None and (event.position().toPoint() - self._press).manhattanLength() > 4:
+        if self.sketch.active_id and self.sketch.controller.tool and not (event.buttons() & (Qt.MiddleButton | Qt.RightButton)):
+            self.sketch.event('move', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            return
+        if self._press is not None and (event.position().toPoint()-self._press).manhattanLength() > 4:
             self._dragged = True
-        super().mouseMoveEvent(event)
+        if not self._additive:
+            super().mouseMoveEvent(self.navigation_event(event))
 
     def mouseReleaseEvent(self, event):
-        click = self._press is not None and not self._dragged and event.modifiers() == Qt.NoModifier
+        if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
+            self.sketch.event('release', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            return
+        click = self._press is not None and not self._dragged
         self._press = None
-        super().mouseReleaseEvent(event)
+        additive = self._additive
+        if not additive:
+            super().mouseReleaseEvent(self.navigation_event(event))
+        self._additive = False
+        if event.button() == Qt.RightButton:
+            self._shift_right_pan = False
         if click and event.button() == Qt.LeftButton:
-            width, height = self.GetRenderWindow().GetSize()
-            self.pick_at(event.position().x() * width / max(self.width(), 1),
-                         height - 1 - event.position().y() * height / max(self.height(), 1))
+            if self.sketch.active_id:
+                self.sketch.pick(*self.display_position(event))
+            else:
+                self.pick_at(*self.display_position(event), additive=additive)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
-            self.clear_selection()
+            if self.sketch.active_id and self.sketch.controller.tool:
+                self.sketch.set_tool('select')
+            else:
+                self.clear_selection()
+                self.sketch.select_entity(None)
+                self.sketchEntityPicked.emit(None)
         else:
             super().keyPressEvent(event)
