@@ -206,13 +206,16 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     w.axes_action.setChecked(False)
 
     def pixels():
-        v.GetRenderWindow().Render()
+        # Read the frame actually presented by the action: capturing must not
+        # repair a missing redraw and conceal stale deleted geometry.
         capture = vtkWindowToImageFilter()
+        capture.ShouldRerenderOff()
         capture.SetInput(v.GetRenderWindow())
         capture.ReadFrontBufferOff()
         capture.Update()
         return vtk_to_numpy(capture.GetOutput().GetPointData().GetScalars()).astype(int)
 
+    v.GetRenderWindow().Render()
     baseline = pixels()
     cyan = lambda p: (p[:, 2] > 130) & (p[:, 1]-p[:, 0] > 40) & (p[:, 2]-p[:, 0] > 60)
     assert np.count_nonzero(cyan(baseline)) > 100
@@ -230,6 +233,8 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     assert np.count_nonzero(np.max(abs(deleted-baseline), axis=1) > 5) > 100
     w.undo()
     assert np.max(abs(pixels()-baseline)) < 3
+    w.redo()
+    assert np.max(abs(pixels()-deleted)) < 3
 
 
 @pytest.mark.parametrize('text', ['0', '-1', 'nan', 'inf', 'invalid'])

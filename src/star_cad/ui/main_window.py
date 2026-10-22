@@ -294,6 +294,10 @@ class MainWindow(QMainWindow):
             self.viewport.fit()
         self.update_status()
         self.update_actions()
+        # set_shape renders before sketch meshes and previews are refreshed.
+        # Present the completed scene now, without waiting for another input.
+        if not fit:
+            self.viewport.GetRenderWindow().Render()
 
     def apply_dimensions(self):
         try:
