@@ -23,7 +23,7 @@ def test_window_edit_and_fit(qtbot):
     assert volume(window.document.shape) == pytest.approx(55.125 * 30 * 20)
     assert window.viewport.mapper.GetInput().GetBounds() == pytest.approx((0, 55.125, 0, 30, 0, 20))
     window.viewport.fit()
-    assert window.browser.currentItem().text(0) == 'Box'
+    assert window.browser.currentItem().text(0) == 'Box · current body'
 
 
 def test_camera_controls_and_render(qtbot):

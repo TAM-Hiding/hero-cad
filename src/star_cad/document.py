@@ -4,11 +4,12 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from star_cad.features import BoxParameters, ExtrudeParameters, Feature, FeatureError, FeatureStatus
+from star_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature, FeatureError, FeatureStatus
 from star_cad.geometry import make_box, make_sketch, compound
 from star_cad.profiles import extrude_region
 from star_cad.persistence import deserialize, serialize
 from star_cad.sketch import SketchParameters
+from star_cad.booleans import combine, through_distance, OperationError
 from star_cad.attachments import AttachmentError, resolve_attachment, identify_face
 
 
@@ -52,7 +53,8 @@ class Document:
         statuses, sketch_shapes, solids, definitions = {}, {}, {}, {}
         if sum(f.type == 'box' for f in features) != 1:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
-        entity_ids = set()
+        entity_ids, active = set(), set()
+        existing = {f.id for f in self.features} if hasattr(self, 'statuses') else None
         face_maps, resolved = {}, []
         inputs = {f.id: f for f in features}
         for feature in features:
@@ -66,7 +68,7 @@ class Document:
                     if p.attachment:
                         if feature.references != (p.attachment.parent_id,):
                             raise ValueError('Face sketch must reference exactly its parent feature')
-                        if definitions[p.attachment.parent_id].type not in ('box', 'extrude'):
+                        if definitions[p.attachment.parent_id].type not in ('box', 'extrude', 'boolean'):
                             raise ValueError('Attachment parent must be a solid feature')
                     elif 'plane:' + p.plane not in feature.references:
                         raise ValueError('Sketch must reference its origin plane')
@@ -75,11 +77,20 @@ class Document:
                             raise ValueError('Duplicate entity identifier')
                         entity_ids.add(entity.id)
                 if feature.type == 'extrude':
-                    if feature.references != (feature.parameters.sketch_id,):
-                        raise ValueError('Extrusion must reference exactly its source sketch')
+                    expected = (feature.parameters.sketch_id,) + ((feature.parameters.target_id,) if feature.parameters.target_id else ())
+                    if feature.references != expected:
+                        raise ValueError('Extrusion must reference its source sketch and explicit target')
                     source = definitions.get(feature.parameters.sketch_id)
                     if source is None or source.type != 'sketch':
                         raise ValueError('Extrusion source must be an earlier sketch')
+                if feature.type == 'boolean':
+                    p = feature.parameters
+                    if feature.references != (p.target_id, *p.tool_ids):
+                        raise ValueError('Boolean references must match target and tools')
+                targets = ((feature.parameters.target_id, *feature.parameters.tool_ids) if feature.type == 'boolean'
+                           else (feature.parameters.target_id,) if feature.type == 'extrude' and feature.parameters.target_id else ())
+                if any(definitions[t].type not in ('box', 'extrude', 'boolean') for t in targets):
+                    raise ValueError('Operation inputs must be earlier solid features')
                 blocked = next((ref for ref in feature.references if ref in statuses and not statuses[ref].valid), None)
                 if blocked:
                     statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}')
@@ -87,6 +98,7 @@ class Document:
                     try:
                         if feature.type == 'box':
                             solids[feature.id], face_maps[feature.id] = make_box(**asdict(feature.parameters), with_faces=True)
+                            active.add(feature.id)
                         elif feature.type == 'sketch':
                             p = feature.parameters
                             if p.attachment:
@@ -98,8 +110,28 @@ class Document:
                                 feature = replace(feature, parameters=replace(p, attached_frame=frame))
                             sketch_shapes[feature.id] = make_sketch(feature.parameters)
                         else:
-                            solids[feature.id], face_maps[feature.id] = extrude_region(source.parameters, feature.parameters, with_faces=True)
+                            if any(t not in active for t in targets):
+                                raise OperationError('Target/tool is not a current resulting body')
+                            if feature.type == 'boolean':
+                                result = combine(feature.parameters.operation, solids[targets[0]],
+                                                 [solids[t] for t in targets[1:]])
+                                faces = {}
+                            else:
+                                p = feature.parameters
+                                if p.extent == 'through_all':
+                                    p = replace(p, distance=through_distance(source.parameters.frame, solids[p.target_id], p.direction))
+                                result, faces = extrude_region(source.parameters, p, with_faces=True)
+                                if p.operation != 'new':
+                                    result = combine(p.operation, solids[p.target_id], [result])
+                                    faces = {}  # Boolean topology has no semantic naming contract.
+                            solids[feature.id], face_maps[feature.id] = result, faces
+                            active.difference_update(targets)
+                            active.add(feature.id)
                         statuses[feature.id] = FeatureStatus(True)
+                    except OperationError as error:
+                        if existing is not None and feature.id not in existing:
+                            raise
+                        statuses[feature.id] = FeatureStatus(False, str(error))
                     except AttachmentError as error:
                         # Lost semantic faces remain in history, never substituted.
                         statuses[feature.id] = FeatureStatus(False, str(error))
@@ -110,7 +142,8 @@ class Document:
                 raise FeatureError(feature.id, str(error)) from error
         if entity_ids.intersection(f.id for f in features):
             raise FeatureError('document', 'Entity and feature identifiers must be distinct')
-        shape = next(iter(solids.values())) if len(solids) == 1 else compound(solids.values())
+        self.active_body_ids = frozenset(active)
+        shape = compound(solids[i] for i in solids if i in active)
         self._regenerated_features, self.face_maps = tuple(resolved), face_maps
         return shape, sketch_shapes, statuses, solids
 
@@ -165,9 +198,18 @@ class Document:
         entities = tuple(entity if e.id == entity.id else e for e in feature.parameters.entities)
         self.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=entities)))
 
-    def add_extrusion(self, sketch_id, outer_id, hole_ids=(), distance=10.0):
-        parameters = ExtrudeParameters(sketch_id, outer_id, tuple(sorted(hole_ids)), distance)
-        feature = Feature('extrude', parameters, (sketch_id,))
+    def add_extrusion(self, sketch_id, outer_id, hole_ids=(), distance=10.0, *,
+                      operation='new', target_id=None, extent='distance', direction=1):
+        parameters = ExtrudeParameters(sketch_id, outer_id, tuple(sorted(hole_ids)), distance,
+                                       operation, target_id, extent, direction)
+        refs = (sketch_id,) + ((target_id,) if target_id else ())
+        feature = Feature('extrude', parameters, refs)
+        self.set_features(self.features + (feature,))
+        return feature.id
+
+    def add_boolean(self, operation, target_id, tool_ids):
+        parameters = BooleanParameters(operation, target_id, tuple(tool_ids))
+        feature = Feature('boolean', parameters, (target_id, *parameters.tool_ids))
         self.set_features(self.features + (feature,))
         return feature.id
 

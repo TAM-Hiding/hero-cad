@@ -63,3 +63,7 @@ AI-assisted modeling eventually proposes explicit, reviewable feature/parameter 
 ## v0.0.11 / PR #15 — planar face sketches
 
 Named box faces, extrusion caps and reliably identified Rectangle/Slot planar sides support attached sketches, regeneration, v5 files and unresolved-reference recovery. Circle walls/slot arcs and unknown face ownership are rejected. Reassign-plane and general topological naming remain deferred. No cuts/booleans or new sketch primitives. Do not begin PR #16 automatically.
+
+## v0.0.12 / PR #17 — parametric material operations
+
+Join/Cut/Intersect feature history, explicit body consumption, New Body/material-operation extrusion, directional Through All, modeless candidate previews and explicit display modes. Boolean-result face attachments and general topology naming remain deferred. Stop after PR #17; do not begin PR #18 automatically.

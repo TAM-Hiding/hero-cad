@@ -41,6 +41,8 @@ class Viewport(QVTKRenderWindowInteractor):
         self.selections = []
         self.edge_tolerance_px = 6
         self.selection_mode = 'face'
+        self.display_mode = 'Shaded with CAD Edges'
+        self.solid_visible = True
         self._press = None
         self._dragged = False
         self._additive = False
@@ -101,6 +103,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.edges = subshapes(shape, TopAbs_EDGE)
         self.mapper.SetInputData(surface)
         self.edge_mapper.SetInputData(wire)
+        self.apply_display_mode()
         bounds = surface.GetBounds()
         self.model_span = max(dist(bounds[::2], bounds[1::2]), 0.001) if surface.GetNumberOfPoints() else self.model_span
         self.clear_selection(render=False)
@@ -202,18 +205,54 @@ class Viewport(QVTKRenderWindowInteractor):
             raise ValueError('Selection mode must be face or edge')
         self.selection_mode = mode
 
+    def set_display_mode(self, mode):
+        if mode not in ('Shaded with CAD Edges', 'Shaded', 'CAD Wireframe', 'Mesh Debug'):
+            raise ValueError('Unknown display mode')
+        self.display_mode = mode
+        self.viewFeedback.emit(f'Display mode: {mode}')
+        self.apply_display_mode()
+        self.GetRenderWindow().Render()
+
+    def set_solid_visibility(self, visible):
+        self.solid_visible = bool(visible)
+        self.apply_display_mode()
+
+    def apply_display_mode(self):
+        self.actor.SetVisibility(self.solid_visible and self.display_mode != 'CAD Wireframe')
+        self.edge_actor.SetVisibility(self.solid_visible and self.display_mode in ('Shaded with CAD Edges', 'CAD Wireframe'))
+        self.actor.GetProperty().EdgeVisibilityOff()
+        if self.display_mode == 'Mesh Debug':
+            self.actor.GetProperty().SetRepresentationToWireframe()
+        else:
+            self.actor.GetProperty().SetRepresentationToSurface()
+
+    def surface_pick(self, x, y):
+        if not self.actor.GetVisibility() and not (self.display_mode == 'CAD Wireframe' and self.edge_actor.GetVisibility()):
+            return None
+        visible = self.actor.GetVisibility()
+        representation = self.actor.GetProperty().GetRepresentation()
+        try:
+            # Pick the authoritative face mapping even when surfaces are not drawn.
+            self.actor.VisibilityOn()
+            self.actor.GetProperty().SetRepresentationToSurface()
+            picker = vtkCellPicker()
+            picker.PickFromListOn()
+            picker.AddPickList(self.actor)
+            picker.SetTolerance(0.0005)
+            if not picker.Pick(x, y, 0, self.renderer) or picker.GetCellId() < 0:
+                return None
+            return picker.GetCellId(), picker.GetPickPosition()
+        finally:
+            self.actor.SetVisibility(visible)
+            self.actor.GetProperty().SetRepresentation(representation)
+
     def face_pick_at(self, x, y):
-        """Pick an actual visible OCCT face, independently of selection filters."""
-        if not self.actor.GetVisibility():
+        hit = self.surface_pick(x, y)
+        if hit is None:
             return None
-        picker = vtkCellPicker()
-        picker.PickFromListOn()
-        picker.AddPickList(self.actor)
-        picker.SetTolerance(0.0005)
-        if not picker.Pick(x, y, 0, self.renderer) or picker.GetCellId() < 0:
-            return None
-        index = self.mapper.GetInput().GetCellData().GetArray('face_id').GetValue(picker.GetCellId())
-        return self.faces[index], picker.GetPickPosition()
+        cell, point = hit
+        index = self.mapper.GetInput().GetCellData().GetArray('face_id').GetValue(cell)
+        return self.faces[index], point
 
     def align_face_at(self, x, y):
         hit = self.face_pick_at(x, y)
@@ -272,17 +311,15 @@ class Viewport(QVTKRenderWindowInteractor):
         return candidates(self.renderer, mesh, x, y, self.edge_tolerance_px * scale)
 
     def visible_edge(self, point):
-        front = vtkCellPicker()
-        front.PickFromListOn()
-        front.AddPickList(self.actor)
-        front.SetTolerance(0.0005)
+        if self.display_mode == 'CAD Wireframe':
+            return True
         self.renderer.SetWorldPoint(*point, 1)
         self.renderer.WorldToDisplay()
-        x, y, _ = self.renderer.GetDisplayPoint()
-        if not front.Pick(x, y, 0, self.renderer):
+        hit = self.surface_pick(*self.renderer.GetDisplayPoint()[:2])
+        if hit is None:
             return True
         direction = self.renderer.GetActiveCamera().GetDirectionOfProjection()
-        return sum((point[i]-front.GetPickPosition()[i])*direction[i] for i in range(3)) <= self.model_span*1e-5
+        return sum((point[i]-hit[1][i])*direction[i] for i in range(3)) <= self.model_span*1e-5
 
     def pick_at(self, x, y, additive=False):
         """Pick in device pixels. Shift toggles the current subshape in the set."""
@@ -293,11 +330,8 @@ class Viewport(QVTKRenderWindowInteractor):
             cell_id = hit[2] if hit else -1
         else:
             mesh = self.mapper.GetInput()
-            picker = vtkCellPicker()
-            picker.PickFromListOn()
-            picker.AddPickList(self.actor)
-            picker.SetTolerance(0.0005)
-            cell_id = picker.GetCellId() if picker.Pick(x, y, 0, self.renderer) else -1
+            hit = self.surface_pick(x,y)
+            cell_id = hit[0] if hit else -1
         if cell_id < 0:
             if not additive:
                 self.clear_selection()
@@ -456,7 +490,16 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         self.mousePressEvent(event)
 
+    def keyReleaseEvent(self, event):
+        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P):
+            event.accept()
+            return
+        super().keyReleaseEvent(event)
+
     def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P) and not event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier):
+            event.accept()
+            return
         if event.key() == Qt.Key_Tab and self.sketch.active_id and self.sketch.controller.tool:
             if self.dimensions.begin():
                 event.accept()
