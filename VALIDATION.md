@@ -246,3 +246,11 @@ Physical acceptance:
 6. Lost-side fixture (primitive replaced with same UUID) must show UNRESOLVED, retain local geometry, suppress dependent extrusion and recover on Undo or restoring the boundary. No substitute face or silently stale solid.
 
 Limits: named sides cover Rectangle parameter edges and Slot straight tangents only. Reassign Sketch Plane is deferred; restore the supported parent or remove dependent features explicitly. Legacy topology-change rejection for existing material-region holes remains unchanged. No PR #16 work.
+
+### Verified PR #15 results
+
+[Final full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39717778223), code/test commit `ff5a91cb87854c67b2620751995777db4c894ba5`: **285 passed on Ubuntu 22.04 and 285 on Ubuntu 24.04**, Python 3.12 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check pass. Fifty-four upstream VTK/NumPy warnings per job; no render checks skipped. Local final kernel/document command above: **105 passed** after adding the signed-depth reversal regression. Compileall, whitespace checks and remote/local source comparison pass.
+
+New rendered checks confirm a finished attached curve is visible on its host face, a bottom-face curve remains hidden behind the solid, and moving a parent updates cached display coordinates and visible pixels. The initial full run exposed two existing model-selection tests reaching a stale ('sketch', None) browser key; the new properties display made that invalid key observable. Deselecting in model view now returns to a valid box browser entry. Both existing tests and the full final suite pass. Cap frames retain their initial normal sense through signed-depth reversal, preventing local-coordinate mirroring; v5 roundtrip covers that state.
+
+Ready for the physical Box/Extrusion acceptance steps above. Compound-angle behavior is verified with located OCCT fixtures; the product still adds no transform/import operation. Reassign-plane and unsupported curved/unknown faces remain explicitly deferred. PR #16 has not been started.
