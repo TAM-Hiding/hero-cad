@@ -187,3 +187,24 @@ def test_moved_attachment_updates_cached_curve_and_visible_render(qtbot):
     assert all(b[2]-a[2] == 10 for a,b in zip(initial_path,new_path))
     assert np.count_nonzero(cyan(moved)) > 20
     assert np.count_nonzero(np.max(abs(moved-initial),axis=2) > 5) > 30
+
+
+def test_finished_attached_curve_visible_on_face_but_hidden_behind_solid_render(qtbot):
+    from test_sketch_visibility import capture, cyan
+    w = window(qtbot)
+    d,v = w.document,w.viewport
+    box = d.features[0].id
+    top = d.add_face_sketch(FaceReference(box,'+Z'))
+    d.add_entity(top,Circle(10,10,4))
+    w.refresh()
+    frame = d.feature(top).parameters.frame
+    look(v,frame,(10,10))
+    shown = capture(v)
+    assert np.count_nonzero(cyan(shown)) > 50
+    d.delete(features=(top,))
+    bottom = d.add_face_sketch(FaceReference(box,'-Z'))
+    # Bottom U=-X, V=+Y: place the circle within the box footprint.
+    d.add_entity(bottom,Circle(-10,10,4))
+    w.refresh()
+    hidden = capture(v)
+    assert np.count_nonzero(cyan(hidden)) < 5

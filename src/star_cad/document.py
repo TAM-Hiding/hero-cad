@@ -54,6 +54,7 @@ class Document:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids = set()
         face_maps, resolved = {}, []
+        inputs = {f.id: f for f in features}
         for feature in features:
             try:
                 if feature.id in known:
@@ -89,7 +90,11 @@ class Document:
                         elif feature.type == 'sketch':
                             p = feature.parameters
                             if p.attachment:
-                                frame = resolve_attachment(p.attachment, face_maps, definitions)
+                                parent = definitions[p.attachment.parent_id]
+                                previous_source = inputs[parent.parameters.sketch_id].parameters.frame if parent.type == 'extrude' else None
+                                frame = resolve_attachment(p.attachment, face_maps, definitions,
+                                                           previous_frame=p.attached_frame,
+                                                           previous_source_frame=previous_source)
                                 feature = replace(feature, parameters=replace(p, attached_frame=frame))
                             sketch_shapes[feature.id] = make_sketch(feature.parameters)
                         else:

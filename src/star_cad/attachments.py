@@ -84,7 +84,7 @@ def reference_key(reference):
     return reference.face, reference.boundary_id, reference.segment
 
 
-def resolve_attachment(reference, face_maps, definitions):
+def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None):
     parent = definitions.get(reference.parent_id)
     if parent is None or parent.type not in ('box', 'extrude'):
         raise AttachmentError('Attachment parent must be a solid feature')
@@ -100,8 +100,15 @@ def resolve_attachment(reference, face_maps, definitions):
         anchor = tuple(source.frame.origin[i]+offset*source.frame.normal[i] for i in range(3))
         # Source U stays fixed; V reverses only when outward normal reverses.
         raw = planar_frame(face)
-        up = cross(raw.normal, source.frame.u)
-        return planar_frame(face, anchor=anchor, up=up)
+        normal = raw.normal
+        if previous_frame is not None:
+            # Preserve the initial cap sense through a signed-depth reversal.
+            # Transport through the source frame rather than world coordinates.
+            sense = 1 if sum(a*b for a,b in zip(previous_frame.normal, previous_source_frame.normal)) > 0 else -1
+            normal = tuple(sense*x for x in source.frame.normal)
+        up = cross(normal, source.frame.u)
+        result = planar_frame(face, anchor=anchor, up=up)
+        return PlaneFrame('FACE', result.origin, source.frame.u, up)
     entity = next(e for e in source.entities if e.id == reference.boundary_id)
     a, _ = segments(entity)[reference.segment]
     return planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)

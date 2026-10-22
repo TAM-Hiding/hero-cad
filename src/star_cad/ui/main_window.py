@@ -626,7 +626,8 @@ class MainWindow(QMainWindow):
             if self.has_pending_edits() and not self.apply_dimensions():
                 return
             self.entity_context = None
-            self.browser_key = ('sketch', self.viewport.sketch.active_id)
+            active = self.viewport.sketch.active_id
+            self.browser_key = ('sketch', active) if active else next(k for k in self.browser_items if k[0] == 'box')
             with QSignalBlocker(self.browser):
                 self.browser.setCurrentItem(self.browser_items.get(self.browser_key))
             self.viewport.sketch.select_entity(None)

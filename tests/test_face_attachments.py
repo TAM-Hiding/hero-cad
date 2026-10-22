@@ -212,3 +212,17 @@ def test_compound_angle_attachment_exact_plane_and_downstream(monkeypatch,tmp_pa
     coincident(d.feature(sid).parameters.frame,d.face_maps[d.features[0].id]['+Z'])
     d.save(tmp_path/'angle.starcad')
     assert Document.load(d.path).features == d.features
+
+
+def test_cap_depth_reversal_preserves_local_frame_without_mirroring(tmp_path):
+    d, source, eid, rect = prism()
+    sid = d.add_face_sketch(FaceReference(eid,'end'))
+    circle = Circle(2,3,1)
+    d.add_entity(sid,circle)
+    before = d.feature(sid).parameters.frame
+    d.replace_feature(replace(d.feature(eid),parameters=replace(d.feature(eid).parameters,distance=-10)))
+    after = d.feature(sid).parameters.frame
+    assert after.u == before.u and after.v == before.v and after.normal == before.normal
+    assert after.origin == (0,0,-10) and d.feature(sid).parameters.entities == (circle,)
+    d.save(tmp_path/'reversed.starcad')
+    assert Document.load(d.path).feature(sid).parameters.frame == after
