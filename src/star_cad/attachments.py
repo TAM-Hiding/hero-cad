@@ -77,7 +77,14 @@ def extrusion_faces(builder, region, sketch, parameters):
                          if f.ShapeType() == TopAbs_FACE]
             if len(generated) == 1 and BRepAdaptor_Surface(generated[0]).GetType() == GeomAbs_Plane:
                 result[('side', entity.id, name)] = generated[0]
-    return result
+    # Prism history can return source-oriented caps for negative sweeps.
+    # Use the matching face's orientation in the actual closed result solid.
+    actual = []
+    explorer = TopExp_Explorer(builder.Shape(), TopAbs_FACE)
+    while explorer.More():
+        actual.append(TopoDS.Face_s(explorer.Current()))
+        explorer.Next()
+    return {key: next(f for f in actual if f.IsSame(face)) for key,face in result.items()}
 
 
 def reference_key(reference):
@@ -86,7 +93,7 @@ def reference_key(reference):
 
 def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None):
     parent = definitions.get(reference.parent_id)
-    if parent is None or parent.type not in ('box', 'extrude'):
+    if parent is None or parent.type not in ('box', 'extrude', 'boolean'):
         raise AttachmentError('Attachment parent must be a solid feature')
     key = reference.face if parent.type == 'box' else reference_key(reference)
     face = face_maps.get(parent.id, {}).get(key)

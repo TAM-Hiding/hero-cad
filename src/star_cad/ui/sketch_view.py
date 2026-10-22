@@ -80,8 +80,7 @@ class SketchView:
         self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
         if self.feature:
             context = bool(self.feature.parameters.attachment)
-            self.viewport.actor.SetVisibility(context)
-            self.viewport.edge_actor.SetVisibility(context)
+            self.viewport.set_solid_visibility(context)
             self.viewport.actor.GetProperty().SetOpacity(.35 if context else 1.)
             self.viewport.edge_actor.GetProperty().SetOpacity(.35 if context else 1.)
         self.prepare_display()
@@ -169,8 +168,7 @@ class SketchView:
         self.set_tool('select')
         self.origin_actor.VisibilityOff()
         self.highlight_actor.VisibilityOff()
-        self.viewport.actor.VisibilityOn()
-        self.viewport.edge_actor.VisibilityOn()
+        self.viewport.set_solid_visibility(True)
         self.viewport.actor.GetProperty().SetOpacity(1.)
         self.viewport.edge_actor.GetProperty().SetOpacity(1.)
         if self.saved_camera:

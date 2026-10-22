@@ -2,11 +2,17 @@ from dataclasses import replace
 from math import pi
 import pytest
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QInputDialog
 from star_cad.document import Document
 from star_cad.geometry import volume
 from star_cad.sketch import Circle, Rectangle, Slot
 from test_sketch_ui import window, enter, click, pixel
+
+
+def extrude(w, distance):
+    w.extrude_action.trigger()
+    w.operation_panel.distance.setValue(distance)
+    assert w.operation_panel.preview()
+    assert w.operation_panel.commit()
 
 
 def plate(qtbot, plane='XY'):
@@ -31,8 +37,7 @@ def test_click_material_hole_extrude_edit_source_and_reopen(qtbot, monkeypatch, 
     assert v.profiles.selection[1].hole_ids == (hole.id,)
     assert v.profiles.actor.GetVisibility() and v.profiles.mapper.GetInput().GetNumberOfPolys() > 0
     assert w.extrude_action.isEnabled()
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (3.0, True))
-    w.extrude_action.trigger()
+    extrude(w, 3.0)
     feature = w.document.features[-1]
     assert feature.type == 'extrude'
     assert v.sketch.active_id is None and not w.show_base_box.isChecked()
@@ -65,18 +70,21 @@ def test_profile_cancel_invalid_depth_context_and_delete(qtbot, monkeypatch):
     v, frame = w.viewport, w.document.feature(sid).parameters.frame
     before = w.document.features
     click(qtbot, v, frame, (15, 5))
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (8.0, False))
     w.extrude_action.trigger()
+    w.operation_panel.cancel()
     assert w.document.features == before
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (0.0, True))
     w.extrude_action.trigger()
+    w.operation_panel.distance.setValue(0)
+    assert not w.operation_panel.preview()
+    w.operation_panel.cancel()
     assert w.document.features == before
     assert 'nonzero' in w.statusBar().currentMessage()
     qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, frame.to_world((15, 5))))
     assert [a.text() for a in w._context_menu.actions()] == ['Extrude…']
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (8.0, True))
     w._context_menu.actions()[0].trigger()
     w._context_menu.close()
+    w.operation_panel.distance.setValue(8)
+    assert w.operation_panel.preview() and w.operation_panel.commit()
     eid = w.document.features[-1].id
     w.browser.setCurrentItem(w.browser_items[('extrude', eid)])
     w.browser.setFocus()
@@ -141,8 +149,7 @@ def test_plate_hole_and_profile_highlight_render(qtbot, monkeypatch):
     selected = pixels()
     orange = (selected[:, :, 0] > selected[:, :, 2]+15) & (selected[:, :, 0] > 60)
     assert np.count_nonzero(orange) > 1000
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (3.0, True))
-    w.extrude_action.trigger()
+    extrude(w, 3.0)
     v.orient('Top')
     solid = pixels()
     cyan = (solid[:, :, 2] > 100) & (solid[:, :, 1] > 90)
@@ -171,8 +178,7 @@ def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkey
     w.profile_action.setChecked(True)
     click(qtbot, v, frame, (60, 0))
     assert v.profiles.selection[1].outer_id == circle.id
-    monkeypatch.setattr(QInputDialog, 'getDouble', lambda *args: (5.0, True))
-    w.extrude_action.trigger()
+    extrude(w, 5.0)
     eid = w.document.features[-1].id
     path = tmp_path/'reopen.starcad'
     w.document.save(path)
