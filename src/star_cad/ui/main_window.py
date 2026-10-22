@@ -6,6 +6,7 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
+    QSlider, QHBoxLayout, QWidgetAction,
 )
 from star_cad import __version__
 from star_cad.document import BoxParameters, Document
@@ -164,6 +165,26 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.delete_action)
         self.viewport.deleteRequested.connect(self.delete_selected)
         self.viewport.sketchContextRequested.connect(self.viewport_context_menu)
+        view_menu = self.menuBar().addMenu("&View")
+        opacity_row = QWidget()
+        opacity_layout = QHBoxLayout(opacity_row)
+        opacity_layout.addWidget(QLabel("Dimension popup opacity"))
+        self.dimension_opacity = QSlider(Qt.Horizontal)
+        self.dimension_opacity.setRange(0, 100)
+        self.dimension_opacity.setValue(100)
+        self.dimension_opacity.setFixedWidth(120)
+        self.dimension_opacity.setAccessibleName("Dimension popup opacity")
+        self.dimension_opacity.setToolTip("0% hides the dimension popup; session preference")
+        self.dimension_opacity_value = QLabel("100%")
+        self.dimension_opacity_value.setMinimumWidth(45)
+        self.dimension_opacity.valueChanged.connect(self.viewport.dimensions.set_opacity)
+        self.dimension_opacity.valueChanged.connect(
+            lambda value: self.dimension_opacity_value.setText(f"{value}%" if value else "Off"))
+        opacity_layout.addWidget(self.dimension_opacity)
+        opacity_layout.addWidget(self.dimension_opacity_value)
+        opacity_action = QWidgetAction(self)
+        opacity_action.setDefaultWidget(opacity_row)
+        view_menu.addAction(opacity_action)
         self.refresh(fit=True)
 
     def add_panel(self, title, widget, area):

@@ -1,6 +1,6 @@
 """Small reusable cursor readout/editor; values belong to construction tools only."""
 from PySide6.QtCore import Qt, QEvent, QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QGraphicsOpacityEffect
 
 
 class ConstructionDimensions(QWidget):
@@ -12,6 +12,10 @@ class ConstructionDimensions(QWidget):
         self.editing = False
         self.stage_key = None
         self.anchor_pending = True
+        self.opacity = 100
+        self.opacity_effect = QGraphicsOpacityEffect(self)
+        self.opacity_effect.setOpacity(1.0)
+        self.setGraphicsEffect(self.opacity_effect)
         self.label = QLabel()
         self.input = QLineEdit()
         self.input.setPlaceholderText('Type mm · Tab next · Enter place')
@@ -64,13 +68,24 @@ class ConstructionDimensions(QWidget):
             self.cursor_position = position.toPoint() if hasattr(position, 'toPoint') else position
             self.anchor_pending = False
         self.adjustSize()
-        self.move(max(0, min(self.cursor_position.x()+18, self.viewport.width()-self.width())),
-                  max(0, min(self.cursor_position.y()+18, self.viewport.height()-self.height())))
-        self.show()
+        self.move(max(0, min(self.cursor_position.x()+98, self.viewport.width()-self.width())),
+                  max(0, min(self.cursor_position.y()+68, self.viewport.height()-self.height())))
+        self.setVisible(self.opacity > 0)
         self.raise_()
 
+    def set_opacity(self, percent):
+        self.opacity = max(0, min(100, int(percent)))
+        self.opacity_effect.setOpacity(self.opacity / 100)
+        if self.opacity == 0:
+            self.editing = False
+            if self.input.hasFocus():
+                self.viewport.setFocus()
+            self.hide()
+        else:
+            self.update_values()
+
     def begin(self, text=''):
-        if not self.names:
+        if not self.names or self.opacity == 0:
             return False
         self.editing = True
         self.input.show()
