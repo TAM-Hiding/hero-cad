@@ -42,7 +42,7 @@ Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); Y
 
 ### Exact dimensions during placement
 
-After starting a shape, move the cursor to establish direction, then **type a dimension**. A small cursor readout shows live millimetre values. **Tab** locks the current value and moves to the next field; **Enter** locks and completes the current construction stage. **Escape** cancels the entire unfinished shape, including typed values. Positive finite values from 0.000001 to 1000000 mm are accepted, subject to entity coordinate limits. Numeric entry bypasses snapping for the specified dimension and retains the cursor direction; untouched mouse-only gestures and Shift modes work as before.
+After starting a shape, move the cursor to establish direction, then **type a dimension** or press **Tab** to focus the visible input field. You can also click that field during click-based construction stages. The popup stays near the start of each stage so it can be reached by the pointer. Valid typed values update the preview immediately without changing the document. Pointer movement pauses while editing to preserve the chosen direction. **Tab** locks the current value and moves to the next field; **Enter** locks and completes the current construction stage. **Escape** cancels the entire unfinished shape, including typed values. Positive finite values from 0.000001 to 1000000 mm are accepted, subject to entity coordinate limits. Numeric entry bypasses snapping for the specified dimension and retains the cursor direction; untouched mouse-only gestures and Shift modes work as before.
 
 | Placement stage | Typed fields |
 |---|---|
@@ -52,7 +52,7 @@ After starting a shape, move the cursor to establish direction, then **type a di
 | Diagonal rectangle | Width and Depth (Tab switches) |
 | Shift edge-first rectangle | Width, then perpendicular Depth |
 
-For example, start a circle, drag outward, type `0.02`, then Enter. For a slot, hold Shift at the initial press, type the radius and Enter, move toward the second center, then type its center-to-center distance and Enter. You can release the mouse while the input is open; placement waits for Enter or Escape. Numeric values are stored as double precision without display rounding. For line length, endpoints encode the length at floating-point precision.
+For example, start a circle, drag outward, press Tab, type `0.02`, then Enter. For drag-based tools, start typing or press Tab before releasing the mouse; releasing while the field is active waits for Enter. For a slot, hold Shift at the initial press, type the radius and Enter, move toward the second center, then type its center-to-center distance and Enter. You can release the mouse while the input is open; placement waits for Enter or Escape. Numeric values are stored as double precision without display rounding. For line length, endpoints encode the length at floating-point precision.
 
 ### Selection, context actions and deletion
 

@@ -311,7 +311,7 @@ class Viewport(QVTKRenderWindowInteractor):
         return event
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton and self.dimensions.input.isVisible():
+        if event.button() == Qt.LeftButton and self.dimensions.editing:
             return
         if event.button() == Qt.RightButton and not event.modifiers() & Qt.ShiftModifier:
             self._context_press = event.position().toPoint()
@@ -325,7 +325,9 @@ class Viewport(QVTKRenderWindowInteractor):
             self._right_press = event.position().toPoint()
             self._right_dragged = False
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
+            self.setFocus(Qt.MouseFocusReason)
             self.sketch.event('press', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            self.dimensions.update_values(event.position())
             return
         self._press = event.position().toPoint() if event.button() == Qt.LeftButton else None
         self._dragged = False
@@ -334,6 +336,8 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mousePressEvent(self.navigation_event(event))
 
     def mouseMoveEvent(self, event):
+        if self.dimensions.editing and not event.buttons() & (Qt.MiddleButton | Qt.RightButton):
+            return
         if getattr(self, '_context_press', None) is not None and event.buttons() & Qt.RightButton:
             if (event.position().toPoint()-self._context_press).manhattanLength() >= QApplication.startDragDistance():
                 self._context_dragged = True
@@ -357,7 +361,7 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mouseMoveEvent(self.navigation_event(event))
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton and self.dimensions.input.isVisible():
+        if event.button() == Qt.LeftButton and self.dimensions.editing:
             return
         if event.button() == Qt.RightButton and getattr(self, '_context_press', None) is not None:
             start, self._context_press = self._context_press, None
@@ -370,6 +374,7 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
             self.sketch.event('release', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
+            self.dimensions.update_values(event.position())
             return
         click = self._press is not None and not self._dragged
         self._press = None
@@ -404,6 +409,10 @@ class Viewport(QVTKRenderWindowInteractor):
         self.mousePressEvent(event)
 
     def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Tab and self.sketch.active_id and self.sketch.controller.tool:
+            if self.dimensions.begin():
+                event.accept()
+                return
         if (self.sketch.active_id and self.sketch.controller.tool
                 and not event.modifiers() & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)
                 and event.text() and event.text()[0] in '0123456789.+-'):
@@ -422,6 +431,12 @@ class Viewport(QVTKRenderWindowInteractor):
                 self.sketchEntityPicked.emit(None)
         else:
             super().keyPressEvent(event)
+
+    def focusNextPrevChild(self, next):
+        # QWidget normally consumes Tab before keyPressEvent for focus traversal.
+        if hasattr(self, 'dimensions') and self.sketch.active_id and self.sketch.controller.tool and self.dimensions.names:
+            return self.dimensions.begin()
+        return super().focusNextPrevChild(next)
 
     def leaveEvent(self, event):
         self.sketch.clear_snap()
