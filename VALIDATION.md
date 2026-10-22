@@ -171,10 +171,12 @@ Manual retest: choose Circle, press/drag outward, press Tab before releasing, an
 
 Ready for physical input acceptance using the steps above. No document format or modeling-operation changes.
 
-## Dimension popup offset and opacity (in progress)
+## Dimension popup offset and opacity
 
 Move the stage-anchored popup an additional 80 logical pixels right and 50 down (total 98/68 from the anchor), retaining viewport clamping. View → Dimension popup opacity provides a session-only 0–100% slider for the whole widget through QGraphicsOpacityEffect. Zero hides the popup and disables activation of its hidden input; turning it off while editing releases keyboard focus and restores mouse placement. Geometry, file format and construction state remain unchanged by the preference.
 
 Local targeted checks: `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_dimension_focus.py -q`: **6 passed**. New coverage checks offset, viewport clamping, 50% effect opacity, zero visibility across pointer updates and new placements, restored visibility, unchanged document state while adjusting opacity, and hiding during active input without blocking mouse release. Existing actual-focus/click/Tab/live-preview tests also pass. Local OpenGL is unavailable; full Xvfb/Mesa CI remains required.
 
 Manual retest: start a sketch shape and open View → Dimension popup opacity. Try 100%, 50% and Off over the CAD viewport, then restore. Confirm the box is farther out of the way, translucent at intermediate values, and absent/click-through at zero; try mouse placement while off and numeric input after restoration. Check near all viewport edges and on the physical display's scaling setting.
+
+Verified [full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39701080911), code/test commit `7c0a9a31e1c33386e8323e44e701007a22ef0102`: **188 passed on Ubuntu 22.04 and 188 on Ubuntu 24.04**, including all existing rendered checks, using Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Forty-four upstream VTK/NumPy warnings per job; no render checks skipped. Compileall and whitespace checks pass. Physical popup translucency and display scaling remain the manual checks above.
