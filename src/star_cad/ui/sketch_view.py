@@ -83,6 +83,7 @@ class SketchView:
             self.viewport.actor.SetVisibility(context)
             self.viewport.edge_actor.SetVisibility(context)
             self.viewport.actor.GetProperty().SetOpacity(.35 if context else 1.)
+            self.viewport.edge_actor.GetProperty().SetOpacity(.35 if context else 1.)
         self.prepare_display()
         if self.actor.GetVisibility():
             bounds = self.mapper.GetInput().GetBounds()
@@ -171,6 +172,7 @@ class SketchView:
         self.viewport.actor.VisibilityOn()
         self.viewport.edge_actor.VisibilityOn()
         self.viewport.actor.GetProperty().SetOpacity(1.)
+        self.viewport.edge_actor.GetProperty().SetOpacity(1.)
         if self.saved_camera:
             self.viewport.renderer.GetActiveCamera().DeepCopy(self.saved_camera)
             self.saved_camera = None
