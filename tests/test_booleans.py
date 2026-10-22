@@ -143,6 +143,9 @@ def test_dependency_validation_and_legacy_defaults():
     legacy=serialize(d.features)
     assert legacy['version']==4
     assert deserialize(legacy)[-1].parameters.operation=='new'
+    p=replace(d.feature(eid).parameters,direction=-1)
+    assert p.direction==1  # Signed-distance mode has no second direction state.
+    assert deserialize(serialize((d.features[0],d.feature(sid),replace(d.feature(eid),parameters=p))))[-1].parameters==p
     p=BooleanParameters('join',d.features[0].id,(eid,))
     f=Feature('boolean',p,(d.features[0].id,eid))
     with pytest.raises(FeatureError,match='forward'):

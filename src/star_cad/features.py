@@ -39,6 +39,9 @@ class ExtrudeParameters:
             raise ValueError('Through All is supported only for Cut')
         if type(self.direction) is not int or self.direction not in (-1, 1):
             raise ValueError('Direction must be +1 or -1')
+        if self.extent == 'distance':
+            # Signed distance already encodes direction; keep the legacy form canonical.
+            object.__setattr__(self, 'direction', 1)
         valid_id(self.sketch_id)
         valid_id(self.outer_id)
         if not isinstance(self.hole_ids, tuple) or len(self.hole_ids) > 255:

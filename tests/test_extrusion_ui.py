@@ -78,7 +78,7 @@ def test_profile_cancel_invalid_depth_context_and_delete(qtbot, monkeypatch):
     assert not w.operation_panel.preview()
     w.operation_panel.cancel()
     assert w.document.features == before
-    assert 'nonzero' in w.statusBar().currentMessage()
+    assert 'nonzero' in w.operation_panel.feedback.text()
     qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, frame.to_world((15, 5))))
     assert [a.text() for a in w._context_menu.actions()] == ['Extrude…']
     w._context_menu.actions()[0].trigger()

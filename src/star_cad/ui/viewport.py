@@ -209,6 +209,7 @@ class Viewport(QVTKRenderWindowInteractor):
         if mode not in ('Shaded with CAD Edges', 'Shaded', 'CAD Wireframe', 'Mesh Debug'):
             raise ValueError('Unknown display mode')
         self.display_mode = mode
+        self.viewFeedback.emit(f'Display mode: {mode}')
         self.apply_display_mode()
         self.GetRenderWindow().Render()
 

@@ -87,6 +87,8 @@ def test_display_modes_keys_picking_and_regeneration(qtbot,mode):
     point=pixel(v,(20,0,10))
     qtbot.mouseClick(v,Qt.LeftButton,pos=point)
     assert v.selection and v.selection.kind=='face'
+    # Picking/rendering can change the renderer's scratch display coordinate.
+    pixel(v,(20,0,10))
     assert v.face_pick_at(*v.renderer.GetDisplayPoint()[:2]) is not None
     v.set_selection_mode('edge')
     edgepoint=pixel(v,(0,0,10))
