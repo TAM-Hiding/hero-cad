@@ -98,3 +98,57 @@ def test_rectangle_fields_update_preview_before_commit(qtbot):
     rectangle = w.document.feature(sid).parameters.entities[-1]
     assert rectangle.width == 7.125 and rectangle.height == 4.25
     qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, frame.to_world((6, 8))))
+
+
+def test_popup_offset_opacity_hide_and_restore(qtbot):
+    from PySide6.QtCore import QPoint
+    w = window(qtbot)
+    sid = enter(w)
+    v = w.viewport
+    v.setFixedSize(900, 600)
+    frame = w.document.feature(sid).parameters.frame
+    w.tool_choice.setCurrentText('Line')
+    qtbot.mouseClick(v, Qt.LeftButton, pos=pixel(v, frame.to_world((0, 0))))
+    popup = v.dimensions
+    popup.anchor_pending = True
+    popup.update_values(QPoint(20, 30))
+    assert popup.pos() == QPoint(118, 98)  # Original 18px + 80 right / 50 down.
+    before = w.document.features
+    w.dimension_opacity.setValue(50)
+    assert popup.opacity_effect.opacity() == 0.5 and popup.isVisible()
+    assert w.dimension_opacity_value.text() == '50%'
+    assert w.document.features == before
+    w.dimension_opacity.setValue(0)
+    assert not popup.isVisible() and not popup.begin('5')
+    assert w.dimension_opacity_value.text() == 'Off'
+    hover(v, pixel(v, frame.to_world((6, 8))))
+    assert not popup.isVisible()
+    qtbot.mouseClick(v, Qt.LeftButton, pos=pixel(v, frame.to_world((6, 8))))
+    assert len(w.document.feature(sid).parameters.entities) == 1
+    # It stays off on the next shape; restoring opacity reveals its live values.
+    qtbot.mouseClick(v, Qt.LeftButton, pos=pixel(v, frame.to_world((-5, -5))))
+    w.dimension_opacity.setValue(100)
+    assert popup.isVisible() and popup.opacity_effect.opacity() == 1.0
+    popup.anchor_pending = True
+    popup.update_values(QPoint(890, 590))
+    assert popup.x()+popup.width() <= v.width()
+    assert popup.y()+popup.height() <= v.height()
+
+
+def test_hiding_editor_releases_focus_and_mouse_placement(qtbot):
+    w = window(qtbot)
+    sid = enter(w)
+    v = w.viewport
+    frame = w.document.feature(sid).parameters.frame
+    w.activateWindow()
+    QApplication.processEvents()
+    w.tool_choice.setCurrentText('Circle')
+    qtbot.mousePress(v, Qt.LeftButton, pos=pixel(v, frame.to_world((0, 0))))
+    hover(v, pixel(v, frame.to_world((6, 8))))
+    qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Tab)
+    assert v.dimensions.editing
+    w.dimension_opacity.setValue(0)
+    assert not v.dimensions.editing and not v.dimensions.isVisible()
+    assert QApplication.focusWidget() is not v.dimensions.input
+    qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, frame.to_world((6, 8))))
+    assert len(w.document.feature(sid).parameters.entities) == 1
