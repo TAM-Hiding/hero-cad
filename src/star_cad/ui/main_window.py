@@ -6,11 +6,12 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
-    QSlider, QHBoxLayout, QWidgetAction,
+    QSlider, QHBoxLayout, QWidgetAction, QInputDialog,
 )
 from star_cad import __version__
 from star_cad.document import BoxParameters, Document
-from star_cad.geometry import volume
+from star_cad.features import ExtrudeParameters
+from star_cad.geometry import volume, compound
 from star_cad.sketch import PLANES
 from star_cad.ui.viewport import Viewport
 
@@ -165,7 +166,25 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.delete_action)
         self.viewport.deleteRequested.connect(self.delete_selected)
         self.viewport.sketchContextRequested.connect(self.viewport_context_menu)
+        self.profile_action = QAction("Select Profile", self)
+        self.profile_action.setCheckable(True)
+        self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Enter its sketch if solids obscure it.")
+        self.profile_action.toggled.connect(self.viewport.profiles.set_mode)
+        toolbar.addAction(self.profile_action)
+        self.sketch_toolbar.addAction(self.profile_action)
+        self.extrude_action = QAction("Extrude…", self)
+        self.extrude_action.setEnabled(False)
+        self.extrude_action.triggered.connect(self.extrude_selected)
+        toolbar.addAction(self.extrude_action)
+        self.sketch_toolbar.addAction(self.extrude_action)
+        self.viewport.profilePicked.connect(lambda selection: self.extrude_action.setEnabled(selection is not None))
+        self.viewport.profileContextRequested.connect(self.profile_context_menu)
         view_menu = self.menuBar().addMenu("&View")
+        self.show_base_box = QAction("Show base box", self)
+        self.show_base_box.setCheckable(True)
+        self.show_base_box.setChecked(True)
+        self.show_base_box.toggled.connect(lambda _: self.refresh())
+        view_menu.addAction(self.show_base_box)
         opacity_row = QWidget()
         opacity_layout = QHBoxLayout(opacity_row)
         opacity_layout.addWidget(QLabel("Dimension popup opacity"))
@@ -229,7 +248,7 @@ class MainWindow(QMainWindow):
         active = self.viewport.sketch.active_id is not None
         key = self.browser_key or ()
         self.new_sketch_action.setEnabled(not active and bool(key) and key[0] == 'plane')
-        self.edit_sketch_action.setEnabled(not active and bool(key) and key[0] in ('sketch', 'entity'))
+        self.edit_sketch_action.setEnabled(not active and bool(key) and key[0] in ('sketch', 'entity', 'extrude'))
         self.sketch_toolbar.setVisible(active)
         self.selection_choice.setEnabled(not active)
         self.view_choice.setEnabled(not active)
@@ -239,13 +258,27 @@ class MainWindow(QMainWindow):
 
     def refresh(self, fit=False):
         self.viewport.dimensions.reset()
+        self.viewport.profiles.clear()
+        self.viewport.profiles.cache.clear()
+        has_extrusions = any(f.type == 'extrude' for f in self.document.features)
+        self.show_base_box.setEnabled(has_extrusions)
+        if not has_extrusions or not getattr(self, '_had_extrusions', False):
+            with QSignalBlocker(self.show_base_box):
+                self.show_base_box.setChecked(not has_extrusions)
+        self._had_extrusions = has_extrusions
         for name, field in self.fields.items():
             with QSignalBlocker(field):
                 field.setValue(getattr(self.document.parameters, name))
                 field.setToolTip(f"Stored dimension: {getattr(self.document.parameters, name):.15g} mm")
         # Preserve untouched loaded values even if the editor displays fewer decimals.
         self._shown_values = {n: f.value() for n, f in self.fields.items()}
-        self.viewport.set_shape(self.document.shape, fit=fit)
+        shapes = [shape for identifier, shape in self.document.solid_shapes.items()
+                  if self.show_base_box.isChecked() or self.document.feature(identifier).type != 'box']
+        # Keep the box visible if there are no extrusion bodies to display.
+        visible = compound(shapes) if shapes else self.document.shape
+        self.visible_volume = volume(visible)
+        self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
+        self.viewport.set_shape(visible, fit=fit)
         self.viewport.sketch.update(self.document.sketches)
         self.viewport.sketch.preview_actor.VisibilityOff()
         if self.viewport.sketch.controller.tool:
@@ -267,7 +300,11 @@ class MainWindow(QMainWindow):
             if self.entity_context:
                 entity = self.current_entity()
                 values = self.entity_values()
-                self.document.update_entity(self.entity_context[0], replace(entity, **values))
+                if self.entity_context[0] == 'extrude':
+                    feature = self.document.feature(self.entity_context[1])
+                    self.document.replace_feature(replace(feature, parameters=replace(entity, **values)))
+                else:
+                    self.document.update_entity(self.entity_context[0], replace(entity, **values))
             else:
                 self.document.set_box(self.field_parameters())
         except Exception as error:
@@ -362,10 +399,14 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot open document", str(error))
             return
         self.document = replacement
+        with QSignalBlocker(self.show_base_box):
+            self.show_base_box.setChecked(not any(f.type == 'extrude' for f in replacement.features))
         self.refresh(fit=True)
 
     def current_entity(self):
         sketch_id, entity_id = self.entity_context
+        if sketch_id == 'extrude':
+            return self.document.feature(entity_id).parameters
         return next(e for e in self.document.feature(sketch_id).parameters.entities if e.id == entity_id)
 
     def entity_values(self):
@@ -381,14 +422,17 @@ class MainWindow(QMainWindow):
                 self.entity_form.removeRow(0)
             self.entity_fields = {}
             entity = self.current_entity()
-            self.entity_form.addRow(QLabel(type(entity).__name__ + " · local sketch coordinates"))
+            extrusion = self.entity_context[0] == 'extrude'
+            self.entity_form.addRow(QLabel("Extrusion · signed normal distance · new body" if extrusion else type(entity).__name__ + " · local sketch coordinates"))
             for parameter in data_fields(entity):
-                if parameter.name == 'id':
+                if parameter.name == 'id' or (extrusion and parameter.name != 'distance'):
                     continue
                 name = parameter.name
                 field = QDoubleSpinBox()
                 field.setDecimals(9)
                 field.setRange(0.000001 if name in ('width', 'height', 'radius', 'distance') else -1000000, 1000000)
+                if extrusion:
+                    field.setRange(-100000, 100000)
                 field.setSuffix(" °" if name == 'angle' else " mm")
                 field.setValue(getattr(entity, name))
                 field.setToolTip(f"Stored: {getattr(entity, name):.17g}")
@@ -397,11 +441,11 @@ class MainWindow(QMainWindow):
                 self.entity_fields[name] = field
                 self.entity_form.addRow(name.replace('_', ' ').title(), field)
             self.entity_shown = {n: f.value() for n, f in self.entity_fields.items()}
-            self.entity_apply = QPushButton("Apply entity parameters")
+            self.entity_apply = QPushButton("Apply extrusion distance" if extrusion else "Apply entity parameters")
             self.entity_apply.clicked.connect(self.apply_dimensions)
             self.entity_form.addRow(self.entity_apply)
             self.property_stack.setCurrentIndex(1)
-            self.viewport.sketch.select_entity(entity.id)
+            self.viewport.sketch.select_entity(None if extrusion else entity.id)
         elif self.browser_key and self.browser_key[0] != 'box':
             self.property_stack.setCurrentIndex(2)
             self.property_info.setText("Select an Origin plane and choose New Sketch, or select an existing sketch and choose Edit Sketch.")
@@ -426,6 +470,9 @@ class MainWindow(QMainWindow):
                     item = QTreeWidgetItem(body, ["Box"])
                     self.box_item = item
                     key = ('box', feature.id)
+                elif feature.type == 'extrude':
+                    item = QTreeWidgetItem(self.browser, [f"Extrusion · {feature.parameters.distance:g} mm · new body"])
+                    key = ('extrude', feature.id)
                 else:
                     number = len([k for k in self.browser_items if k[0] == 'sketch']) + 1
                     item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {feature.parameters.plane}"])
@@ -457,7 +504,9 @@ class MainWindow(QMainWindow):
         with QSignalBlocker(self.browser):
             self.browser.setCurrentItem(self.browser_items.get(key), 0, QItemSelectionModel.NoUpdate)
         self.entity_context = (key[1], key[2]) if key and key[0] == 'entity' else None
-        self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context else None)
+        if key and key[0] == 'extrude':
+            self.entity_context = ('extrude', key[1])
+        self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context and self.entity_context[0] != 'extrude' else None)
         self.show_properties()
         self.update_actions()
 
@@ -480,6 +529,8 @@ class MainWindow(QMainWindow):
 
     def edit_sketch(self):
         key = self.browser_key
+        if key and key[0] == 'extrude':
+            key = ('sketch', self.document.feature(key[1]).parameters.sketch_id)
         if not key or key[0] not in ('sketch', 'entity') or self.viewport.sketch.active_id:
             return
         if self.has_pending_edits() and not self.apply_dimensions():
@@ -496,6 +547,8 @@ class MainWindow(QMainWindow):
         self.update_status()
 
     def sync_tool(self, name):
+        if name != 'select' and hasattr(self, 'profile_action'):
+            self.profile_action.setChecked(False)
         with QSignalBlocker(self.tool_choice):
             self.tool_choice.setCurrentText(name.title())
 
@@ -557,11 +610,11 @@ class MainWindow(QMainWindow):
         keys = self.selected_keys()
         if not keys:
             return
-        if any(k[0] not in ('entity', 'sketch') for k in keys):
-            self.statusBar().showMessage('Only sketch entities and unreferenced sketches can be deleted', 4000)
+        if any(k[0] not in ('entity', 'sketch', 'extrude') for k in keys):
+            self.statusBar().showMessage('Only sketch entities, unreferenced sketches and extrusions can be deleted', 4000)
             return
         try:
-            self.document.delete(features=[k[1] for k in keys if k[0] == 'sketch'],
+            self.document.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude')],
                                  entities=[k[1:] for k in keys if k[0] == 'entity'])
         except Exception as error:
             self.statusBar().showMessage(str(error), 5000)
@@ -574,13 +627,48 @@ class MainWindow(QMainWindow):
     def context_menu(self, key):
         """Only implemented actions are exposed; future actions can append here."""
         menu = QMenu(self)
-        if key and key[0] in ('entity', 'box'):
+        if key and key[0] in ('entity', 'box', 'extrude'):
             menu.addAction('Edit Parameters', self.focus_parameters)
-        if key and key[0] in ('entity', 'sketch'):
+        if key and key[0] in ('entity', 'sketch', 'extrude'):
             action = menu.addAction('Edit Sketch', self.edit_sketch)
             action.setEnabled(self.viewport.sketch.active_id is None)
             menu.addAction('Delete', self.delete_selected)
         return menu
+
+    def profile_context_menu(self, position):
+        menu = QMenu(self)
+        menu.addAction(self.extrude_action)
+        menu.popup(position)
+        self._context_menu = menu
+
+    def extrude_selected(self):
+        selected = self.viewport.profiles.selection
+        if not selected:
+            return
+        distance, accepted = QInputDialog.getDouble(self, 'Extrude material region',
+            'Signed distance along sketch normal (mm)\nNew body; no Join or Cut. Internal holes remain empty.',
+            10.0, -100000, 100000, 9)
+        if not accepted:
+            return
+        sketch_id, region = selected
+        try:
+            ExtrudeParameters(sketch_id, region.outer_id, region.hole_ids, distance)
+            if self.has_pending_edits() and not self.apply_dimensions():
+                return
+            identifier = self.document.add_extrusion(sketch_id, region.outer_id, region.hole_ids, distance)
+        except Exception as error:
+            self.statusBar().showMessage(str(error), 6000)
+            return
+        if self.viewport.sketch.active_id:
+            self.viewport.sketch.finish()
+        self.profile_action.setChecked(False)
+        # The initial box is a separate demo body; do not let it cover a new part.
+        with QSignalBlocker(self.show_base_box):
+            self.show_base_box.setChecked(False)
+        self.entity_context = ('extrude', identifier)
+        self.browser_key = ('extrude', identifier)
+        self.refresh(fit=True)
+        self.statusBar().showMessage('Extrusion created as a new body · base box hidden (View → Show base box)', 6000)
 
     def focus_parameters(self):
         self.show_properties()
@@ -635,7 +723,7 @@ class MainWindow(QMainWindow):
         selection_text = (f"Selected {selected.kind} {selected.index + 1} ({len(self.viewport.selections)} total)  |  "
                           if selected is not None else "")
         self.statusBar().showMessage(
-            f"{selection_text}Volume: {volume(self.document.shape):.3f} mm³  |  "
+            f"{selection_text}{self.volume_label}: {self.visible_volume:.3f} mm³  |  "
             "Left drag: orbit · middle/Shift-right drag: pan · Shift-right double-click: face normal · wheel: zoom · F: fit"
         )
 

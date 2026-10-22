@@ -9,6 +9,7 @@ from vtkmodules.vtkFiltersCore import vtkAppendPolyData
 from star_cad.ui.picking import candidates
 from star_cad.ui.sketch_view import SketchView
 from star_cad.ui.construction_dimensions import ConstructionDimensions
+from star_cad.ui.profile_view import ProfileView
 import vtkmodules.vtkRenderingOpenGL2  # noqa: F401 registers rendering backend
 import vtkmodules.vtkInteractionStyle  # noqa: F401
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
@@ -30,6 +31,8 @@ class Viewport(QVTKRenderWindowInteractor):
     previousViewAvailable = Signal(bool)
     sketchContextRequested = Signal(object, object)
     deleteRequested = Signal()
+    profilePicked = Signal(object)
+    profileContextRequested = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -77,6 +80,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.Initialize()
         self.sketch = SketchView(self)
         self.dimensions = ConstructionDimensions(self)
+        self.profiles = ProfileView(self)
 
     def add_actor(self, color):
         mapper, actor = vtkPolyDataMapper(), vtkActor()
@@ -367,7 +371,12 @@ class Viewport(QVTKRenderWindowInteractor):
             start, self._context_press = self._context_press, None
             super().mouseReleaseEvent(event)
             if not self._context_dragged and (event.position().toPoint()-start).manhattanLength() < QApplication.startDragDistance():
-                self.sketchContextRequested.emit(self.sketch.hit(*self.display_position(event)), event.globalPosition().toPoint())
+                if self.profiles.active:
+                    self.profiles.pick(*self.display_position(event))
+                    if self.profiles.selection:
+                        self.profileContextRequested.emit(event.globalPosition().toPoint())
+                else:
+                    self.sketchContextRequested.emit(self.sketch.hit(*self.display_position(event)), event.globalPosition().toPoint())
             return
         if event.button() == Qt.RightButton and self._consume_right_release:
             self._consume_right_release = False
@@ -387,7 +396,9 @@ class Viewport(QVTKRenderWindowInteractor):
             self._shift_right_pan = False
             self._right_press = None
         if click and event.button() == Qt.LeftButton:
-            if self.sketch.active_id or self.sketch.hit(*self.display_position(event)):
+            if self.profiles.active:
+                self.profiles.pick(*self.display_position(event))
+            elif self.sketch.active_id or self.sketch.hit(*self.display_position(event)):
                 self.sketch.pick(*self.display_position(event), additive=additive)
             else:
                 self.pick_at(*self.display_position(event), additive=additive)
@@ -423,6 +434,7 @@ class Viewport(QVTKRenderWindowInteractor):
             self.deleteRequested.emit()
             return
         if event.key() == Qt.Key_Escape:
+            self.profiles.clear()
             if self.sketch.active_id and self.sketch.controller.tool:
                 self.sketch.set_tool('select')
             else:

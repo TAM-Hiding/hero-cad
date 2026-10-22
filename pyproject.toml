@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-cad"
-version = "0.0.9"
+version = "0.0.10"
 description = "Local-first parametric mechanical CAD for Linux"
 requires-python = ">=3.12,<3.13"
 license = "MIT"

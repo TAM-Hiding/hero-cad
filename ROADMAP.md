@@ -44,6 +44,12 @@ Atomic multi-entity/sketch deletion with dependency rejection and Undo/Redo; bro
 
 This needs a deliberate schema migration (independent End A/End B fields with legacy equal-radius loading), analytic external tangent points and non-semicircular cap sweeps, matching adaptive display paths and picking, plus center snaps and preview/property updates. Require `abs(radius_a - radius_b) < center_distance`, valid closed wires and area/bounds checks across arbitrary angles and all sketch planes. Keep center distance independent of the radii and test equal-radius compatibility, undo and persistence. This cross-cutting geometry/format change is deferred from the usability PR; current slots retain one shared radius.
 
+## PR #13 — v0.0.10 parametric profile extrusion
+
+Select material by clicking inside an analytic region; extrude isolated rectangles/circles/slots or outer regions with holes as separate signed-depth bodies. Preserve source UUIDs and exact hole sets through dimensional regeneration, files and history. Reject touching/overlapping regions and defer line-chain construction. Source topology changes require explicit reselection rather than guessing. New Body only; no booleans or sketch-on-face.
+
+Stop after this PR. **Do not start PR #14 automatically.** Its scope requires a separate user instruction.
+
 ## M2 — small mechanical workflow
 
 Face selection and stable reference strategy, booleans, basic sketch entities and dimensions, then a deliberately limited constraint solver and extrude workflow. Each operation needs geometric correctness and failure recovery tests.

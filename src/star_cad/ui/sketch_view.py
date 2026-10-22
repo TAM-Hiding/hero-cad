@@ -127,6 +127,7 @@ class SketchView:
             self._preview_key = preview_key
 
     def enter(self, identifier):
+        self.viewport.profiles.clear()
         if not any(f.id == identifier for f in self.features):
             raise ValueError('Unknown sketch')
         if self.active_id is None:
@@ -153,6 +154,7 @@ class SketchView:
         self.viewport.GetRenderWindow().Render()
 
     def finish(self):
+        self.viewport.profiles.clear()
         self.active_id = None
         self.entity_id = None
         self.entity_ids.clear()

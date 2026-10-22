@@ -17,6 +17,26 @@ class BoxParameters:
 
 
 @dataclass(frozen=True)
+class ExtrudeParameters:
+    sketch_id: str
+    outer_id: str
+    hole_ids: tuple = ()
+    distance: float = 10.0
+
+    def __post_init__(self):
+        valid_id(self.sketch_id)
+        valid_id(self.outer_id)
+        if not isinstance(self.hole_ids, tuple) or len(self.hole_ids) > 255:
+            raise ValueError('Invalid profile holes')
+        for identifier in self.hole_ids:
+            valid_id(identifier)
+        if len(set(self.hole_ids)) != len(self.hole_ids) or self.outer_id in self.hole_ids:
+            raise ValueError('Profile boundaries must be distinct')
+        if type(self.distance) not in (int, float) or not isfinite(self.distance) or not 1e-6 <= abs(self.distance) <= 100000:
+            raise ValueError('Extrusion distance must be finite and nonzero, from ±0.000001 to ±100000 mm')
+
+
+@dataclass(frozen=True)
 class Feature:
     type: str
     parameters: object
@@ -27,7 +47,7 @@ class Feature:
         valid_id(self.id)
         if not isinstance(self.type, str):
             raise ValueError('Feature type must be a string')
-        expected = {'box': BoxParameters, 'sketch': SketchParameters}.get(self.type)
+        expected = {'box': BoxParameters, 'sketch': SketchParameters, 'extrude': ExtrudeParameters}.get(self.type)
         if expected is None or type(self.parameters) is not expected:
             raise ValueError('Unsupported feature or parameter type')
         if not isinstance(self.references, tuple) or any(not isinstance(r, str) for r in self.references):
