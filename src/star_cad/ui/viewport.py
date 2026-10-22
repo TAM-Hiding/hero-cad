@@ -81,6 +81,9 @@ class Viewport(QVTKRenderWindowInteractor):
         self.sketch = SketchView(self)
         self.dimensions = ConstructionDimensions(self)
         self.profiles = ProfileView(self)
+        # VTK and direct camera changes can render before InteractionEvent.
+        # Repair clipping after display preparation, immediately before drawing.
+        self.renderer.AddObserver('StartEvent', lambda *_: self.update_clipping() if self.sketch.feature else None)
 
     def add_actor(self, color):
         mapper, actor = vtkPolyDataMapper(), vtkActor()
@@ -129,6 +132,25 @@ class Viewport(QVTKRenderWindowInteractor):
         """
         bounds = list(self.renderer.ComputeVisiblePropBounds())
         sketch = getattr(self, 'sketch', None)
+        if sketch and sketch.feature:
+            # An empty sketch has no model bounds. Its origin/grid are excluded
+            # from Fit, but the editable plane still needs a valid depth range.
+            # Include its current viewport footprint for clipping only, even
+            # when the grid is hidden. This also avoids slicing an oblique grid
+            # down to the depth span of a small curve on the same plane.
+            camera = self.renderer.GetActiveCamera()
+            frame = sketch.feature.parameters.frame
+            center = frame.to_local(camera.GetFocalPoint())
+            half = max(camera.GetParallelScale(), .001)*max(self.width()/max(self.height(), 1), 1)*1.5
+            plane = [frame.to_world((center[0]+u*half, center[1]+v*half))
+                     for u in (-1, 1) for v in (-1, 1)]
+            plane_bounds = [value for i in range(3) for value in (min(p[i] for p in plane), max(p[i] for p in plane))]
+            if bounds[0] > bounds[1]:
+                bounds = plane_bounds
+            else:
+                for i in range(3):
+                    bounds[2*i] = min(bounds[2*i], plane_bounds[2*i])
+                    bounds[2*i+1] = max(bounds[2*i+1], plane_bounds[2*i+1])
         if sketch and sketch.preview_actor.GetVisibility():
             preview = sketch.preview_actor.GetBounds()
             if preview and all(isfinite(n) for n in preview) and preview[0] <= preview[1]:
