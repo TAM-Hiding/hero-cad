@@ -4,8 +4,9 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from star_cad.features import BoxParameters, Feature, FeatureError, FeatureStatus
-from star_cad.geometry import make_box, make_sketch
+from star_cad.features import BoxParameters, ExtrudeParameters, Feature, FeatureError, FeatureStatus
+from star_cad.geometry import make_box, make_sketch, compound
+from star_cad.profiles import extrude_region
 from star_cad.persistence import deserialize, serialize
 from star_cad.sketch import SketchParameters
 
@@ -13,7 +14,7 @@ from star_cad.sketch import SketchParameters
 class Document:
     def __init__(self, parameters=None, *, features=None):
         self.features = tuple(features) if features is not None else (Feature('box', parameters or BoxParameters()),)
-        self.shape, self.sketch_shapes, self.statuses = self._regenerate(self.features)
+        self.shape, self.sketch_shapes, self.statuses, self.solid_shapes = self._regenerate(self.features)
         self.last_failure = None
         self.path = None
         self._saved_features = self.features
@@ -46,7 +47,7 @@ class Document:
         if not 1 <= len(features) <= 1000:
             raise FeatureError('document', 'Expected 1–1000 features')
         known = {'plane:XY', 'plane:XZ', 'plane:YZ'}
-        statuses, sketch_shapes, shape = {}, {}, None
+        statuses, sketch_shapes, solids, definitions = {}, {}, {}, {}
         if sum(f.type == 'box' for f in features) != 1:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids = set()
@@ -57,36 +58,46 @@ class Document:
                 if any(ref not in known for ref in feature.references):
                     raise ValueError('Missing, cyclic or forward feature dependency')
                 if feature.type == 'box':
-                    shape = make_box(**asdict(feature.parameters))
-                else:
+                    solids[feature.id] = make_box(**asdict(feature.parameters))
+                elif feature.type == 'sketch':
                     if 'plane:' + feature.parameters.plane not in feature.references:
                         raise ValueError('Sketch must reference its origin plane')
                     for entity in feature.parameters.entities:
                         if entity.id in entity_ids or entity.id in known:
                             raise ValueError('Duplicate entity identifier')
                         entity_ids.add(entity.id)
-                if feature.type == 'sketch':
                     sketch_shapes[feature.id] = make_sketch(feature.parameters)
+                else:
+                    parameters = feature.parameters
+                    if feature.references != (parameters.sketch_id,):
+                        raise ValueError('Extrusion must reference exactly its source sketch')
+                    source = definitions.get(parameters.sketch_id)
+                    if source is None or source.type != 'sketch':
+                        raise ValueError('Extrusion source must be an earlier sketch')
+                    solids[feature.id] = extrude_region(source.parameters, parameters)
                 known.add(feature.id)
+                definitions[feature.id] = feature
                 statuses[feature.id] = FeatureStatus(True)
             except Exception as error:
                 raise FeatureError(feature.id, str(error)) from error
         if entity_ids.intersection(f.id for f in features):
             raise FeatureError('document', 'Entity and feature identifiers must be distinct')
-        return shape, sketch_shapes, statuses
+        shape = next(iter(solids.values())) if len(solids) == 1 else compound(solids.values())
+        return shape, sketch_shapes, statuses, solids
 
     def set_features(self, features):
         features = tuple(features)
         if features == self.features:
             return
         try:
-            shape, sketch_shapes, statuses = self._regenerate(features)
+            shape, sketch_shapes, statuses, solids = self._regenerate(features)
         except FeatureError as error:
             self.last_failure = error
             raise
         self._undo.append(self.features)
         self._redo.clear()
         self.features, self.shape, self.sketch_shapes, self.statuses = features, shape, sketch_shapes, statuses
+        self.solid_shapes = solids
         self.last_failure = None
 
     def set_box(self, parameters):
@@ -114,13 +125,19 @@ class Document:
         entities = tuple(entity if e.id == entity.id else e for e in feature.parameters.entities)
         self.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=entities)))
 
+    def add_extrusion(self, sketch_id, outer_id, hole_ids=(), distance=10.0):
+        parameters = ExtrudeParameters(sketch_id, outer_id, tuple(sorted(hole_ids)), distance)
+        feature = Feature('extrude', parameters, (sketch_id,))
+        self.set_features(self.features + (feature,))
+        return feature.id
+
     def delete(self, *, features=(), entities=()):
         """Delete feature IDs and (sketch ID, entity ID) pairs atomically."""
         feature_ids, entity_keys = set(features), set(map(tuple, entities))
         known = {f.id: f for f in self.features}
         if feature_ids - known.keys():
             raise ValueError('Unknown feature to delete')
-        if any(known[i].type != 'sketch' for i in feature_ids):
+        if any(known[i].type == 'box' for i in feature_ids):
             raise ValueError('The base box cannot be deleted in this milestone')
         for sketch_id, entity_id in entity_keys:
             if sketch_id not in known or known[sketch_id].type != 'sketch' or not any(
@@ -130,6 +147,10 @@ class Document:
         for feature in self.features:
             if feature.id not in feature_ids and removed.intersection(feature.references):
                 raise ValueError(f'Cannot delete: {feature.type} {feature.id} references the selected feature')
+            if feature.type == 'extrude' and feature.id not in feature_ids:
+                p = feature.parameters
+                if any((p.sketch_id, identifier) in entity_keys for identifier in (p.outer_id, *p.hole_ids)):
+                    raise ValueError('Cannot delete: extrusion references the selected profile boundary')
         candidate = []
         for feature in self.features:
             if feature.id in feature_ids:
@@ -151,13 +172,14 @@ class Document:
             return
         features = source[-1]
         try:
-            shape, sketch_shapes, statuses = self._regenerate(features)
+            shape, sketch_shapes, statuses, solids = self._regenerate(features)
         except FeatureError as error:
             self.last_failure = error
             raise
         destination.append(self.features)
         source.pop()
         self.features, self.shape, self.sketch_shapes, self.statuses = features, shape, sketch_shapes, statuses
+        self.solid_shapes = solids
         self.last_failure = None
 
     def save(self, path):

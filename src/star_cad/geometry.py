@@ -19,6 +19,16 @@ def volume(shape) -> float:
     return properties.Mass()
 
 
+def compound(shapes):
+    from OCP.BRep import BRep_Builder
+    from OCP.TopoDS import TopoDS_Compound
+    builder, result = BRep_Builder(), TopoDS_Compound()
+    builder.MakeCompound(result)
+    for shape in shapes:
+        builder.Add(result, shape)
+    return result
+
+
 def make_sketch(parameters):
     """Regenerate analytic OCCT wires/edges from local sketch parameters."""
     from OCP.BRep import BRep_Builder
