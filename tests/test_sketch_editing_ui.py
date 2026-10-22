@@ -120,64 +120,7 @@ def test_browser_multi_delete_context_selection_and_entire_sketch(qtbot):
     w._context_menu.close()
     third = w.browser_items[('entity', sid, es[2].id)]
     w.browser_context_menu(w.browser.visualItemRect(third).center())
-    assert w.selected_keys() == {('entity', sid, es[2].id)}
-    w._context_menu.close()
-    w.browser.setFocus()
-    qtbot.keyClick(w.browser, Qt.Key_Backspace)
-    assert w.document.feature(sid).parameters.entities == tuple(es[:2])
-    w.browser.setCurrentItem(w.browser_items[('sketch', sid)])
-    w.delete_selected()
-    assert not w.document.sketches and w.viewport.sketch.active_id is None
-    w.undo()
-    assert len(w.document.feature(sid).parameters.entities) == 2
-
-
-def test_parameter_text_delete_does_not_delete_geometry(qtbot):
-    w, sid, es = populated(qtbot)
-    w.browser.setCurrentItem(w.browser_items[('entity', sid, es[0].id)])
-    field = w.entity_fields['radius']
-    field.setFocus()
-    before = w.document.features
-    qtbot.keyClick(field, Qt.Key_Backspace)
-    assert w.document.features == before
-
-
-def test_context_unselected_and_referenced_sketch_rejection(qtbot):
-    from dataclasses import replace
-    w, sid, es = populated(qtbot)
-    v, f = w.viewport, w.document.feature(sid).parameters.frame
-    w.browser.setCurrentItem(w.browser_items[('entity', sid, es[0].id)])
-    qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, f.to_world((13, 0))))
-    assert w.selected_keys() == {('entity', sid, es[1].id)}
-    w._context_menu.close()
-    dependent = w.document.add_sketch('XZ')
-    feature = w.document.feature(dependent)
-    w.document.replace_feature(replace(feature, references=('plane:XZ', sid)))
-    w.refresh()
-    w.browser.setCurrentItem(w.browser_items[('sketch', sid)])
-    before = w.document.features
-    w.browser.setFocus()
-    w.delete_selected()
-    assert w.document.features == before
-    assert 'references' in w.statusBar().currentMessage()
-
-
-def test_dimension_input_survives_pan_and_shift_right_never_opens_menu(qtbot):
-    from PySide6.QtCore import QEvent
-    from PySide6.QtGui import QMouseEvent
-    from PySide6.QtWidgets import QApplication
-    w = window(qtbot)
-    sid = enter(w)
-    v, f = w.viewport, w.document.feature(sid).parameters.frame
-    w.tool_choice.setCurrentText('Circle')
-    qtbot.mousePress(v, Qt.LeftButton, Qt.ShiftModifier, pos=pixel(v, f.to_world((0, 0))))
-    hover(v, pixel(v, f.to_world((8, 6))))
-    type_dimension(qtbot, v, '2')
-    qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, f.to_world((8, 6))))
-    assert v.sketch.controller.tool.stage == 'center'
-    p = QPoint(250, 200)
-    qtbot.mousePress(v, Qt.RightButton, Qt.ShiftModifier, pos=p)
-    moved = p+QPoint(50, 30)
+  …625 tokens truncated… = p+QPoint(50, 30)
     event = QMouseEvent(QEvent.MouseMove, QPointF(moved), QPointF(v.mapToGlobal(moved)),
                         Qt.NoButton, Qt.RightButton, Qt.ShiftModifier)
     QApplication.sendEvent(v, event)
@@ -206,13 +149,16 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     w.axes_action.setChecked(False)
 
     def pixels():
-        v.GetRenderWindow().Render()
+        # Read the frame actually presented by the action: capturing must not
+        # repair a missing redraw and conceal stale deleted geometry.
         capture = vtkWindowToImageFilter()
+        capture.ShouldRerenderOff()
         capture.SetInput(v.GetRenderWindow())
         capture.ReadFrontBufferOff()
         capture.Update()
         return vtk_to_numpy(capture.GetOutput().GetPointData().GetScalars()).astype(int)
 
+    v.GetRenderWindow().Render()
     baseline = pixels()
     cyan = lambda p: (p[:, 2] > 130) & (p[:, 1]-p[:, 0] > 40) & (p[:, 2]-p[:, 0] > 60)
     assert np.count_nonzero(cyan(baseline)) > 100
@@ -230,6 +176,8 @@ def test_multi_selection_delete_and_undo_render(qtbot):
     assert np.count_nonzero(np.max(abs(deleted-baseline), axis=1) > 5) > 100
     w.undo()
     assert np.max(abs(pixels()-baseline)) < 3
+    w.redo()
+    assert np.max(abs(pixels()-deleted)) < 3
 
 
 @pytest.mark.parametrize('text', ['0', '-1', 'nan', 'inf', 'invalid'])

@@ -221,4 +221,8 @@ Manual retest: Fit a small extrusion, start an empty sketch on each origin plane
 
 Verified [branch push CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39714267018), code/test commit `237b450abfbd861e9a2ffd5c6ae808f1b7de1405`: **243 passed on Ubuntu 22.04 and 243 on Ubuntu 24.04**, Python 3.12.15 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Forty-nine upstream VTK/NumPy deprecation warnings per job; no rendered checks skipped. New pixel checks confirm an empty grid is visible immediately and a completed curve remains visible over it. Existing real-solid occlusion, Previous View snapshots, sketch tools, snapping, dimensions and extrusion regressions pass. Compileall and whitespace checks passed.
 
-The fix is reviewable on `sketch-clipping-followup`. No new pull request was opened because the user explicitly requested not to start PR #14 automatically. This branch contains only the reported rendering follow-up; physical reproduction of the original scene still needs confirmation.
+## PR #14 — sketch rendering fixes
+
+The user explicitly authorized a regular PR limited to the clipping follow-up above and immediate deletion redraw. Refresh previously rendered the solid before replacing sketch meshes, then left the previous frame onscreen until another event. Refresh now renders after all scene changes (Fit already renders at that point). The existing multi-selection deletion pixel test now disables capture-triggered rendering and checks immediate deletion, Undo and Redo frames.
+
+Manual deletion check: delete one entity, several entities, the last entity and an entire unreferenced sketch from viewport/browser. Each should disappear immediately without clicking or moving the camera; Undo/Redo should immediately restore/remove it. Check preview/selection clearing and save/reopen. No feature or document-format changes.
