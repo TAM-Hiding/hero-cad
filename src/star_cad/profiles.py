@@ -1,5 +1,5 @@
 """Analytic material regions: persistent entity keys, never display tessellation."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from OCP.BRep import BRep_Tool
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
 from OCP.BRepCheck import BRepCheck_Analyzer
@@ -39,7 +39,7 @@ def regions(sketch):
         raise ValueError('Profile analysis supports at most 256 closed entities per sketch')
     loops, faces, sample = {}, {}, {}
     for entity in sketch.entities:
-        shape = make_sketch(SketchParameters(sketch.plane, (entity,)))
+        shape = make_sketch(replace(sketch, entities=(entity,)))
         ex = TopExp_Explorer(shape, TopAbs_WIRE)
         if ex.More():
             wire = TopoDS.Wire_s(ex.Current())
@@ -95,11 +95,14 @@ def resolve_region(sketch, outer_id, hole_ids):
     return region
 
 
-def extrude_region(sketch, parameters):
+def extrude_region(sketch, parameters, *, with_faces=False):
     region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids)
     vector = gp_Vec(*(n*parameters.distance for n in sketch.frame.normal))
     builder = BRepPrimAPI_MakePrism(region.face, vector, True)
     shape = builder.Shape()
     if not builder.IsDone() or shape.ShapeType() != TopAbs_SOLID or not BRepCheck_Analyzer(shape).IsValid() or volume(shape) <= 0:
         raise ValueError('OCCT could not build a valid positive-volume extrusion')
+    if with_faces:
+        from star_cad.attachments import extrusion_faces
+        return shape, extrusion_faces(builder, region, sketch, parameters)
     return shape

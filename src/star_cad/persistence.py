@@ -1,7 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
 from star_cad.features import BoxParameters, ExtrudeParameters, Feature
-from star_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot
+from star_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference
 
 
 def fields(data, expected):
@@ -22,16 +22,18 @@ def serialize(features):
                           'frame': {k: list(getattr(sketch.frame, k)) for k in ('origin', 'u', 'v')},
                           'entities': [{'type': type(e).__name__.lower(),
                                         'parameters': asdict(e)} for e in sketch.entities]}
+            if sketch.attachment:
+                parameters['attachment'] = asdict(sketch.attachment)
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references)})
-    return {'format': 'star-cad', 'version': 4 if any(f.type == 'extrude' for f in features) else 3, 'units': 'mm', 'features': result}
+    return {'format': 'star-cad', 'version': 5 if any(f.type == 'sketch' and f.parameters.attachment for f in features) else 4 if any(f.type == 'extrude' for f in features) else 3, 'units': 'mm', 'features': result}
 
 
 def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a STAR-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -50,7 +52,8 @@ def deserialize(data):
             fields(parameters, ('width', 'depth', 'height'))
             value = BoxParameters(**parameters)
         elif item['type'] == 'sketch':
-            fields(parameters, ('plane', 'frame', 'entities'))
+            attached = version == 5 and isinstance(parameters, dict) and parameters.get('plane') == 'FACE'
+            fields(parameters, ('plane', 'frame', 'entities', 'attachment') if attached else ('plane', 'frame', 'entities'))
             if not isinstance(parameters['entities'], list) or len(parameters['entities']) > 10000:
                 raise ValueError('Too many sketch entities')
             entities = []
@@ -63,16 +66,20 @@ def deserialize(data):
                     raise ValueError('Unsupported sketch entity')
                 fields(entity['parameters'], cls.__dataclass_fields__)
                 entities.append(cls(**entity['parameters']))
-            value = SketchParameters(parameters['plane'], tuple(entities))
-            frame = {k: list(getattr(value.frame, k)) for k in ('origin', 'u', 'v')}
             fields(parameters['frame'], ('origin', 'u', 'v'))
             if any(not isinstance(axis, list) or len(axis) != 3
                    or any(type(n) not in (int, float) for n in axis)
                    for axis in parameters['frame'].values()):
                 raise ValueError('Invalid sketch frame')
-            if parameters['frame'] != frame:
-                raise ValueError('Sketch frame must match its referenced origin plane')
-        elif item['type'] == 'extrude' and version == 4:
+            stored = PlaneFrame(parameters['plane'], **{k: tuple(v) for k,v in parameters['frame'].items()})
+            if attached:
+                fields(parameters['attachment'], ('parent_id', 'face', 'boundary_id', 'segment'))
+                value = SketchParameters('FACE', tuple(entities), FaceReference(**parameters['attachment']), stored)
+            else:
+                value = SketchParameters(parameters['plane'], tuple(entities))
+                if stored != value.frame:
+                    raise ValueError('Sketch frame must match its referenced origin plane')
+        elif item['type'] == 'extrude' and version >= 4:
             fields(parameters, ('sketch_id', 'outer_id', 'hole_ids', 'distance'))
             if not isinstance(parameters['hole_ids'], list):
                 raise ValueError('Profile holes must be a list')

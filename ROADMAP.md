@@ -59,3 +59,7 @@ Face selection and stable reference strategy, booleans, basic sketch entities an
 History presentation/reordering, bold/construction line styles, fillets/chamfers, assemblies only if needed, packaging and STR-GZR OS integration. Evaluate performance with real mechanical parts.
 
 AI-assisted modeling eventually proposes explicit, reviewable feature/parameter edits through the same document operations as the UI. It must not bypass validation or become a prerequisite. No AI implementation in M0.
+
+## v0.0.11 / PR #15 — planar face sketches
+
+Named box faces, extrusion caps and reliably identified Rectangle/Slot planar sides support attached sketches, regeneration, v5 files and unresolved-reference recovery. Circle walls/slot arcs and unknown face ownership are rejected. Reassign-plane and general topological naming remain deferred. No cuts/booleans or new sketch primitives. Do not begin PR #16 automatically.

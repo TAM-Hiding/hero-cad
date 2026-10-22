@@ -228,3 +228,29 @@ The user explicitly authorized a regular PR limited to the clipping follow-up ab
 Manual deletion check: delete one entity, several entities, the last entity and an entire unreferenced sketch from viewport/browser. Each should disappear immediately without clicking or moving the camera; Undo/Redo should immediately restore/remove it. Check preview/selection clearing and save/reopen. No feature or document-format changes.
 
 Verified PR #14 [full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39715245562), code/test commit `228250b98d7dbf967781a494587459ea2cc02696`: **243 passed on Ubuntu 22.04 and 243 on Ubuntu 24.04**, Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed; 50 upstream VTK/NumPy warnings per job. Immediate deletion/Undo/Redo frame capture disables implicit rerendering. Local clipping checks: 6 passed, 2 deselected; compileall and whitespace checks passed. Initial CI collection failed because a transferred test file was truncated; the corrected remote tree was verified byte-for-byte against the local checkout before this successful run.
+
+## PR #15 — v0.0.11 planar face sketches
+
+Scope: supported analytic solid faces, semantic references, parametric local frames, UI workflow and v5 persistence. No booleans/cuts, projection, curved sketches or new primitives.
+
+Local `.venv/bin/python -m pytest tests/test_document.py tests/test_sketch.py tests/test_extrusion.py tests/test_face_attachments.py -q`: **104 passed**. Initial Qt-offscreen UI run `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_face_attachment_ui.py -q -k 'not render'`: **10 passed, 1 deselected** before the final world-up presentation adjustment. Qt-offscreen reports unavailable OpenGL shaders; this is event/document validation only, not rendered acceptance. Compileall and whitespace checks pass. Full Ubuntu 22.04/24.04 Xvfb/Mesa suite is pending.
+
+New kernel checks cover six box faces, signed Start/End caps in XY/XZ/YZ, all Rectangle/Slot planar sides, hole-wall identity under entity reordering, local/world transforms and plane coincidence, box/source/distance edits, compound-angle located fixtures, downstream extrusion validity/volume, Undo/Redo, v5 save/reopen, malformed frames/cyclic dependencies, nonplanar/unknown rejection and unresolved reference preservation/suppression/recovery. UI checks cover right-click picking in edge-filter mode, exact circle and Shift-slot entry, browser/properties, camera normals/projection, reentry, Undo/Redo, unresolved feedback and moved-frame display cache/pixels.
+
+Physical acceptance:
+1. Right-click the box top → New Sketch; draw a circle with exact radius, Finish, change box height. Reenter and confirm circle remains on top with unchanged radius/local center; Save/Open and Undo/Redo.
+2. Rectangle → Extrude 10; New Sketch on End Face → Shift-slot; Finish, change depth to 20. Slot must follow the cap with identical local radius/center distance. Repeat Start Face and negative depth on XY/XZ/YZ.
+3. Create a sketch on each rectangle planar side and a slot's straight side, including a rectangular hole wall. Edit source angle/width/radius and check consistent attachment. Curved walls must report rejection.
+4. Confirm grid/origin/center snapping, exact dimensions and Shift construction, pan and Look At Face remain functional. Right-clicking an already-selected face retains its batch.
+5. Automated compound-angle fixture checks exact analytic coincidence and perpendicular orthographic camera, with no product transform/import operation.
+6. Lost-side fixture (primitive replaced with same UUID) must show UNRESOLVED, retain local geometry, suppress dependent extrusion and recover on Undo or restoring the boundary. No substitute face or silently stale solid.
+
+Limits: named sides cover Rectangle parameter edges and Slot straight tangents only. Reassign Sketch Plane is deferred; restore the supported parent or remove dependent features explicitly. Legacy topology-change rejection for existing material-region holes remains unchanged. No PR #16 work.
+
+### Verified PR #15 results
+
+[Final full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39717778223), code/test commit `ff5a91cb87854c67b2620751995777db4c894ba5`: **285 passed on Ubuntu 22.04 and 285 on Ubuntu 24.04**, Python 3.12 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check pass. Fifty-four upstream VTK/NumPy warnings per job; no render checks skipped. Local final kernel/document command above: **105 passed** after adding the signed-depth reversal regression. Compileall, whitespace checks and remote/local source comparison pass.
+
+New rendered checks confirm a finished attached curve is visible on its host face, a bottom-face curve remains hidden behind the solid, and moving a parent updates cached display coordinates and visible pixels. The initial full run exposed two existing model-selection tests reaching a stale ('sketch', None) browser key; the new properties display made that invalid key observable. Deselecting in model view now returns to a valid box browser entry. Both existing tests and the full final suite pass. Cap frames retain their initial normal sense through signed-depth reversal, preventing local-coordinate mirroring; v5 roundtrip covers that state.
+
+Ready for the physical Box/Extrusion acceptance steps above. Compound-angle behavior is verified with located OCCT fixtures; the product still adds no transform/import operation. Reassign-plane and unsupported curved/unknown faces remain explicitly deferred. PR #16 has not been started.

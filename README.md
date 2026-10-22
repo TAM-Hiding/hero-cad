@@ -2,7 +2,7 @@
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
-## v0.0.10 / parametric profile extrusion
+## v0.0.11 / planar face sketches
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
@@ -38,7 +38,7 @@ The sketch editor displays nine decimal places and preserves untouched higher-pr
 
 Circle and slot display polylines adapt to zoom and viewport resolution, targeting **0.25 physical pixels** of deviation. A 0.02 mm-radius circle gains detail as it is magnified. Live previews, highlights and picking use the same display policy. Pan/orbit reuse meshes; zoom/resize only changes detail when crossing a quality band. Stored parameters and analytic OCCT circles/arcs are unchanged. A safety cap of 32768 segments per full circle bounds work at extreme magnification of enormous mostly-offscreen curves; the pixel target can be exceeded when that cap is reached.
 
-Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); YZ uses U=+Y/V=+Z (normal +X). Only origin planes are supported.
+Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); YZ uses U=+Y/V=+Z (normal +X). Face-attached sketches use their own analytic local frame (see below).
 
 ### Exact dimensions during placement
 
@@ -62,7 +62,7 @@ Right-click a sketch curve or browser entry for **Edit Parameters**, **Edit Sket
 
 ### Material profiles and extrusion
 
-1. Draw a **Rectangle**, **Circle** or **Shift-slot** in an origin-plane sketch.
+1. Draw a **Rectangle**, **Circle** or **Shift-slot** in an origin-plane or resolved face-attached sketch.
 2. Choose **Select Profile** and click **inside the material**, away from its boundary. The selected material region receives an orange fill; holes remain empty. This mode is independent of the face/edge filter. Enter the sketch if a solid obscures its plane, or if multiple sketches coincide.
 3. Choose **Extrude…** in the toolbar or right-click the selected region. Enter a signed distance in millimetres: positive follows the sketch normal; negative goes the other way. Zero is rejected. Enter creates a separate **new body**; Cancel leaves the document unchanged.
 4. The browser lists the extrusion. Select it to edit its signed distance in Properties, or choose **Edit Sketch** to modify source dimensions. Source edits regenerate the extrusion through persistent sketch/entity IDs. Undo/Redo covers creation, parameter edits and deletion; Save/Open regenerates the same bodies.
@@ -73,7 +73,21 @@ Right-click a sketch curve or browser entry for **Edit Parameters**, **Edit Sket
 
 Extrusions store the source sketch UUID, outer entity UUID and exact hole UUID set. Dimension/position edits preserve those references. A change that would add/remove a hole, change nesting or make boundaries intersect is rejected atomically. Delete the extrusion, change the region topology, then reselect and extrude; Undo can recover the earlier state. Referenced source sketches and boundary entities cannot be deleted while their extrusion survives.
 
-This pass has **New Body only**, without Join, Cut, Intersect, taper, sketch-on-face, a drag-depth preview or general overlap-region construction. Bodies are not implicitly fused; their volumes sum even if bodies overlap. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **View → Show base box** restores it; this display preference does not modify geometry. When all extrusion bodies are deleted, the base box becomes visible again. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
+This pass has **New Body only**, without Join, Cut, Intersect, taper, a drag-depth preview or general overlap-region construction. Bodies are not implicitly fused; their volumes sum even if bodies overlap. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **View → Show base box** restores it; this display preference does not modify geometry. When all extrusion bodies are deleted, the base box becomes visible again. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
+
+### Sketch on a planar face
+
+Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
+
+Supported references:
+- Box: **+X, −X, +Y, −Y, +Z, −Z**.
+- Extrusion: **Start Face** at the source plane and **End Face** at signed extrusion distance.
+- Planar sides of Rectangle boundaries (four named edges) and Slot boundaries (two straight tangent segments), including hole walls. These use the source entity UUID and parameter-defined segment identity; no generated face index is stored.
+- Circle walls and rounded Slot ends are curved and cannot host a sketch. Unknown/imported faces with no supported feature identity are rejected. Arbitrary compound orientations are supported mathematically; no transform/import operation is added in this release.
+
+The browser and sketch properties identify the parent and semantic face. Changing box dimensions, extrusion distance or source boundary dimensions regenerates attached planes while retaining local entity coordinates, dimensions and UUIDs. Caps inherit the source U direction and retain their initial normal sense through signed-depth reversal; sides use their boundary anchor and source normal. Frames come from geometry, never the camera. Presentation keeps projected world Z upward with a world Y fallback near Z poles.
+
+A lost semantic side marks the sketch **UNRESOLVED**, preserves its entities and last resolved frame, and suppresses its display and downstream bodies. The browser tooltip/properties explain the failed reference; unresolved sketches cannot be entered. Restoring the supported source boundary (including Undo) resolves it again. Parent deletion is blocked while dependents survive. Reassign Sketch Plane is deferred; no substitute face is chosen automatically.
 
 ### Documents and editing
 
@@ -81,11 +95,11 @@ The existing box workflow remains: edit Width (X), Depth (Y), Height (Z), then *
 
 **Ctrl+S** saves, **Ctrl+Shift+S** saves as, **Ctrl+O** opens, **Ctrl+N** starts fresh; **Ctrl+Z / Ctrl+Shift+Z** undo/redo feature and entity edits. Undo first cancels unapplied property edits. Changing browser selection or finishing a sketch commits pending property edits; invalid edits keep the current selection. Save also commits pending fields. In-progress cursor previews are not document geometry and are not saved.
 
-The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1/v2/v3 documents still load. Saving without extrusions writes v3; documents containing extrusions write v4 with stable source/profile references and signed distance. Older application versions cannot open v4 files. Numeric parameters round-trip without deliberate decimal rounding.
+The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1–v4 documents still load. Saving without extrusions writes v3; documents containing extrusions write v4 with stable source/profile references and signed distance. Face-attached sketches write v5 with semantic parent-face references and last resolved frames. Older application versions cannot open newer format versions. Numeric parameters round-trip without deliberate decimal rounding.
 
-Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2/v3/v4 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
+Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2–v5 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
 
-This milestone supports **one base box, multiple origin-plane sketches and parametric extrusion bodies**, ordered regeneration and transactional validity/error reporting. It does not include booleans, constraints, sketch-on-face references or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity/feature at a time. Extrusions consume their referenced source sketch during regeneration.
+This milestone supports **one base box, multiple origin-plane/face-attached sketches and parametric extrusion bodies**, ordered regeneration and transactional validity/error reporting. It does not include booleans, constraints, general topological naming or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity/feature at a time. Extrusions consume their referenced source sketch during regeneration.
 
 ## Ubuntu setup
 

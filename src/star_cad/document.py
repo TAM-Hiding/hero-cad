@@ -9,12 +9,14 @@ from star_cad.geometry import make_box, make_sketch, compound
 from star_cad.profiles import extrude_region
 from star_cad.persistence import deserialize, serialize
 from star_cad.sketch import SketchParameters
+from star_cad.attachments import AttachmentError, resolve_attachment, identify_face
 
 
 class Document:
     def __init__(self, parameters=None, *, features=None):
         self.features = tuple(features) if features is not None else (Feature('box', parameters or BoxParameters()),)
         self.shape, self.sketch_shapes, self.statuses, self.solid_shapes = self._regenerate(self.features)
+        self.features = self._regenerated_features
         self.last_failure = None
         self.path = None
         self._saved_features = self.features
@@ -51,38 +53,65 @@ class Document:
         if sum(f.type == 'box' for f in features) != 1:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids = set()
+        face_maps, resolved = {}, []
+        inputs = {f.id: f for f in features}
         for feature in features:
             try:
                 if feature.id in known:
                     raise ValueError('Duplicate feature identifier')
                 if any(ref not in known for ref in feature.references):
                     raise ValueError('Missing, cyclic or forward feature dependency')
-                if feature.type == 'box':
-                    solids[feature.id] = make_box(**asdict(feature.parameters))
-                elif feature.type == 'sketch':
-                    if 'plane:' + feature.parameters.plane not in feature.references:
+                if feature.type == 'sketch':
+                    p = feature.parameters
+                    if p.attachment:
+                        if feature.references != (p.attachment.parent_id,):
+                            raise ValueError('Face sketch must reference exactly its parent feature')
+                        if definitions[p.attachment.parent_id].type not in ('box', 'extrude'):
+                            raise ValueError('Attachment parent must be a solid feature')
+                    elif 'plane:' + p.plane not in feature.references:
                         raise ValueError('Sketch must reference its origin plane')
-                    for entity in feature.parameters.entities:
+                    for entity in p.entities:
                         if entity.id in entity_ids or entity.id in known:
                             raise ValueError('Duplicate entity identifier')
                         entity_ids.add(entity.id)
-                    sketch_shapes[feature.id] = make_sketch(feature.parameters)
-                else:
-                    parameters = feature.parameters
-                    if feature.references != (parameters.sketch_id,):
+                if feature.type == 'extrude':
+                    if feature.references != (feature.parameters.sketch_id,):
                         raise ValueError('Extrusion must reference exactly its source sketch')
-                    source = definitions.get(parameters.sketch_id)
+                    source = definitions.get(feature.parameters.sketch_id)
                     if source is None or source.type != 'sketch':
                         raise ValueError('Extrusion source must be an earlier sketch')
-                    solids[feature.id] = extrude_region(source.parameters, parameters)
+                blocked = next((ref for ref in feature.references if ref in statuses and not statuses[ref].valid), None)
+                if blocked:
+                    statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}')
+                else:
+                    try:
+                        if feature.type == 'box':
+                            solids[feature.id], face_maps[feature.id] = make_box(**asdict(feature.parameters), with_faces=True)
+                        elif feature.type == 'sketch':
+                            p = feature.parameters
+                            if p.attachment:
+                                parent = definitions[p.attachment.parent_id]
+                                previous_source = inputs[parent.parameters.sketch_id].parameters.frame if parent.type == 'extrude' else None
+                                frame = resolve_attachment(p.attachment, face_maps, definitions,
+                                                           previous_frame=p.attached_frame,
+                                                           previous_source_frame=previous_source)
+                                feature = replace(feature, parameters=replace(p, attached_frame=frame))
+                            sketch_shapes[feature.id] = make_sketch(feature.parameters)
+                        else:
+                            solids[feature.id], face_maps[feature.id] = extrude_region(source.parameters, feature.parameters, with_faces=True)
+                        statuses[feature.id] = FeatureStatus(True)
+                    except AttachmentError as error:
+                        # Lost semantic faces remain in history, never substituted.
+                        statuses[feature.id] = FeatureStatus(False, str(error))
                 known.add(feature.id)
                 definitions[feature.id] = feature
-                statuses[feature.id] = FeatureStatus(True)
+                resolved.append(feature)
             except Exception as error:
                 raise FeatureError(feature.id, str(error)) from error
         if entity_ids.intersection(f.id for f in features):
             raise FeatureError('document', 'Entity and feature identifiers must be distinct')
         shape = next(iter(solids.values())) if len(solids) == 1 else compound(solids.values())
+        self._regenerated_features, self.face_maps = tuple(resolved), face_maps
         return shape, sketch_shapes, statuses, solids
 
     def set_features(self, features):
@@ -96,7 +125,7 @@ class Document:
             raise
         self._undo.append(self.features)
         self._redo.clear()
-        self.features, self.shape, self.sketch_shapes, self.statuses = features, shape, sketch_shapes, statuses
+        self.features, self.shape, self.sketch_shapes, self.statuses = self._regenerated_features, shape, sketch_shapes, statuses
         self.solid_shapes = solids
         self.last_failure = None
 
@@ -110,6 +139,17 @@ class Document:
 
     def add_sketch(self, plane):
         feature = Feature('sketch', SketchParameters(plane), ('plane:' + plane,))
+        self.set_features(self.features + (feature,))
+        return feature.id
+
+    def face_reference(self, face):
+        return identify_face(face, self.face_maps, {f.id: f for f in self.features})
+
+    def add_face_sketch(self, reference):
+        definitions = {f.id: f for f in self.features}
+        frame = resolve_attachment(reference, self.face_maps, definitions)
+        feature = Feature('sketch', SketchParameters('FACE', attachment=reference, attached_frame=frame),
+                          (reference.parent_id,))
         self.set_features(self.features + (feature,))
         return feature.id
 
@@ -178,7 +218,7 @@ class Document:
             raise
         destination.append(self.features)
         source.pop()
-        self.features, self.shape, self.sketch_shapes, self.statuses = features, shape, sketch_shapes, statuses
+        self.features, self.shape, self.sketch_shapes, self.statuses = self._regenerated_features, shape, sketch_shapes, statuses
         self.solid_shapes = solids
         self.last_failure = None
 
