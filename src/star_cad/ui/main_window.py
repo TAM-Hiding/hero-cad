@@ -262,9 +262,10 @@ class MainWindow(QMainWindow):
         self.viewport.profiles.cache.clear()
         has_extrusions = any(f.type == 'extrude' for f in self.document.features)
         self.show_base_box.setEnabled(has_extrusions)
-        if not has_extrusions:
+        if not has_extrusions or not getattr(self, '_had_extrusions', False):
             with QSignalBlocker(self.show_base_box):
-                self.show_base_box.setChecked(True)
+                self.show_base_box.setChecked(not has_extrusions)
+        self._had_extrusions = has_extrusions
         for name, field in self.fields.items():
             with QSignalBlocker(field):
                 field.setValue(getattr(self.document.parameters, name))

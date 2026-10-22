@@ -85,6 +85,7 @@ def test_profile_cancel_invalid_depth_context_and_delete(qtbot, monkeypatch):
     assert not v.profiles.actor.GetVisibility()
     w.undo()
     assert eid in w.document.solid_shapes
+    assert not w.show_base_box.isChecked()  # Undo restores a visible part too.
 
 
 def test_profile_mode_filter_independence_ambiguity_and_gesture_conflicts(qtbot):
