@@ -254,3 +254,21 @@ Limits: named sides cover Rectangle parameter edges and Slot straight tangents o
 New rendered checks confirm a finished attached curve is visible on its host face, a bottom-face curve remains hidden behind the solid, and moving a parent updates cached display coordinates and visible pixels. The initial full run exposed two existing model-selection tests reaching a stale ('sketch', None) browser key; the new properties display made that invalid key observable. Deselecting in model view now returns to a valid box browser entry. Both existing tests and the full final suite pass. Cap frames retain their initial normal sense through signed-depth reversal, preventing local-coordinate mirroring; v5 roundtrip covers that state.
 
 Ready for the physical Box/Extrusion acceptance steps above. Compound-angle behavior is verified with located OCCT fixtures; the product still adds no transform/import operation. Reassign-plane and unsupported curved/unknown faces remain explicitly deferred. PR #16 has not been started.
+
+## Sketch visibility usability follow-up — Settings and reference geometry
+
+User's supplied plate/cylinder screenshot illustrates placing a new cylinder off the plate after the plate disappeared during face-sketch editing. The screenshot was available locally and inspected. This pass is limited to always-available base-box visibility and visible placement context for face sketches.
+
+Local event/document checks: `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_sketch_reference_visibility.py -q -k 'not render'`: **4 passed, 2 deselected**, before adding active-sketch identity to the highlight cache key. Compileall and whitespace checks pass. Local Qt-offscreen has shader errors and does not validate rendering; full Ubuntu 22.04/24.04 Xvfb/Mesa tests are pending.
+
+New regressions cover hiding the only box, empty display/picking, session preference across refresh/history/New, unchanged document/history and file geometry, preservation of pending numeric fields and in-progress circle placement, translucent solid/reference-sketch visibility, active-sketch-only viewport picking, reentry/Finish opacity and isolated origin sketches. Pixel checks require visible plate context, grid and curves during face sketching, plus empty/restore frames for the base-box toggle.
+
+Manual acceptance: Settings → Show base box off/on before any extrusion; repeat while drawing and with pending numeric edits. Enter a new sketch on an extrusion End Face and verify plate outline, hole outlines, other sketch curves and grid remain visible. Position a circle inside the plate, Finish and extrude. Reenter, Undo/Redo and reopen; reference context should stay available. Try clicking source curves while editing: viewport picks only active entities. Finish restores opaque solids. Hidden base geometry and all attachments remain in the saved document. Visibility preferences are session-only. No new modeling operation.
+
+### Verified PR #16 results
+
+[Final full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39719969443), code/test commit `927575e7449105e6861762809efd2716e7ab823a`: **291 passed on Ubuntu 22.04 and 291 on Ubuntu 24.04**, Python 3.12 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check pass. Sixty-two upstream VTK/NumPy warnings per job; no render checks skipped. Compileall, whitespace and remote/local source comparisons pass.
+
+The first rendered run found no untinted cyan pixels from the source rectangle: opaque foreground edges/grid can cover coincident curves on deeper source planes, while translucent layers also change the apparent curve color. Face-edit solid edges now share 35% opacity and its grid uses 40% opacity; Finish/origin editing restores ordinary opacity. The regression compares rendered frames with/without source curves to require an actual visible contribution rather than a particular untinted color. It also verifies grid contribution, visible plate context, active curves, empty hidden-box output and restored nonblank geometry. Full final render and existing model-occlusion tests pass.
+
+Ready for physical retest using the supplied plate/cylinder workflow above. This PR contains only the requested Settings/base-box control and face-sketch placement visibility; no new geometry operation or document-format change.

@@ -56,6 +56,11 @@ class ViewGuides:
             self.major_spacing = self.spacing*10
         sketch = getattr(v, 'sketch', None)
         frame = sketch.feature.parameters.frame if sketch and sketch.feature else None
+        # In face-edit context, opaque foreground lattice lines can otherwise
+        # erase coincident source curves on a parallel plane behind the plate.
+        context = bool(sketch and sketch.feature and sketch.feature.parameters.attachment)
+        for actor in (self.grid_actor, self.minor_actor):
+            actor.GetProperty().SetOpacity(.4 if context else 1.)
         visible = bool(frame) and self.grid_visible
         self.grid_actor.SetVisibility(visible)
         self.minor_actor.SetVisibility(visible)

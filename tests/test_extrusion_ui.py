@@ -177,7 +177,7 @@ def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkey
     path = tmp_path/'reopen.starcad'
     w.document.save(path)
     w.new_document()
-    assert w.show_base_box.isChecked() and not w.show_base_box.isEnabled()
+    assert w.show_base_box.isChecked() and w.show_base_box.isEnabled()
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), ''))
     w.open_document()
     assert not w.show_base_box.isChecked() and w.show_base_box.isEnabled()
