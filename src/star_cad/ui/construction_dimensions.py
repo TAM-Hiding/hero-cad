@@ -45,6 +45,9 @@ class ConstructionDimensions(QWidget):
     def update_values(self, position=None):
         tool = self.viewport.sketch.controller.tool
         values = tool.dimension_values() if tool else {}
+        if 'Radius' in values:
+            radius = tool.dimensions.get('Radius', values['Radius'])
+            values = {'Radius': radius, 'Diameter': 2*radius}
         names = list(values)
         stage_key = (id(tool), tool.stage) if tool else None
         stage_changed = stage_key != self.stage_key
@@ -57,7 +60,7 @@ class ConstructionDimensions(QWidget):
         if not values:
             self.reset()
             return
-        self.label.setText(' | '.join(f'{n}: {tool.dimensions.get(n, v):.12g} mm' + (' 🔒' if n in tool.dimensions else '')
+        self.label.setText(' | '.join(f'{n}: {tool.dimensions.get(n, v):.12g} mm' + (' 🔒' if self.parameter_name(n) in tool.dimensions else '')
                                       for n, v in values.items()) + '\nType or Tab to edit · Enter place · Esc cancel')
         self.input.show()
         if not self.editing:
@@ -103,10 +106,18 @@ class ConstructionDimensions(QWidget):
         if not self.editing or not tool or not self.names:
             return
         try:
-            tool.set_dimension(self.names[self.index], float(text))
+            self.set_value(tool, float(text))
         except (ValueError, OverflowError):
             return
         self.viewport.sketch.numeric_preview()
+
+    @staticmethod
+    def parameter_name(name):
+        return 'Radius' if name == 'Diameter' else name
+
+    def set_value(self, tool, value):
+        name = self.names[self.index]
+        tool.set_dimension(self.parameter_name(name), value/2 if name == 'Diameter' else value)
 
     def accept_value(self):
         try:
@@ -114,8 +125,8 @@ class ConstructionDimensions(QWidget):
             if not tool:
                 return False
             if self.input.text().strip():
-                tool.set_dimension(self.names[self.index], float(self.input.text()))
-            elif self.names[self.index] not in tool.dimensions:
+                self.set_value(tool, float(self.input.text()))
+            elif self.parameter_name(self.names[self.index]) not in tool.dimensions:
                 raise ValueError('Enter a positive dimension in mm')
         except (ValueError, OverflowError) as error:
             self.viewport.viewFeedback.emit(str(error))
@@ -134,9 +145,16 @@ class ConstructionDimensions(QWidget):
                 self.viewport.setFocus()
                 return True
             if event.key() in (Qt.Key_Tab, Qt.Key_Backtab):
-                if self.accept_value():
+                # Empty fields can be skipped, including Radius -> Diameter
+                # before a number is entered. Invalid text still blocks a switch.
+                if not self.input.text().strip() or self.accept_value():
                     self.index = (self.index + ( -1 if event.key() == Qt.Key_Backtab else 1)) % len(self.names)
                     self.input.setPlaceholderText(self.names[self.index] + ' (mm)')
+                    tool = self.viewport.sketch.controller.tool
+                    if self.names[self.index] in ('Radius', 'Diameter') and 'Radius' in tool.dimensions:
+                        value = tool.dimensions['Radius'] * (2 if self.names[self.index] == 'Diameter' else 1)
+                        self.input.setText(format(value, '.17g'))
+                        self.input.selectAll()
                 return True
             if event.key() in (Qt.Key_Return, Qt.Key_Enter):
                 if self.accept_value():

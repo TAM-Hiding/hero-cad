@@ -152,3 +152,47 @@ def test_hiding_editor_releases_focus_and_mouse_placement(qtbot):
     assert QApplication.focusWidget() is not v.dimensions.input
     qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, frame.to_world((6, 8))))
     assert len(w.document.feature(sid).parameters.entities) == 1
+
+
+import pytest
+
+
+@pytest.mark.parametrize('plane', ['XY', 'XZ', 'YZ'])
+@pytest.mark.parametrize('slot', [False, True])
+def test_tab_radius_diameter_live_conversion_and_commit(qtbot, plane, slot):
+    w = window(qtbot)
+    sid = enter(w, plane)
+    v = w.viewport
+    frame = w.document.feature(sid).parameters.frame
+    w.activateWindow()
+    QApplication.processEvents()
+    w.tool_choice.setCurrentText('Circle')
+    qtbot.mousePress(v, Qt.LeftButton, Qt.ShiftModifier if slot else Qt.NoModifier,
+                     pos=pixel(v, frame.to_world((0, 0))))
+    hover(v, pixel(v, frame.to_world((6, 8))))
+    qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Tab)  # Focus Radius.
+    field = v.dimensions.input
+    qtbot.keyClick(field, Qt.Key_Tab)  # Empty Radius can switch to Diameter.
+    assert 'Diameter' in field.placeholderText()
+    diameter = 4.1234567890123
+    qtbot.keyClicks(field, str(diameter))
+    assert v.sketch.controller.tool.preview_entity.radius == diameter/2
+    assert not w.document.feature(sid).parameters.entities
+    qtbot.keyClick(field, Qt.Key_Backtab)
+    assert 'Radius' in field.placeholderText()
+    assert float(field.text()) == diameter/2
+    qtbot.keyClick(field, Qt.Key_Tab)
+    assert 'Diameter' in field.placeholderText() and float(field.text()) == diameter
+    qtbot.keyClick(field, Qt.Key_Return)
+    qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, frame.to_world((6, 8))))
+    if slot:
+        assert v.sketch.controller.tool.stage == 'center'
+        assert v.dimensions.names == ['Center distance']
+        hover(v, pixel(v, frame.to_world((12, 0))))
+        qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Tab)
+        qtbot.keyClicks(QApplication.focusWidget(), '12')
+        qtbot.keyClick(QApplication.focusWidget(), Qt.Key_Return)
+    entity = w.document.feature(sid).parameters.entities[-1]
+    assert entity.radius == diameter/2
+    if slot:
+        assert entity.distance == 12

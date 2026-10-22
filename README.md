@@ -47,12 +47,12 @@ After starting a shape, move the cursor to establish direction, then **type a di
 | Placement stage | Typed fields |
 |---|---|
 | Line second point | Length |
-| Circle radius | Radius |
-| Shift-slot radius, then second center | Radius, then Center distance |
+| Circle radius | Radius / Diameter (Tab switches) |
+| Shift-slot radius, then second center | Radius / Diameter (Tab switches), then Center distance |
 | Diagonal rectangle | Width and Depth (Tab switches) |
 | Shift edge-first rectangle | Width, then perpendicular Depth |
 
-For example, start a circle, drag outward, press Tab, type `0.02`, then Enter. For drag-based tools, start typing or press Tab before releasing the mouse; releasing while the field is active waits for Enter. For a slot, hold Shift at the initial press, type the radius and Enter, move toward the second center, then type its center-to-center distance and Enter. You can release the mouse while the input is open; placement waits for Enter or Escape. Numeric values are stored as double precision without display rounding. For line length, endpoints encode the length at floating-point precision.
+For example, start a circle, drag outward, press Tab, type `0.02`, then Enter. Within the radius stage, Tab switches between Radius and Diameter; Shift+Tab switches back. An empty field can be skipped before typing. Switching a specified value converts it and selects the new value for replacement; Enter accepts either representation. Diameter entry also works for the shared end size of Shift-slots, before their center-distance stage. For drag-based tools, start typing or press Tab before releasing the mouse; releasing while the field is active waits for Enter. For a slot, hold Shift at the initial press, type the radius and Enter, move toward the second center, then type its center-to-center distance and Enter. You can release the mouse while the input is open; placement waits for Enter or Escape. Numeric values are stored as double precision without display rounding. For line length, endpoints encode the length at floating-point precision.
 
 ### Selection, context actions and deletion
 
