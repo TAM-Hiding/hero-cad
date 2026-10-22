@@ -4,6 +4,7 @@ from vtkmodules.vtkRenderingCore import vtkCamera
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from star_cad.tools import ToolController, ToolEvent
+from star_cad.ui.camera_alignment import deterministic_up
 from star_cad.ui.display_geometry import paths_mesh
 from star_cad.ui.guides import ViewGuides
 from star_cad.ui.snapping import center_targets, snap_point
@@ -81,6 +82,8 @@ class SketchView:
         if self.actor.GetVisibility():
             bounds = self.mapper.GetInput().GetBounds()
             self.viewport.model_span = max(self.viewport.model_span, dist(bounds[::2], bounds[1::2]))
+        if self.feature:
+            self.origin_actor.SetPosition(*self.feature.parameters.frame.origin)
         self.guides.update()
         self.viewport.clamp_zoom()
 
@@ -90,7 +93,7 @@ class SketchView:
         return max(self.viewport.GetRenderWindow().GetSize()[1], 1)/(2*camera.GetParallelScale())
 
     def world_path(self, feature, entity, count):
-        key = (feature.parameters.plane, entity, count)
+        key = (feature.parameters.frame, entity, count)
         previous = self._path_cache.get(entity.id)
         if previous is None or previous[0] != key:
             path = tuple(feature.parameters.frame.to_world(p) for p in display_points(entity, count))
@@ -118,7 +121,7 @@ class SketchView:
         preview_entity = tool.preview_entity if tool else None
         preview = self.controller.preview
         count = segment_count(preview_entity, ppm)
-        preview_key = (self.active_id, preview_entity, count, preview if preview_entity is None else ())
+        preview_key = (self.feature.parameters.frame if self.feature else None, self.active_id, preview_entity, count, preview if preview_entity is None else ())
         if preview_key != self._preview_key:
             path = display_points(preview_entity, count) if preview_entity else preview
             paths = [[self.feature.parameters.frame.to_world(p) for p in path]] if self.feature and path else []
@@ -143,7 +146,7 @@ class SketchView:
         camera = self.viewport.renderer.GetActiveCamera()
         camera.SetFocalPoint(*frame.origin)
         camera.SetPosition(*(frame.origin[i]+frame.normal[i]*max(self.viewport.model_span*2, 10) for i in range(3)))
-        camera.SetViewUp(*frame.v)
+        camera.SetViewUp(*(deterministic_up(frame.normal) if self.feature.parameters.attachment else frame.v))
         camera.ParallelProjectionOn()
         camera.SetParallelScale(max(self.viewport.model_span*0.6, 10))
         if self.feature.parameters.entities:

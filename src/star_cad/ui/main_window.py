@@ -166,6 +166,7 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.delete_action)
         self.viewport.deleteRequested.connect(self.delete_selected)
         self.viewport.sketchContextRequested.connect(self.viewport_context_menu)
+        self.viewport.faceContextRequested.connect(self.face_context_menu)
         self.profile_action = QAction("Select Profile", self)
         self.profile_action.setCheckable(True)
         self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Enter its sketch if solids obscure it.")
@@ -260,7 +261,7 @@ class MainWindow(QMainWindow):
         self.viewport.dimensions.reset()
         self.viewport.profiles.clear()
         self.viewport.profiles.cache.clear()
-        has_extrusions = any(f.type == 'extrude' for f in self.document.features)
+        has_extrusions = any(f.type == 'extrude' and self.document.statuses[f.id].valid for f in self.document.features)
         self.show_base_box.setEnabled(has_extrusions)
         if not has_extrusions or not getattr(self, '_had_extrusions', False):
             with QSignalBlocker(self.show_base_box):
@@ -279,7 +280,7 @@ class MainWindow(QMainWindow):
         self.visible_volume = volume(visible)
         self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
         self.viewport.set_shape(visible, fit=fit)
-        self.viewport.sketch.update(self.document.sketches)
+        self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
         self.viewport.sketch.preview_actor.VisibilityOff()
         if self.viewport.sketch.controller.tool:
             self.viewport.sketch.controller.tool.cancel()
@@ -452,7 +453,12 @@ class MainWindow(QMainWindow):
             self.viewport.sketch.select_entity(None if extrusion else entity.id)
         elif self.browser_key and self.browser_key[0] != 'box':
             self.property_stack.setCurrentIndex(2)
-            self.property_info.setText("Select an Origin plane and choose New Sketch, or select an existing sketch and choose Edit Sketch.")
+            if self.browser_key[0] == 'sketch':
+                feature = self.document.feature(self.browser_key[1])
+                status = self.document.statuses[feature.id]
+                self.property_info.setText(self.sketch_plane_label(feature) + (" · Resolved" if status.valid else " · " + status.error))
+            else:
+                self.property_info.setText("Select an Origin plane or right-click a supported solid face for New Sketch.")
         else:
             self.property_stack.setCurrentIndex(0)
 
@@ -479,7 +485,7 @@ class MainWindow(QMainWindow):
                     key = ('extrude', feature.id)
                 else:
                     number = len([k for k in self.browser_items if k[0] == 'sketch']) + 1
-                    item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {feature.parameters.plane}"])
+                    item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {self.sketch_plane_label(feature)}" + (" · UNRESOLVED" if not status.valid else "")])
                     key = ('sketch', feature.id)
                     for i, entity in enumerate(feature.parameters.entities, 1):
                         child = QTreeWidgetItem(item, [f"{type(entity).__name__} {i}"])
@@ -487,6 +493,8 @@ class MainWindow(QMainWindow):
                         child.setData(0, Qt.UserRole, child_key)
                         self.browser_items[child_key] = child
                     item.setExpanded(feature.id == self.viewport.sketch.active_id)
+                if not status.valid and 'UNRESOLVED' not in item.text(0):
+                    item.setText(0, item.text(0) + ' · UNRESOLVED')
                 item.setToolTip(0, "Valid · " + feature.id if status.valid else status.error)
                 item.setData(0, Qt.UserRole, key)
                 self.browser_items[key] = item
@@ -514,6 +522,44 @@ class MainWindow(QMainWindow):
         self.show_properties()
         self.update_actions()
 
+    def sketch_plane_label(self, feature):
+        ref = feature.parameters.attachment
+        if not ref:
+            return feature.parameters.plane
+        parent = self.document.feature(ref.parent_id)
+        label = 'Box' if parent.type == 'box' else 'Extrusion ' + str(
+            [f.id for f in self.document.features if f.type == 'extrude'].index(parent.id)+1)
+        face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face'}.get(ref.face, ref.face)
+        return f'{label} / {face}' + (f' / {ref.boundary_id} / {ref.segment}' if ref.face == 'side' else '')
+
+    def face_context_menu(self, hit, position):
+        if self.viewport.sketch.active_id:
+            return
+        try:
+            reference = self.document.face_reference(hit[0])
+        except ValueError as error:
+            self.statusBar().showMessage(str(error), 5000)
+            return
+        self.viewport.select_face(hit[0])
+        menu = QMenu(self)
+        menu.addAction('New Sketch', lambda: self.create_face_sketch(reference))
+        menu.popup(position)
+        self._context_menu = menu
+
+    def create_face_sketch(self, reference):
+        if self.has_pending_edits() and not self.apply_dimensions():
+            return
+        try:
+            identifier = self.document.add_face_sketch(reference)
+        except ValueError as error:
+            self.statusBar().showMessage(str(error), 5000)
+            return
+        self.browser_key, self.entity_context = ('sketch', identifier), None
+        self.refresh()
+        self.viewport.sketch.enter(identifier)
+        self.update_actions()
+        self.update_status()
+
     def create_sketch(self):
         if not self.browser_key or self.browser_key[0] != 'plane':
             return
@@ -538,6 +584,9 @@ class MainWindow(QMainWindow):
         if not key or key[0] not in ('sketch', 'entity') or self.viewport.sketch.active_id:
             return
         if self.has_pending_edits() and not self.apply_dimensions():
+            return
+        if not self.document.statuses[key[1]].valid:
+            self.statusBar().showMessage(self.document.statuses[key[1]].error, 5000)
             return
         self.viewport.sketch.enter(key[1])
         self.update_actions()
@@ -724,10 +773,11 @@ class MainWindow(QMainWindow):
                                         + " | Middle / Shift-right: Pan | Wheel: Zoom")
             return
         selected = self.viewport.selection
+        unresolved = sum(not s.valid for s in self.document.statuses.values())
         selection_text = (f"Selected {selected.kind} {selected.index + 1} ({len(self.viewport.selections)} total)  |  "
                           if selected is not None else "")
         self.statusBar().showMessage(
-            f"{selection_text}{self.volume_label}: {self.visible_volume:.3f} mm³  |  "
+            f"{str(unresolved) + ' unresolved feature(s) · ' if unresolved else ''}{selection_text}{self.volume_label}: {self.visible_volume:.3f} mm³  |  "
             "Left drag: orbit · middle/Shift-right drag: pan · Shift-right double-click: face normal · wheel: zoom · F: fit"
         )
 

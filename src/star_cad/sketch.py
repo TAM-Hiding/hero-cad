@@ -26,6 +26,16 @@ class PlaneFrame:
     u: tuple
     v: tuple
 
+    def __post_init__(self):
+        if not isinstance(self.name, str):
+            raise ValueError('Invalid frame name')
+        for vector in (self.origin, self.u, self.v):
+            if not isinstance(vector, tuple) or len(vector) != 3:
+                raise ValueError('Frame vectors must be immutable triples')
+            numbers(*vector)
+        if any(abs(sum(x*x for x in a)-1) > 1e-10 for a in (self.u, self.v)) or abs(sum(a*b for a,b in zip(self.u,self.v))) > 1e-10:
+            raise ValueError('Sketch frame must be orthonormal')
+
     @property
     def normal(self):
         a, b = self.u, self.v
@@ -172,13 +182,37 @@ def slot_from_centers(a, b, radius):
 
 
 @dataclass(frozen=True)
+class FaceReference:
+    parent_id: str
+    face: str
+    boundary_id: str | None = None
+    segment: str | None = None
+
+    def __post_init__(self):
+        valid_id(self.parent_id)
+        if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side'):
+            raise ValueError('Unsupported semantic face')
+        if self.face == 'side':
+            valid_id(self.boundary_id)
+            if self.segment not in ('edge0', 'edge1', 'edge2', 'edge3', 'tangent0', 'tangent1'):
+                raise ValueError('Unsupported boundary segment')
+        elif self.boundary_id is not None or self.segment is not None:
+            raise ValueError('Only side faces have boundary segments')
+
+
+@dataclass(frozen=True)
 class SketchParameters:
     plane: str
     entities: tuple = ()
+    attachment: FaceReference | None = None
+    attached_frame: PlaneFrame | None = None
 
     def __post_init__(self):
-        if not isinstance(self.plane, str) or self.plane not in PLANES:
-            raise ValueError('Sketch reference must be XY, XZ or YZ')
+        if self.attachment is None:
+            if not isinstance(self.plane, str) or self.plane not in PLANES or self.attached_frame is not None:
+                raise ValueError('Sketch reference must be XY, XZ or YZ')
+        elif type(self.attachment) is not FaceReference or self.plane != 'FACE' or type(self.attached_frame) is not PlaneFrame:
+            raise ValueError('Face sketch requires a semantic reference and frame')
         if not isinstance(self.entities, tuple) or any(type(e) not in (Line, Rectangle, Circle, Slot) for e in self.entities):
             raise ValueError('Unsupported sketch entities')
         if len(self.entities) > 10000:
@@ -188,4 +222,4 @@ class SketchParameters:
 
     @property
     def frame(self):
-        return PLANES[self.plane]
+        return self.attached_frame if self.attachment else PLANES[self.plane]

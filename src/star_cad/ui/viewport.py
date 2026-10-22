@@ -30,6 +30,7 @@ class Viewport(QVTKRenderWindowInteractor):
     viewFeedback = Signal(str)
     previousViewAvailable = Signal(bool)
     sketchContextRequested = Signal(object, object)
+    faceContextRequested = Signal(object, object)
     deleteRequested = Signal()
     profilePicked = Signal(object)
     profileContextRequested = Signal(object)
@@ -310,6 +311,9 @@ class Viewport(QVTKRenderWindowInteractor):
             self.selections = [s for s in self.selections if (s.kind, s.index) != (selected.kind, index)]
         else:
             self.selections.append(selected)
+        self.show_selection()
+
+    def show_selection(self):
         self.selection = self.selections[-1] if self.selections else None
         if self.selections:
             append = vtkAppendPolyData()
@@ -321,6 +325,12 @@ class Viewport(QVTKRenderWindowInteractor):
         self.highlight_actor.SetVisibility(bool(self.selections))
         self.selectionChanged.emit(self.selection)
         self.GetRenderWindow().Render()
+
+    def select_face(self, face):
+        index = next(i for i, f in enumerate(self.faces) if f.IsSame(face))
+        if not any(s.kind == 'face' and s.index == index for s in self.selections):
+            self.selections = [Selection('face', index, self.faces[index])]
+        self.show_selection()
 
     def display_position(self, event):
         width, height = self.GetRenderWindow().GetSize()
@@ -398,7 +408,12 @@ class Viewport(QVTKRenderWindowInteractor):
                     if self.profiles.selection:
                         self.profileContextRequested.emit(event.globalPosition().toPoint())
                 else:
-                    self.sketchContextRequested.emit(self.sketch.hit(*self.display_position(event)), event.globalPosition().toPoint())
+                    hit = self.sketch.hit(*self.display_position(event))
+                    face = self.face_pick_at(*self.display_position(event)) if not self.sketch.active_id else None
+                    if face is not None and hit is None:
+                        self.faceContextRequested.emit(face, event.globalPosition().toPoint())
+                    else:
+                        self.sketchContextRequested.emit(hit, event.globalPosition().toPoint())
             return
         if event.button() == Qt.RightButton and self._consume_right_release:
             self._consume_right_release = False
