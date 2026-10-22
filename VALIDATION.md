@@ -209,7 +209,7 @@ Manual acceptance: draw an isolated rectangle, choose Select Profile, click insi
 
 Ready for physical extrusion/profile acceptance using the instructions above. PR #14 has not been started. Separate-body/line-chain/overlap limits remain as documented; no boolean operations were added.
 
-## PR #13 rendering follow-up — empty sketch obstruction (in progress)
+## PR #13 rendering follow-up — empty sketch obstruction
 
 Reported: occasional grey/obstructed sketch view, recovered by navigation; choosing a tool and clicking could restore grid dominance. The original scene has not been supplied. Reproduced a concrete clipping defect with a radius-0.02 mm circle extruded 0.01 mm, Fit, then entering an empty YZ sketch. The old range was 0.0581649475–0.1777228839 mm; the new eye was 10 mm from its plane. With no visible model/preview bounds, clipping returned early and projected the origin to depth 83.1549569. Choosing Line and pressing at the origin retained the stale range. This confirms one consistent failure path, not every possible reported visual artifact.
 
@@ -218,3 +218,7 @@ Fix: active-plane viewport footprint contributes only clipping bounds, including
 Local targeted command: `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/test_sketch_clipping_followup.py -q -k 'not render'`: **6 passed, 2 deselected** before restricting the pre-render callback to active editing. New tests cover all planes with grid visible/hidden, empty-plane depth before/after tool selection and first click, hidden solids, preview/cancel, stale-range repair on render, preserved camera projection/scale, visible grid pixels and a visible completed curve over the grid. Full proper-GL CI is required; local OpenGL is unavailable.
 
 Manual retest: Fit a small extrusion, start an empty sketch on each origin plane, select Line/Circle and click, hover, release and Escape. Try grid on/off, orbit/pan, zoom/Fit and reenter. Existing curves should remain visible while editing; real solids should still occlude source geometry after Finish. If the original grey region persists, record its screenshot and .starcad document/steps so the remaining failure can be isolated.
+
+Verified [branch push CI](https://github.com/TAM-Hiding/star-cad/actions/runs/39714267018), code/test commit `237b450abfbd861e9a2ffd5c6ae808f1b7de1405`: **243 passed on Ubuntu 22.04 and 243 on Ubuntu 24.04**, Python 3.12.15 with Xvfb/Mesa software OpenGL. Fresh pinned installation and pip check passed. Forty-nine upstream VTK/NumPy deprecation warnings per job; no rendered checks skipped. New pixel checks confirm an empty grid is visible immediately and a completed curve remains visible over it. Existing real-solid occlusion, Previous View snapshots, sketch tools, snapping, dimensions and extrusion regressions pass. Compileall and whitespace checks passed.
+
+The fix is reviewable on `sketch-clipping-followup`. No new pull request was opened because the user explicitly requested not to start PR #14 automatically. This branch contains only the reported rendering follow-up; physical reproduction of the original scene still needs confirmation.
