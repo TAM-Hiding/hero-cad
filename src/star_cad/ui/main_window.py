@@ -184,8 +184,10 @@ class MainWindow(QMainWindow):
         self.show_base_box = QAction("Show base box", self)
         self.show_base_box.setCheckable(True)
         self.show_base_box.setChecked(True)
-        self.show_base_box.toggled.connect(lambda _: self.refresh())
-        view_menu.addAction(self.show_base_box)
+        self._base_box_visibility_explicit = False
+        self.show_base_box.toggled.connect(self.base_box_visibility_changed)
+        settings_menu = self.menuBar().addMenu("&Settings")
+        settings_menu.addAction(self.show_base_box)
         opacity_row = QWidget()
         opacity_layout = QHBoxLayout(opacity_row)
         opacity_layout.addWidget(QLabel("Dimension popup opacity"))
@@ -257,13 +259,28 @@ class MainWindow(QMainWindow):
         marker = " *" if self.document.dirty or pending else ""
         self.setWindowTitle(f"STAR-CAD {__version__} — {name}{marker}")
 
+    def base_box_visibility_changed(self, checked):
+        self._base_box_visibility_explicit = True
+        self.display_solids()
+        self.viewport.sketch.update(self.viewport.sketch.features)
+        self.viewport.GetRenderWindow().Render()
+        self.update_status()
+
+    def display_solids(self, fit=False):
+        shapes = [shape for identifier, shape in self.document.solid_shapes.items()
+                  if self.show_base_box.isChecked() or self.document.feature(identifier).type != 'box']
+        # An empty display is valid when the user hides the only solid.
+        visible = compound(shapes)
+        self.visible_volume = volume(visible)
+        self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
+        self.viewport.set_shape(visible, fit=fit)
+
     def refresh(self, fit=False):
         self.viewport.dimensions.reset()
         self.viewport.profiles.clear()
         self.viewport.profiles.cache.clear()
         has_extrusions = any(f.type == 'extrude' and self.document.statuses[f.id].valid for f in self.document.features)
-        self.show_base_box.setEnabled(has_extrusions)
-        if not has_extrusions or not getattr(self, '_had_extrusions', False):
+        if not self._base_box_visibility_explicit and (not has_extrusions or not getattr(self, '_had_extrusions', False)):
             with QSignalBlocker(self.show_base_box):
                 self.show_base_box.setChecked(not has_extrusions)
         self._had_extrusions = has_extrusions
@@ -273,13 +290,7 @@ class MainWindow(QMainWindow):
                 field.setToolTip(f"Stored dimension: {getattr(self.document.parameters, name):.15g} mm")
         # Preserve untouched loaded values even if the editor displays fewer decimals.
         self._shown_values = {n: f.value() for n, f in self.fields.items()}
-        shapes = [shape for identifier, shape in self.document.solid_shapes.items()
-                  if self.show_base_box.isChecked() or self.document.feature(identifier).type != 'box']
-        # Keep the box visible if there are no extrusion bodies to display.
-        visible = compound(shapes) if shapes else self.document.shape
-        self.visible_volume = volume(visible)
-        self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
-        self.viewport.set_shape(visible, fit=fit)
+        self.display_solids(fit=fit)
         self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
         self.viewport.sketch.preview_actor.VisibilityOff()
         if self.viewport.sketch.controller.tool:
@@ -404,8 +415,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot open document", str(error))
             return
         self.document = replacement
-        with QSignalBlocker(self.show_base_box):
-            self.show_base_box.setChecked(not any(f.type == 'extrude' for f in replacement.features))
+        if not self._base_box_visibility_explicit:
+            with QSignalBlocker(self.show_base_box):
+                self.show_base_box.setChecked(not any(f.type == 'extrude' for f in replacement.features))
         self.refresh(fit=True)
 
     def current_entity(self):
@@ -717,12 +729,13 @@ class MainWindow(QMainWindow):
             self.viewport.sketch.finish()
         self.profile_action.setChecked(False)
         # The initial box is a separate demo body; do not let it cover a new part.
-        with QSignalBlocker(self.show_base_box):
-            self.show_base_box.setChecked(False)
+        if not self._base_box_visibility_explicit:
+            with QSignalBlocker(self.show_base_box):
+                self.show_base_box.setChecked(False)
         self.entity_context = ('extrude', identifier)
         self.browser_key = ('extrude', identifier)
         self.refresh(fit=True)
-        self.statusBar().showMessage('Extrusion created as a new body · base box hidden (View → Show base box)', 6000)
+        self.statusBar().showMessage('Extrusion created as a new body · Settings → Show base box controls the demo shape', 6000)
 
     def focus_parameters(self):
         self.show_properties()

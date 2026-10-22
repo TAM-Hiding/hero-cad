@@ -9,7 +9,7 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 ### Sketch workflow
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
-2. The camera faces the plane orthographically; axes and origin appear. The solid is temporarily hidden so it cannot obscure the sketch.
+2. The camera faces the plane orthographically; axes and origin appear. Origin-plane editing temporarily hides solids. Face-attached editing retains translucent solids and other sketches as placement references.
 3. Choose **Line**, **Rectangle** or **Circle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
 4. Choose **Select**, then click an entity (or its browser entry) to edit numeric parameters in Properties. Click **Apply entity parameters** to commit.
 5. Choose **Finish Sketch** to restore the previous model view. Select an existing sketch and choose **Edit Sketch**, or double-click its browser entry, to return.
@@ -73,11 +73,11 @@ Right-click a sketch curve or browser entry for **Edit Parameters**, **Edit Sket
 
 Extrusions store the source sketch UUID, outer entity UUID and exact hole UUID set. Dimension/position edits preserve those references. A change that would add/remove a hole, change nesting or make boundaries intersect is rejected atomically. Delete the extrusion, change the region topology, then reselect and extrude; Undo can recover the earlier state. Referenced source sketches and boundary entities cannot be deleted while their extrusion survives.
 
-This pass has **New Body only**, without Join, Cut, Intersect, taper, a drag-depth preview or general overlap-region construction. Bodies are not implicitly fused; their volumes sum even if bodies overlap. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **View → Show base box** restores it; this display preference does not modify geometry. When all extrusion bodies are deleted, the base box becomes visible again. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
+This pass has **New Body only**, without Join, Cut, Intersect, taper, a drag-depth preview or general overlap-region construction. Bodies are not implicitly fused; their volumes sum even if bodies overlap. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **Settings → Show base box** restores it; this display preference does not modify geometry. By default, deleting all extrusion bodies restores the base box. An explicit Settings toggle overrides these defaults for the session, including after New/Open and Undo/Redo. The toggle also works when the box is the only solid; hiding it does not delete or suppress its dependent features. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
 
 ### Sketch on a planar face
 
-Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
+Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing a face sketch, existing solids remain visible at 35% opacity with their boundary edges, and other sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids; origin-plane editing retains its isolated view. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
 
 Supported references:
 - Box: **+X, −X, +Y, −Y, +Z, −Z**.

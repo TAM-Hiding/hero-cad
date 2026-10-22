@@ -78,6 +78,11 @@ class SketchView:
         if self.entity_id not in keep:
             self.entity_id = None
         self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
+        if self.feature:
+            context = bool(self.feature.parameters.attachment)
+            self.viewport.actor.SetVisibility(context)
+            self.viewport.edge_actor.SetVisibility(context)
+            self.viewport.actor.GetProperty().SetOpacity(.35 if context else 1.)
         self.prepare_display()
         if self.actor.GetVisibility():
             bounds = self.mapper.GetInput().GetBounds()
@@ -103,7 +108,8 @@ class SketchView:
     def prepare_display(self):
         """Refresh quality bands before rendering, never recursively render here."""
         ppm = self.pixels_per_mm
-        visible = tuple(f for f in self.features if not self.active_id or f.id == self.active_id)
+        context = bool(self.feature and self.feature.parameters.attachment)
+        visible = tuple(f for f in self.features if not self.active_id or context or f.id == self.active_id)
         rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
         key = (visible, tuple(count for _, _, count in rows))
         if key != self._display_key:
@@ -111,9 +117,9 @@ class SketchView:
             self.mapping = [(f.id, e.id) for f, e, _ in rows]
             self.actor.SetVisibility(bool(rows))
             self._display_key = key
-        highlight_key = (key, frozenset(self.entity_ids))
+        highlight_key = (key, self.active_id, frozenset(self.entity_ids))
         if highlight_key != self._highlight_key:
-            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id in self.entity_ids]
+            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id in self.entity_ids and (not self.active_id or f.id == self.active_id)]
             self.highlight_mapper.SetInputData(paths_mesh(paths))
             self.highlight_actor.SetVisibility(bool(paths))
             self._highlight_key = highlight_key
@@ -139,8 +145,6 @@ class SketchView:
         self.active_id = identifier
         self.set_tool('select')
         self.viewport.clear_selection(render=False)
-        self.viewport.actor.VisibilityOff()
-        self.viewport.edge_actor.VisibilityOff()
         self.update(self.features)
         frame = self.feature.parameters.frame
         camera = self.viewport.renderer.GetActiveCamera()
@@ -166,6 +170,7 @@ class SketchView:
         self.highlight_actor.VisibilityOff()
         self.viewport.actor.VisibilityOn()
         self.viewport.edge_actor.VisibilityOn()
+        self.viewport.actor.GetProperty().SetOpacity(1.)
         if self.saved_camera:
             self.viewport.renderer.GetActiveCamera().DeepCopy(self.saved_camera)
             self.saved_camera = None
@@ -280,7 +285,8 @@ class SketchView:
     def hit(self, x, y):
         self.prepare_display()
         hits = self.viewport.line_candidates(self.mapper.GetInput(), x, y)
-        hit = next((h for h in hits if not self.viewport.actor.GetVisibility() or self.viewport.visible_edge(h[1])), None)
+        hit = next((h for h in hits if (not self.active_id or self.mapping[h[2]][0] == self.active_id)
+                    and (self.active_id or not self.viewport.actor.GetVisibility() or self.viewport.visible_edge(h[1]))), None)
         return self.mapping[hit[2]] if hit else None
 
     def pick(self, x, y, additive=False):

@@ -102,7 +102,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.mapper.SetInputData(surface)
         self.edge_mapper.SetInputData(wire)
         bounds = surface.GetBounds()
-        self.model_span = max(dist(bounds[::2], bounds[1::2]), 0.001)
+        self.model_span = max(dist(bounds[::2], bounds[1::2]), 0.001) if surface.GetNumberOfPoints() else self.model_span
         self.clear_selection(render=False)
         if fit:
             self.renderer.ResetCamera()
