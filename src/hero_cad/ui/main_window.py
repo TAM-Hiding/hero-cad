@@ -15,11 +15,14 @@ from hero_cad.geometry import volume, compound
 from hero_cad.sketch import PLANES
 from hero_cad.ui.viewport import Viewport
 from hero_cad.ui.operation_panel import OperationPanel
+from hero_cad.ui.commands import CommandRegistry
+from hero_cad.ui.tool_island import ToolIsland
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, *, settings=None):
         super().__init__()
+        self.commands = CommandRegistry(self)
         self.resize(1200, 780)
         self.document = Document()
         self.entity_context = None
@@ -71,7 +74,7 @@ class MainWindow(QMainWindow):
         self.browser.itemSelectionChanged.connect(self.browser_multi_selection)
         self.browser.itemDoubleClicked.connect(lambda *_: self.edit_sketch())
         toolbar = self.addToolBar("View")
-        fit = QAction("Fit all", self)
+        fit = self.fit_action = QAction("Fit all", self)
         fit.setShortcut("F")
         fit.triggered.connect(self.viewport.fit)
         toolbar.addAction(fit)
@@ -80,6 +83,7 @@ class MainWindow(QMainWindow):
         self.previous_view_action.setToolTip("Restore the camera from before the latest face-normal alignment (one level)")
         self.previous_view_action.triggered.connect(self.viewport.previous_view)
         self.viewport.previousViewAvailable.connect(self.previous_view_action.setEnabled)
+        self.viewport.previousViewAvailable.connect(lambda _: self.update_actions())
         self.viewport.viewFeedback.connect(lambda text: self.statusBar().showMessage(text, 4000))
         toolbar.addAction(self.previous_view_action)
         self.selection_choice = QComboBox()
@@ -116,8 +120,17 @@ class MainWindow(QMainWindow):
         self.addToolBarBreak()
         self.sketch_toolbar = self.addToolBar("Sketch construction")
         self.tool_choice = QComboBox()
-        self.tool_choice.addItems(["Select", "Line", "Rectangle", "Circle"])
-        self.tool_choice.currentTextChanged.connect(lambda name: self.viewport.sketch.set_tool(name.lower()))
+        self.tool_choice.addItems(["Select", "Line", "Rectangle", "Circle", "Slot"])
+        self.tool_actions = {}
+        self.tool_group = QActionGroup(self)
+        for name in ('select', 'line', 'rectangle', 'circle', 'slot'):
+            action = QAction(name.title(), self)
+            action.setCheckable(True)
+            self.tool_group.addAction(action)
+            action.triggered.connect(lambda checked, tool=name: self.activate_tool(tool))
+            self.commands.register('tool.'+name, action, contexts=('sketch',))
+            self.tool_actions[name] = action
+        self.tool_choice.currentTextChanged.connect(lambda name: self.commands.execute('tool.'+name.lower()))
         self.sketch_toolbar.addWidget(self.tool_choice)
         self.grid_action = QAction("Grid", self)
         self.grid_action.setCheckable(True)
@@ -185,7 +198,7 @@ class MainWindow(QMainWindow):
         self.extrude_action.triggered.connect(self.extrude_selected)
         toolbar.addAction(self.extrude_action)
         self.sketch_toolbar.addAction(self.extrude_action)
-        self.viewport.profilePicked.connect(lambda selection: self.extrude_action.setEnabled(selection is not None))
+        self.viewport.profilePicked.connect(lambda _: self.update_actions())
         self.viewport.profileContextRequested.connect(self.profile_context_menu)
         self.combine_action = QAction("Combine…", self)
         self.combine_action.triggered.connect(self.combine_selected)
@@ -244,6 +257,12 @@ class MainWindow(QMainWindow):
         opacity_action = QWidgetAction(self)
         opacity_action.setDefaultWidget(opacity_row)
         view_menu.addAction(opacity_action)
+        self.setup_commands()
+        self.tool_island = ToolIsland(self.viewport, self.commands, settings=settings)
+        self.island_action = view_menu.addAction('Floating Tool Island')
+        self.island_action.setCheckable(True)
+        self.island_action.setChecked(self.tool_island.requested_visible)
+        self.island_action.toggled.connect(self.tool_island.set_user_visible)
         self.refresh(fit=True)
         self.operation_panel = OperationPanel(self)
 
@@ -251,6 +270,80 @@ class MainWindow(QMainWindow):
         with QSignalBlocker(self.xray_choice):
             self.xray_choice.setCurrentText(mode)
         self.xray_actions[mode].setChecked(True)
+
+    def setup_commands(self):
+        model, sketch, both = ('model', 'face'), ('sketch',), ('model', 'face', 'sketch')
+        for identifier, action, contexts in (
+            ('sketch.new', self.new_sketch_action, model),
+            ('sketch.edit', self.edit_sketch_action, model),
+            ('profile.select', self.profile_action, both),
+            ('model.extrude', self.extrude_action, both),
+            ('model.combine', self.combine_action, model),
+            ('sketch.finish', self.finish_sketch_action, sketch),
+            ('view.fit', self.fit_action, both),
+            ('view.previous', self.previous_view_action, model),
+            ('view.axes', self.axes_action, both),
+            ('sketch.grid', self.grid_action, sketch),
+            ('sketch.snap_grid', self.snap_grid_action, sketch),
+            ('sketch.snap_origin', self.snap_origin_action, sketch),
+            ('sketch.snap_center', self.snap_center_action, sketch),
+            ('edit.undo', self.undo_action, both),
+            ('edit.redo', self.redo_action, both),
+            ('file.save', self.save_action, ()),
+        ):
+            self.commands.register(identifier, action, contexts=contexts)
+
+    def activate_tool(self, name):
+        # Toolbar and island share one action; Slot uses the existing CircleTool
+        # slot stages, not a separate construction implementation.
+        if hasattr(self, 'profile_action'):
+            self.profile_action.setChecked(False)
+        self.viewport.sketch.set_tool(name)
+
+    def selected_face_reference(self):
+        selection = self.viewport.selection
+        if selection is None or selection.kind != 'face':
+            return None, 'Select an origin plane or a supported planar face.'
+        try:
+            return self.document.face_reference(selection.shape), ''
+        except ValueError as error:
+            return None, str(error)
+
+    def update_commands(self):
+        active = self.viewport.sketch.active_id is not None
+        key = self.browser_key or ()
+        reference, face_reason = self.selected_face_reference() if not active else (None, '')
+        plane = bool(key and key[0] == 'plane' and self.viewport.selection is None)
+        self.commands.enable('sketch.new', not active and (reference is not None or plane),
+                             'Finish the current sketch first.' if active else face_reason)
+        editable = bool(key and key[0] in ('sketch', 'entity', 'extrude'))
+        status = self.document.statuses.get(key[1]) if editable else None
+        valid = bool(status and status.valid)
+        self.commands.enable('sketch.edit', not active and editable and valid,
+                             'Finish the current sketch first.' if active else 'Select a resolved sketch or extrusion in the browser.')
+        self.commands.enable('sketch.finish', active, 'No sketch is being edited.')
+        self.commands.enable('model.extrude', self.viewport.profiles.selection is not None,
+                             'Use Select Profile and click inside an enclosed material region.')
+        self.commands.enable('model.combine', not active and len(self.selected_body_ids()) >= 2,
+                             'Finish sketch editing and select at least two current bodies.')
+        if not self.viewport.sketch.features and self.profile_action.isChecked():
+            self.profile_action.setChecked(False)
+        self.commands.enable('profile.select', bool(self.viewport.sketch.features), 'Create a sketch with a closed profile first.')
+        for name, action in self.tool_actions.items():
+            self.commands.enable('tool.'+name, active, 'Enter a sketch first.')
+            action.setChecked(active and not self.viewport.profiles.active and self.viewport.sketch.controller.name == name)
+        for identifier in ('sketch.grid', 'sketch.snap_grid', 'sketch.snap_origin', 'sketch.snap_center'):
+            self.commands.enable(identifier, active, 'Enter a sketch first.')
+        for identifier in ('edit.undo', 'edit.redo', 'view.previous'):
+            action = self.commands.commands[identifier].action
+            self.commands.enable(identifier, action.isEnabled(),
+                                 'No previous face-aligned view.' if identifier == 'view.previous' else 'No history step available.')
+        if hasattr(self, 'tool_island'):
+            context = 'sketch' if active else 'face' if reference is not None else 'model'
+            hint = ('Draw in the active sketch; Esc cancels construction.' if active else
+                    'New Sketch attaches to the selected planar face.' if reference is not None else
+                    'New Sketch uses the selected origin plane.' if plane else face_reason)
+            self.tool_island.set_context(context, hint)
 
     def add_panel(self, title, widget, area):
         dock = QDockWidget(title, self)
@@ -295,14 +388,14 @@ class MainWindow(QMainWindow):
         self.redo_action.setEnabled(not pending and self.document.can_redo)
         active = self.viewport.sketch.active_id is not None
         key = self.browser_key or ()
-        self.new_sketch_action.setEnabled(not active and bool(key) and key[0] == 'plane')
-        self.edit_sketch_action.setEnabled(not active and bool(key) and key[0] in ('sketch', 'entity', 'extrude'))
         self.sketch_toolbar.setVisible(active)
         self.selection_choice.setEnabled(not active)
         self.view_choice.setEnabled(not active)
         name = self.document.path.name if self.document.path else "Untitled"
         marker = " *" if self.document.dirty or pending else ""
         self.setWindowTitle(f"HERO-CAD {__version__} — {name}{marker}")
+        if 'sketch.new' in self.commands.commands:
+            self.update_commands()
 
     def base_box_visibility_changed(self, checked):
         self._base_box_visibility_explicit = True
@@ -582,7 +675,7 @@ class MainWindow(QMainWindow):
         key = tuple(key) if key else None
         if key == self.browser_key:
             return
-        if key and key[0] in ('box','extrude','boolean'):
+        if key and key[0] in ('box','extrude','boolean','plane'):
             self.viewport.clear_selection(render=False)
         if self.has_pending_edits() and not self.apply_dimensions():
             with QSignalBlocker(self.browser):
@@ -614,10 +707,10 @@ class MainWindow(QMainWindow):
         self.viewport.select_face(hit[0])
         menu = QMenu(self)
         if len(self.selected_body_ids()) >= 2:
-            menu.addAction('Combine…',self.combine_selected)
+            menu.addAction(self.combine_action)
         try:
             reference = self.document.face_reference(hit[0])
-            menu.addAction('New Sketch', lambda: self.create_face_sketch(reference))
+            menu.addAction(self.new_sketch_action)
         except ValueError as error:
             if menu.isEmpty():
                 self.statusBar().showMessage(str(error),5000)
@@ -640,6 +733,11 @@ class MainWindow(QMainWindow):
         self.update_status()
 
     def create_sketch(self):
+        if not self.viewport.sketch.active_id:
+            reference, _ = self.selected_face_reference()
+            if reference:
+                self.create_face_sketch(reference)
+                return
         if not self.browser_key or self.browser_key[0] != 'plane':
             return
         plane = self.browser_key[1]
@@ -683,6 +781,7 @@ class MainWindow(QMainWindow):
             self.profile_action.setChecked(False)
         with QSignalBlocker(self.tool_choice):
             self.tool_choice.setCurrentText(name.title())
+        self.update_actions()
 
     def entity_created(self, entity):
         identifier = self.viewport.sketch.active_id
@@ -762,7 +861,7 @@ class MainWindow(QMainWindow):
         """Only implemented actions are exposed; future actions can append here."""
         menu = QMenu(self)
         if len(self.selected_body_ids()) >= 2:
-            menu.addAction('Combine…',self.combine_selected)
+            menu.addAction(self.combine_action)
         if key and key[0] in ('extrude','boolean'):
             menu.addAction('Edit Operation…',self.edit_operation)
         if key and key[0] == 'boolean':
@@ -770,8 +869,7 @@ class MainWindow(QMainWindow):
         if key and key[0] in ('entity', 'box', 'extrude'):
             menu.addAction('Edit Parameters', self.focus_parameters)
         if key and key[0] in ('entity', 'sketch', 'extrude'):
-            action = menu.addAction('Edit Sketch', self.edit_sketch)
-            action.setEnabled(self.viewport.sketch.active_id is None)
+            menu.addAction(self.edit_sketch_action)
             menu.addAction('Delete', self.delete_selected)
         return menu
 
@@ -904,5 +1002,6 @@ class MainWindow(QMainWindow):
         if not self.confirm_replace():
             event.ignore()
             return
+        self.tool_island.save_layout()
         self.viewport.Finalize()
         super().closeEvent(event)

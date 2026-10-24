@@ -136,6 +136,10 @@ class RectangleTool(ConstructionTool):
 
 
 class CircleTool(ConstructionTool):
+    def __init__(self, *, slot_mode=False):
+        self.slot_mode = slot_mode
+        super().__init__()
+
     def dimension_values(self):
         if self.a is None or self.last_point is None:
             return {}
@@ -155,6 +159,8 @@ class CircleTool(ConstructionTool):
 
     @property
     def hint(self):
+        if self.stage == 'start' and self.slot_mode:
+            return 'SLOT | Drag radius, then place second center | Esc: Cancel'
         return {'start': 'CIRCLE | Drag radius | Shift: Slot | Esc: Cancel',
                 'radius': 'CIRCLE | Release to finish | Esc: Cancel',
                 'slot_radius': 'SLOT | Release to lock radius | Esc: Cancel',
@@ -164,7 +170,7 @@ class CircleTool(ConstructionTool):
         if event.phase == 'press':
             if self.stage == 'start':
                 self.a = event.point
-                self.stage = 'slot_radius' if event.shift else 'radius'
+                self.stage = 'slot_radius' if event.shift or self.slot_mode else 'radius'
             elif self.stage == 'center':
                 return self.finish(self.slot(event.point))
         elif event.phase == 'release' and self.stage in ('radius', 'slot_radius'):
@@ -197,7 +203,8 @@ class ToolController:
         self.set_tool('select')
 
     def set_tool(self, name):
-        factory = {'select': None, 'line': LineTool, 'rectangle': RectangleTool, 'circle': CircleTool}
+        factory = {'select': None, 'line': LineTool, 'rectangle': RectangleTool,
+                   'circle': CircleTool, 'slot': lambda: CircleTool(slot_mode=True)}
         if name not in factory:
             raise ValueError('Unknown tool')
         self.name = name

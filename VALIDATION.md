@@ -394,3 +394,74 @@ DISPLAY=localhost:122 LD_LIBRARY_PATH=/tmp/hero-pr19-x11/usr/lib/x86_64-linux-gn
 Targeted new tests: tests/test_line_profiles.py + tests/test_surface_display.py: **48 passed**. tests/test_profiles_xray_ui.py under Xvfb/Mesa: **9 passed**. The 57 new cases cover triangles/trapezoids/concave polygons/dovetails, XY/XZ/YZ and signed distances, independent loops/open chains, endpoint tolerance without source mutation, rejected arrangements, primitive/line holes, New Body/Join/Cut/Intersect and directional Through All, exact kernel volume/validity, stable membership/order/direction, v8 persistence, temporary open-loop recovery/downstream suppression, line-side attachments and deletion protection. UI tests draw the principal dovetail with normal Line clicks and grid snapping, Finish, click its interior, Preview/Apply New Body or a Cut through the block, Undo/Redo and reopen. Further tests exercise numeric vertex editing, X-Ray/menu synchronization, selection/preview pixel differences, style isolation and zero remeshing during camera/X-Ray changes. Small-radius normals, refined triangle counts, located curves and sharp corner normals are checked directly. Existing tests cover all prior workflows, v1–v6 fixture hashes/serialization and v7 face attachments, launcher subprocesses and mouse gestures.
 
 Final targeted document + line-profile + surface-display run: **71 passed**. Invalid/missing extrusion sources retain their existing FeatureError transaction contract, with an additional regression case. Pip check: **No broken requirements found**. Compileall and git diff --check pass. Standard desktop commands remain in README.md; detailed physical checks and remaining profile limits are in PROFILE_TESTING.md. Ubuntu 22.04 is not locally tested in this PR; the unchanged Actions matrix runs Ubuntu 22.04/24.04 after publication. No physical laptop/GPU results are claimed for PR #20. Stop after opening PR #20; do not merge automatically or begin subsequent features.
+
+
+## PR #21 — floating tool island and shared Qt command catalogue
+
+Baseline: merged PR #20 at main 57390818139da48afc2b36b2aed31c5d399f40df;
+user reported the program/laptop test looked good. Branch: floating-tool-island.
+No new modeling operations, document/schema changes or dependencies.
+
+Implemented a viewport-owned dark QFrame overlay with header dragging,
+Compact/Medium/Expanded sizes, one/two/three-column reflow, scrolling when
+necessary, collapse/expand and View-menu visibility. Effective placement/size
+clamp on viewport resize while requested placement/preset remain; a small
+224×180 viewport minimum keeps a header/column usable. QSettings stores
+layout in tool_island/v1, separately from document geometry and Undo.
+Context updates preserve layout, collapse state and the active tool.
+
+ui/commands.py catalogues stable IDs/context/disabled reasons around existing
+QAction objects. Island QToolButtons use setDefaultAction on those same actions;
+registration does not reconnect callbacks or copy shortcuts. The sketch toolbar
+dropdown dispatches the same tool actions, with checks synchronized from the
+existing ToolController. Slot is an explicit CircleTool slot-mode alias, using
+its existing Shift-circle stages and dimensions. Existing menus/toolbars/keys
+remain; relevant face/browser actions reuse the shared actions. Parameterized
+curve-context callbacks and some file/property actions remain intentionally
+outside the static catalogue. No plugin/scripting system or feature-engine
+rewrite. A stale browser key during Undo/refresh was caught in the first UI
+run and fixed with tolerant status lookup before the accepted full runs.
+
+Environment: Ubuntu 24.04.3 x86-64, CPython 3.12.14, a new .venv-pr21 installed
+from unchanged requirements-dev.lock followed by --no-deps -e . . Test windows
+use isolated INI preferences; a fresh Python interpreter also verifies saved
+layout values, avoiding dependence on Qt's in-process settings cache.
+
+The runner lacks system-installed Xvfb/X11 dependencies and UNIX socket setup.
+Apt-downloaded libraries/Xvfb were extracted under /tmp/hero-pr21-x11; Qt XCB
+and Mesa software OpenGL supplied real rendering. Server and tests run in the
+same shell, with the test command starting only after the server is reachable:
+
+```bash
+LD_LIBRARY_PATH=/tmp/hero-pr21-x11/usr/lib/x86_64-linux-gnu /tmp/hero-pr21-x11/usr/bin/Xvfb :134 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp
+# Same shell, after Xvfb is ready:
+DISPLAY=localhost:134 LD_LIBRARY_PATH=/tmp/hero-pr21-x11/usr/lib/x86_64-linux-gnu LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv-pr21/bin/python -m pytest -q
+```
+
+**Final full suite: 434 passed, no skips, 85 upstream VTK/NumPy deprecation
+warnings in 104.15 seconds.** The earlier full run before the small-window
+safeguard also passed all 433 then-existing tests.
+
+19 new island cases cover initial placement/visibility, preset reflow and
+readable button dimensions, header dragging and bounds, unchanged camera/model
+state, collapse/expand across contexts, real settings restoration (including a
+fresh-process read), View-menu show/hide, viewport resize and smallest ordinary
+window handling, malformed preferences, shared enabled/action/check state,
+origin/planar-face sketch creation, curved-face rejection, Slot via existing
+construction, active-tool stability, grid synchronization, one history step per
+activation, profile/extrusion preview+commit and Combine dispatch, shortcut
+activation counts, mouse/wheel consumption over the panel, actual outside-widget
+face/edge picking and zoom, and layout/X-Ray retention across New/history.
+Existing tests cover all geometry/persistence/undo/gesture/render workflows,
+including PR #20's line-profile and X-Ray behavior and real launcher subprocesses.
+
+Additional checks: sketch/construction/editing kernel tests **27 passed**;
+compileall and git diff --check pass; pip check reports **No broken requirements
+found**. Captured and visually inspected real Qt/VTK screenshots of Expanded,
+Compact and Collapsed states; files are committed under docs/screenshots, with
+screenshots, command-architecture limits and physical laptop instructions in
+[docs/TOOL_ISLAND.md](docs/TOOL_ISLAND.md).
+
+Ubuntu 22.04 is not locally tested for this PR; the unchanged Actions matrix
+runs Ubuntu 22.04 and 24.04 after publication. No physical laptop/GPU testing
+is claimed for PR #21. Stop after opening PR #21; do not merge automatically.
