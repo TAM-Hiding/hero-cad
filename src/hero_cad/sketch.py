@@ -190,12 +190,16 @@ class FaceReference:
 
     def __post_init__(self):
         valid_id(self.parent_id)
-        if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side'):
+        if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side', 'evaluated'):
             raise ValueError('Unsupported semantic face')
         if self.face == 'side':
             valid_id(self.boundary_id)
             if self.segment not in ('edge0', 'edge1', 'edge2', 'edge3', 'tangent0', 'tangent1'):
                 raise ValueError('Unsupported boundary segment')
+        elif self.face == 'evaluated':
+            if (self.boundary_id is not None or not isinstance(self.segment, str)
+                    or len(self.segment) != 64 or any(c not in '0123456789abcdef' for c in self.segment)):
+                raise ValueError('Invalid evaluated face identity')
         elif self.boundary_id is not None or self.segment is not None:
             raise ValueError('Only side faces have boundary segments')
 

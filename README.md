@@ -4,11 +4,9 @@ Formerly STAR-CAD. The application, console command and Python package are now
 **HERO-CAD**, **hero-cad** and **hero_cad**. Existing **.starcad** documents and
 their internal format are unchanged.
 
-Planned repository: [TAM-Hiding/hero-cad](https://github.com/TAM-Hiding/hero-cad).
-Until the owner renames it after this PR merges, work remains in
-[TAM-Hiding/star-cad](https://github.com/TAM-Hiding/star-cad).
-See [MIGRATION.md](MIGRATION.md) for existing-install upgrades and the
-post-merge repository rename checklist.
+Repository: [TAM-Hiding/hero-cad](https://github.com/TAM-Hiding/hero-cad).
+See [MIGRATION.md](MIGRATION.md) for existing-install upgrades and
+[SKETCH_FACE_TESTING.md](SKETCH_FACE_TESTING.md) for PR #19 desktop checks.
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
@@ -19,7 +17,7 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 ### Sketch workflow
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
-2. The camera faces the plane orthographically; axes and origin appear. Origin-plane editing temporarily hides solids. Face-attached editing retains translucent solids and other sketches as placement references.
+2. The camera faces the plane orthographically; axes and origin appear. All sketch editing retains existing evaluated solids at 35% opacity and other sketches as placement references, respecting Settings → Show base box and the selected display mode.
 3. Choose **Line**, **Rectangle** or **Circle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
 4. Choose **Select**, then click an entity (or its browser entry) to edit numeric parameters in Properties. Click **Apply entity parameters** to commit.
 5. Choose **Finish Sketch** to restore the previous model view. Select an existing sketch and choose **Edit Sketch**, or double-click its browser entry, to return.
@@ -87,12 +85,13 @@ Extrusions support **New Body, Join, Cut and Intersect**, without taper, drag-de
 
 ### Sketch on a planar face
 
-Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing a face sketch, existing solids remain visible at 35% opacity with their boundary edges, and other sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids; origin-plane editing retains its isolated view. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
+Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing any sketch, existing evaluated solids remain visible at 35% opacity with their boundary edges, and other sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids. Active sketch entities and material profiles can be selected through reference bodies. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
 
 Supported references:
 - Box: **+X, −X, +Y, −Y, +Z, −Z**.
 - Extrusion: **Start Face** at the source plane and **End Face** at signed extrusion distance.
 - Planar sides of Rectangle boundaries (four named edges) and Slot boundaries (two straight tangent segments), including hole walls. These use the source entity UUID and parameter-defined segment identity; no generated face index is stored.
+- Boolean outputs: eligible planar faces of Cut, Join and Intersect, including operation extrusions, split cap regions and cut floors. Independent sketches can share one face. These reference the current result feature and a unique OCCT face-ancestry/adjacency identity.
 - Circle walls and rounded Slot ends are curved and cannot host a sketch. Unknown/imported faces with no supported feature identity are rejected. Arbitrary compound orientations are supported mathematically; no transform/import operation is added in this release.
 
 The browser and sketch properties identify the parent and semantic face. Changing box dimensions, extrusion distance or source boundary dimensions regenerates attached planes while retaining local entity coordinates, dimensions and UUIDs. Caps inherit the source U direction and retain their initial normal sense through signed-depth reversal; sides use their boundary anchor and source normal. Frames come from geometry, never the camera. Presentation keeps projected world Z upward with a world Y fallback near Z poles.
@@ -109,7 +108,7 @@ The orange shaded preview replaces the normal body rendering, including all curr
 
 Operations require one valid connected positive-volume solid result. Disconnected, touching-only, zero-volume, non-intersecting and split-result operations are rejected conservatively. Initial invalid operations cannot be applied. If an accepted operation later loses overlap after an upstream edit, its parameters remain with an unresolved error and no stale result body; restoring inputs or Undo recovers it. Missing/forward/cyclic references remain hard errors. Synchronous OCCT preview can take time on complex inputs; no background worker is added.
 
-**Face-reference limit:** new sketches cannot be attached to Boolean output faces, including Join/Cut/Intersect extrusion outputs. Such faces have no semantic naming contract in this release and report the limitation. Existing sketches remain attached to their explicitly referenced original feature, even when that feature becomes historical. Changing a referenced New Body extrusion into a Boolean extrusion invalidates its old cap/side references explicitly, retaining unresolved sketch geometry. Plan needed face sketches before the operation, or use origin-plane sketches for subsequent features. No general topological renaming is attempted.
+**Face-reference limits:** Boolean face references use source feature/boundary identities propagated through OCCT history plus neighboring CAD-face identities and split counts. Separate coplanar regions are distinct when this signature is unique. Faces with missing ancestry or indistinguishable signatures are rejected with feedback. Changing upstream topology can invalidate a reference even if a visually similar face remains; its sketch and local geometry are preserved as UNRESOLVED, with no nearest-face fallback. Later operations do not retarget older sketches. Existing primitive cap/side references remain compatible; changing a referenced New Body prism into a Boolean operation still unresolves those old primitive references. This is bounded support for the existing feature types, not general topological naming. Right-clicking a finished sketch curve over an eligible face also offers New Sketch alongside its existing edit/delete actions.
 
 ### Explicit display modes
 
@@ -121,9 +120,9 @@ The existing box workflow remains: edit Width (X), Depth (Y), Height (Z), then *
 
 **Ctrl+S** saves, **Ctrl+Shift+S** saves as, **Ctrl+O** opens, **Ctrl+N** starts fresh; **Ctrl+Z / Ctrl+Shift+Z** undo/redo feature and entity edits. Undo first cancels unapplied property edits. Changing browser selection or finishing a sketch commits pending property edits; invalid edits keep the current selection. Save also commits pending fields. In-progress cursor previews are not document geometry and are not saved.
 
-The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1–v5 documents still load. Saving without extrusions writes v3; documents containing ordinary New Body extrusions write v4 with stable source/profile references and signed distance. Boolean features and material-operation extrusions write v6 with operation, target, extent and direction; v1–v5 files continue to load. Face-attached sketches write v5 with semantic parent-face references and last resolved frames. Older application versions cannot open newer format versions. Numeric parameters round-trip without deliberate decimal rounding.
+The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1–v6 documents still load. Saving without extrusions writes v3; documents containing ordinary New Body extrusions write v4 with stable source/profile references and signed distance. Boolean features and material-operation extrusions write v6 with operation, target, extent and direction; v1–v5 files continue to load. Face-attached sketches write v5 with semantic parent-face references and last resolved frames. Sketches on evaluated Boolean faces write v7, storing the parent UUID, ancestry/adjacency fingerprint and last resolved frame. Older application versions cannot open newer format versions. Numeric parameters round-trip without deliberate decimal rounding.
 
-Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2–v6 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
+Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2–v7 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
 
 This milestone supports **one base box, multiple origin-plane/face-attached sketches and parametric extrusion bodies**, ordered regeneration and transactional validity/error reporting. It does not include constraints, general topological naming or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity/feature at a time. Extrusions consume their referenced source sketch during regeneration.
 

@@ -79,10 +79,9 @@ class SketchView:
             self.entity_id = None
         self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
         if self.feature:
-            context = bool(self.feature.parameters.attachment)
-            self.viewport.set_solid_visibility(context)
-            self.viewport.actor.GetProperty().SetOpacity(.35 if context else 1.)
-            self.viewport.edge_actor.GetProperty().SetOpacity(.35 if context else 1.)
+            self.viewport.set_solid_visibility(True)
+            self.viewport.actor.GetProperty().SetOpacity(.35)
+            self.viewport.edge_actor.GetProperty().SetOpacity(.35)
         self.prepare_display()
         if self.actor.GetVisibility():
             bounds = self.mapper.GetInput().GetBounds()
@@ -108,7 +107,7 @@ class SketchView:
     def prepare_display(self):
         """Refresh quality bands before rendering, never recursively render here."""
         ppm = self.pixels_per_mm
-        context = bool(self.feature and self.feature.parameters.attachment)
+        context = bool(self.feature)
         visible = tuple(f for f in self.features if not self.active_id or context or f.id == self.active_id)
         rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
         key = (visible, tuple(count for _, _, count in rows))

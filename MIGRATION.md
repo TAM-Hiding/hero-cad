@@ -59,8 +59,10 @@ Boolean references and precision rules remain unchanged. No .hero extension,
 schema bump or on-disk branding rewrite is introduced.
 
 Older v1/v2 files retain the loader's existing migration-on-save behavior.
-Versions 3–6 retain their existing serialization. Existing Boolean output-face
-attachment limits and other modeling limits remain unchanged.
+Versions 3–6 retain their existing serialization. The PR #18 identity migration itself did not change modeling behavior.
+PR #19 subsequently adds conservative Boolean output-face attachments, using
+v7 only when those references occur; v1–v6 documents remain supported. See
+README.md and SKETCH_FACE_TESTING.md for the current contract and limitations.
 
 The legacy name is intentional in document fixtures/schema tests, historical
 validation commands and pre-migration CI URLs. Current source imports and

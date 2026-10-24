@@ -21,7 +21,7 @@ def bounds(shape):
     return b[0],b[3],b[1],b[4],b[2],b[5]
 
 
-def run(operator, a, b):
+def run(operator, a, b, *, with_history=False):
     builder = operator()
     from OCP.TopTools import TopTools_ListOfShape
     arguments, tools = TopTools_ListOfShape(), TopTools_ListOfShape()
@@ -34,7 +34,7 @@ def run(operator, a, b):
     builder.Build()
     if not builder.IsDone() or builder.Shape().IsNull():
         raise OperationError('OCCT Boolean operation failed')
-    return builder.Shape()
+    return builder if with_history else builder.Shape()
 
 
 def one_solid(shape):
@@ -47,8 +47,12 @@ def one_solid(shape):
     return solids[0]
 
 
-def combine(operation, target, tools):
+def combine(operation, target, tools, *, lineages=None):
     result, pending = target,list(tools)
+    # Optional face ancestry travels through the very same OCCT builders that
+    # produce the accepted solid, including each step of a multi-tool Join.
+    ancestry = lineages[0] if lineages is not None else None
+    pending_ancestry = list(lineages[1:]) if lineages is not None else None
     while pending:
         chosen = None
         for i,tool in enumerate(pending):
@@ -61,10 +65,13 @@ def combine(operation, target, tools):
         if chosen is None:
             raise OperationError('Bodies do not overlap in volume; disconnected, touching-only or ineffective operations are rejected')
         tool = pending.pop(chosen)
-        result = run({'join': BRepAlgoAPI_Fuse, 'cut': BRepAlgoAPI_Cut,
-                      'intersect': BRepAlgoAPI_Common}[operation],result,tool)
-        result = one_solid(result)
-    return result
+        builder = run({'join': BRepAlgoAPI_Fuse, 'cut': BRepAlgoAPI_Cut,
+                       'intersect': BRepAlgoAPI_Common}[operation],result,tool, with_history=True)
+        result = one_solid(builder.Shape())
+        if ancestry is not None:
+            from hero_cad.face_history import propagate
+            ancestry = propagate(builder, result, (*ancestry, *pending_ancestry.pop(chosen)))
+    return (result, ancestry) if lineages is not None else result
 
 
 def through_distance(frame, target, direction):

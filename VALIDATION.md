@@ -329,3 +329,39 @@ The immutable pre-rename v1–v6 fixtures load, regenerate, preserve source byte
 Local clean install: hero-cad-0.0.12; pip check reports no broken requirements. Local core/kernel suite: **140 passed**; targeted installed-package/legacy-fixture checks: **7 passed, 3 deselected**. Compileall, whitespace and remote/local source comparisons pass.
 
 MIGRATION.md contains the existing-install upgrade instructions and owner-only post-merge repository rename checklist. The remote remains https://github.com/TAM-Hiding/star-cad.git. No repository rename/settings change, logo asset, visual-layout change, dependency upgrade or subsequent feature work was performed. The owner still needs to carry out the post-merge GitHub rename and check Actions in the renamed repository.
+
+
+## PR #19 — sketch visibility and evaluated planar faces
+
+Baseline: merged PR #18, main 27705f4f7ab330bc9a65bba4d8a6a713ca9e7979.
+Dedicated branch: sketch-face-reliability in TAM-Hiding/hero-cad.
+
+Root causes confirmed in source and reproduced by regression models:
+
+- Origin sketches explicitly hid solids; attachment-only display gates also hid other sketch references and kept the grid opaque.
+- Profile picking treated reference solids as opaque occluders even while editing the active sketch.
+- Boolean regeneration deliberately discarded face maps. Global face lookup also searched consumed historical bodies rather than only displayed current results.
+- No permanent face-occupied state exists. Unsupported Boolean faces prevented sequential face sketches after cuts; finished curves could additionally hide the underlying face's New Sketch action.
+
+Fixes unify translucent sketch context (35% bodies, 40% grid), preserve active entity/profile picking through bodies, strengthen active profile highlighting, propagate OCCT Boolean face ancestry, publish unique planar ancestry/adjacency identities and scope new selections to active evaluated results. Historical attachment resolution stays at the referenced feature's ordered output. Ambiguous/lost identities remain unresolved with parameters retained and downstream geometry suppressed. See ARCHITECTURE.md for the naming algorithm/limits and SKETCH_FACE_TESTING.md for physical desktop instructions.
+
+Environment: Ubuntu 24.04.3 x86-64, CPython 3.12.14, unchanged requirements-dev.lock pins, clean .venv-pr19 editable installation. The runner could not install apt packages into its system cache, so apt-downloaded Xvfb/X11 libraries were extracted under /tmp/hero-pr19-x11 and used without changing project dependencies. Xvfb ran in the same shell over local TCP because the runner's UNIX socket setup was unavailable:
+
+```bash
+LD_LIBRARY_PATH=/tmp/hero-pr19-x11/usr/lib/x86_64-linux-gnu /tmp/hero-pr19-x11/usr/bin/Xvfb :110 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp
+# In the same test shell after Xvfb is ready:
+DISPLAY=localhost:110 LD_LIBRARY_PATH=/tmp/hero-pr19-x11/usr/lib/x86_64-linux-gnu LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv-pr19/bin/python -m pytest -q
+```
+
+Final complete suite: **358 passed, 79 upstream VTK/NumPy deprecation warnings in 84.47 seconds**, with no skips. This includes real Qt/VTK render checks (body/curve/profile/grid/snap pixel contributions and nonblank output), actual console/module subprocess launches, existing gesture conflicts, v1–v6 fixture hashes/unchanged serialization, all existing modeling operations, persistence and Undo/Redo.
+
+Additional checks:
+
+- `.venv-pr19/bin/python -m pytest tests/test_document.py -q`: **23 passed**.
+- `.venv-pr19/bin/python -m pytest tests/test_evaluated_faces.py -q`: **22 passed**.
+- `.venv-pr19/bin/python -m pip check`: **No broken requirements found**.
+- `.venv-pr19/bin/python -m compileall -q src tests` and `git diff --check`: passed.
+
+The 28 new kernel/UI cases cover XY/XZ/YZ body context, rectangle/Slot screwdriver cuts, separate Combine Cut and operation extrusion, both split coplanar top regions plus the floor, repeated same-face sketches, successive plate-hole cuts, every planar face in representative Cut/Join/Intersect models, ordinary dimension/depth changes, arbitrary compound-angle Boolean faces, history-order binding, face-order independence, ambiguity refusal, unresolved downstream suppression/recovery, v7 save/reload and sketch reentry. Existing render/visibility expectations were updated for the deliberately visible translucent context. The complete suite caught active-profile occlusion and weak orange highlighting; both were corrected before the final clean run.
+
+Ubuntu 22.04 is not locally tested for this PR; the unchanged GitHub Actions matrix will run on Ubuntu 22.04 and 24.04 after publication. No physical desktop testing is claimed. Owner desktop checks remain in SKETCH_FACE_TESTING.md. The .starcad suffix and star-cad marker remain unchanged; only documents with evaluated-face references require v7. No geometry operations, new tools, document extension or major UI layout changes are introduced. Stop after opening PR #19; do not merge automatically.
