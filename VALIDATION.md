@@ -365,3 +365,32 @@ Additional checks:
 The 28 new kernel/UI cases cover XY/XZ/YZ body context, rectangle/Slot screwdriver cuts, separate Combine Cut and operation extrusion, both split coplanar top regions plus the floor, repeated same-face sketches, successive plate-hole cuts, every planar face in representative Cut/Join/Intersect models, ordinary dimension/depth changes, arbitrary compound-angle Boolean faces, history-order binding, face-order independence, ambiguity refusal, unresolved downstream suppression/recovery, v7 save/reload and sketch reentry. Existing render/visibility expectations were updated for the deliberately visible translucent context. The complete suite caught active-profile occlusion and weak orange highlighting; both were corrected before the final clean run.
 
 Ubuntu 22.04 is not locally tested for this PR; the unchanged GitHub Actions matrix will run on Ubuntu 22.04 and 24.04 after publication. No physical desktop testing is claimed. Owner desktop checks remain in SKETCH_FACE_TESTING.md. The .starcad suffix and star-cad marker remain unchanged; only documents with evaluated-face references require v7. No geometry operations, new tools, document extension or major UI layout changes are introduced. Stop after opening PR #19; do not merge automatically.
+
+
+## PR #20 — closed line profiles, dual-color X-Ray and display refinement
+
+Baseline: PR #19 merged at main 65c6ff6a6a549dee2e90813da78a3893078a3807,
+with the user's successful laptop test reported. Branch: closed-profiles-xray.
+No changes to dependencies, major UI layout, exact modeling precision or file extension.
+
+Implementation findings/results:
+
+- The prior profile classifier explicitly rejected any source sketch containing a Line. It now builds simple endpoint-graph cycles, with UUIDv5 keys derived from sorted line membership, and passes their exact wires into the existing hole classifier/prism/preview/Boolean path.
+- The documented endpoint tolerance is absolute 1e-7 mm, matching existing kernel/region tolerance and independent of zoom. Stored endpoints/source edge curves are not moved. Chained tolerance clusters with excessive diameter, crossings, overlaps, duplicates and branch networks reject profile analysis. Open chains stay unfilled; independent remote open chains no longer disable valid closed profiles. The existing 256-entity bound includes lines.
+- V8 stores referenced line_ids for exact membership validation and deletion protection. Existing v1–v7 files and primitive-only serialization remain supported. A line vertex can be edited one endpoint at a time: accepted line extrusions become unresolved without stale output until original members close again. Save/reload and Undo/Redo retain this state and recovery. Existing primitive-only topology rejection stays unchanged.
+- X-Ray Off/Celadon/Orange synchronizes toolbar and View menu. Explicit 85% opacity overrides automatic 35% sketch context, with Off restoring prior behavior. Separate preview/sketch/guide actors retain their styles; a brighter warm selection distinguishes Orange bodies. Modes are session state, not geometry or serialized data. No opacity slider.
+- Solid rendering previously used 0.1 mm / 0.2 rad meshing with no point normals. Implemented 0.02 mm / 0.08 rad, circular CAD-edge sampling respecting the angular target, and oriented/located analytic UV normals. Separate per-face vertices preserve sharp corners. Exact B-reps/volume and selection IDs remain unchanged, and ordinary camera/X-Ray changes reuse meshes. Undefined normals on unsupported exotic singular surfaces retain mapper fallback. No screen-adaptive solid remeshing or geometry operations are added.
+
+Automated environment: Ubuntu 24.04.3 x86-64, CPython 3.12.14, existing editable .venv-pr19 with unchanged requirements-dev.lock. Same extracted Xvfb/X11 libraries as PR #19; the actual test run used Qt XCB and Mesa software OpenGL. Xvfb and tests ran in one shell over local TCP (UNIX socket setup is unavailable in this runner):
+
+```bash
+LD_LIBRARY_PATH=/tmp/hero-pr19-x11/usr/lib/x86_64-linux-gnu /tmp/hero-pr19-x11/usr/bin/Xvfb :122 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp
+# In the same shell, after Xvfb becomes ready:
+DISPLAY=localhost:122 LD_LIBRARY_PATH=/tmp/hero-pr19-x11/usr/lib/x86_64-linux-gnu LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv-pr19/bin/python -m pytest -q
+```
+
+**Full suite: 415 passed, no skips, 85 upstream VTK/NumPy deprecation warnings in 94.15 seconds.**
+
+Targeted new tests: tests/test_line_profiles.py + tests/test_surface_display.py: **48 passed**. tests/test_profiles_xray_ui.py under Xvfb/Mesa: **9 passed**. The 57 new cases cover triangles/trapezoids/concave polygons/dovetails, XY/XZ/YZ and signed distances, independent loops/open chains, endpoint tolerance without source mutation, rejected arrangements, primitive/line holes, New Body/Join/Cut/Intersect and directional Through All, exact kernel volume/validity, stable membership/order/direction, v8 persistence, temporary open-loop recovery/downstream suppression, line-side attachments and deletion protection. UI tests draw the principal dovetail with normal Line clicks and grid snapping, Finish, click its interior, Preview/Apply New Body or a Cut through the block, Undo/Redo and reopen. Further tests exercise numeric vertex editing, X-Ray/menu synchronization, selection/preview pixel differences, style isolation and zero remeshing during camera/X-Ray changes. Small-radius normals, refined triangle counts, located curves and sharp corner normals are checked directly. Existing tests cover all prior workflows, v1–v6 fixture hashes/serialization and v7 face attachments, launcher subprocesses and mouse gestures.
+
+Final targeted document + line-profile + surface-display run: **71 passed**. Invalid/missing extrusion sources retain their existing FeatureError transaction contract, with an additional regression case. Pip check: **No broken requirements found**. Compileall and git diff --check pass. Standard desktop commands remain in README.md; detailed physical checks and remaining profile limits are in PROFILE_TESTING.md. Ubuntu 22.04 is not locally tested in this PR; the unchanged Actions matrix runs Ubuntu 22.04/24.04 after publication. No physical laptop/GPU results are claimed for PR #20. Stop after opening PR #20; do not merge automatically or begin subsequent features.

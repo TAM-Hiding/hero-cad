@@ -10,16 +10,22 @@ def fields(data, expected):
 
 
 def serialize(features):
-    result = []
+    result, version = [], 3
     for feature in features:
         if feature.type in ('box', 'extrude', 'boolean'):
             parameters = asdict(feature.parameters)
             if feature.type == 'extrude':
+                version = max(version, 8 if feature.parameters.line_ids else 6 if feature.parameters.operation != 'new' else 4)
+                if feature.parameters.line_ids:
+                    parameters['line_ids'] = list(feature.parameters.line_ids)
+                else:
+                    parameters.pop('line_ids')
                 parameters['hole_ids'] = list(parameters['hole_ids'])
                 if feature.parameters.operation == 'new':
                     for key in ('operation', 'target_id', 'extent', 'direction'):
                         parameters.pop(key)
             if feature.type == 'boolean':
+                version = max(version, 6)
                 parameters['tool_ids'] = list(parameters['tool_ids'])
         else:
             sketch = feature.parameters
@@ -28,17 +34,18 @@ def serialize(features):
                           'entities': [{'type': type(e).__name__.lower(),
                                         'parameters': asdict(e)} for e in sketch.entities]}
             if sketch.attachment:
+                version = max(version, 8 if sketch.attachment.segment == 'line' else 7 if sketch.attachment.face == 'evaluated' else 5)
                 parameters['attachment'] = asdict(sketch.attachment)
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references)})
-    return {'format': 'star-cad', 'version': 7 if any(f.type == 'sketch' and f.parameters.attachment and f.parameters.attachment.face == 'evaluated' for f in features) else 6 if any(f.type == 'boolean' or (f.type == 'extrude' and f.parameters.operation != 'new') for f in features) else 5 if any(f.type == 'sketch' and f.parameters.attachment for f in features) else 4 if any(f.type == 'extrude' for f in features) else 3, 'units': 'mm', 'features': result}
+    return {'format': 'star-cad', 'version': version, 'units': 'mm', 'features': result}
 
 
 def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -81,6 +88,8 @@ def deserialize(data):
                 fields(parameters['attachment'], ('parent_id', 'face', 'boundary_id', 'segment'))
                 if version < 7 and parameters['attachment']['face'] == 'evaluated':
                     raise ValueError('Evaluated face references require document version 7')
+                if version < 8 and parameters['attachment']['segment'] == 'line':
+                    raise ValueError('Line-profile side references require document version 8')
                 value = SketchParameters('FACE', tuple(entities), FaceReference(**parameters['attachment']), stored)
             else:
                 value = SketchParameters(parameters['plane'], tuple(entities))
@@ -88,11 +97,21 @@ def deserialize(data):
                     raise ValueError('Sketch frame must match its referenced origin plane')
         elif item['type'] == 'extrude' and version >= 4:
             extended = version >= 6 and isinstance(parameters, dict) and 'operation' in parameters
-            fields(parameters, ('sketch_id', 'outer_id', 'hole_ids', 'distance', 'operation', 'target_id', 'extent', 'direction')
-                   if extended else ('sketch_id', 'outer_id', 'hole_ids', 'distance'))
+            line_profile = version >= 8 and isinstance(parameters, dict) and 'line_ids' in parameters
+            expected = ('sketch_id', 'outer_id', 'hole_ids', 'distance')
+            if extended:
+                expected += ('operation', 'target_id', 'extent', 'direction')
+            if line_profile:
+                expected += ('line_ids',)
+            fields(parameters, expected)
             if not isinstance(parameters['hole_ids'], list):
                 raise ValueError('Profile holes must be a list')
-            value = ExtrudeParameters(**{**parameters, 'hole_ids': tuple(parameters['hole_ids'])})
+            values = {**parameters, 'hole_ids': tuple(parameters['hole_ids'])}
+            if line_profile:
+                if not isinstance(parameters['line_ids'], list) or not parameters['line_ids']:
+                    raise ValueError('Line-profile membership must be a nonempty list')
+                values['line_ids'] = tuple(parameters['line_ids'])
+            value = ExtrudeParameters(**values)
         elif item['type'] == 'boolean' and version >= 6:
             fields(parameters, ('operation', 'target_id', 'tool_ids'))
             if not isinstance(parameters['tool_ids'], list):

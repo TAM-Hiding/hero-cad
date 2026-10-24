@@ -12,8 +12,13 @@ from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Pnt, gp_Vec
 from hero_cad.geometry import make_sketch, volume
 from hero_cad.sketch import SketchParameters, Line
+from hero_cad.line_profiles import line_boundaries
 
 TOLERANCE = 1e-7
+
+
+class ProfileError(ValueError):
+    """A previously selected line boundary is temporarily open/ambiguous."""
 
 
 @dataclass(frozen=True)
@@ -21,6 +26,8 @@ class Region:
     outer_id: str
     hole_ids: tuple
     face: object
+    boundary_ids: tuple = ()
+    line_ids: tuple = ()
 
 
 def contains(face, world):
@@ -30,15 +37,16 @@ def contains(face, world):
 def regions(sketch):
     """Even/odd material; reject intersecting boundaries and affected ancestors.
 
-    Joining arbitrary line chains and splitting overlaps are deliberately deferred.
-    A sketch containing lines is rejected rather than silently ignoring a hole.
+    Simple line cycles and primitives share the same nesting/extrusion pipeline.
+    Crossings, overlaps and branch networks require explicit correction.
     """
-    if any(isinstance(e, Line) for e in sketch.entities):
-        raise ValueError('Profile extrusion requires Rectangle, Circle or Slot entities; line-chain regions are deferred. Use a separate sketch for open lines.')
     if len(sketch.entities) > 256:
-        raise ValueError('Profile analysis supports at most 256 closed entities per sketch')
-    loops, faces, sample = {}, {}, {}
+        raise ValueError('Profile analysis supports at most 256 entities per sketch')
+    loops, faces, sample, members = {}, {}, {}, {}
+    boundaries, open_edges = line_boundaries(sketch)
     for entity in sketch.entities:
+        if isinstance(entity, Line):
+            continue
         shape = make_sketch(replace(sketch, entities=(entity,)))
         ex = TopExp_Explorer(shape, TopAbs_WIRE)
         if ex.More():
@@ -46,15 +54,26 @@ def regions(sketch):
         else:
             ex = TopExp_Explorer(shape, TopAbs_EDGE)
             wire = BRepBuilderAPI_MakeWire(TopoDS.Edge_s(ex.Current())).Wire()
+        boundaries.append((entity.id, wire, (entity.id,)))
+    for key, wire, identifiers in boundaries:
+        if key in loops:
+            raise ValueError('Ambiguous profile boundary identity')
         face = BRepBuilderAPI_MakeFace(wire, True).Face()
         if not BRepCheck_Analyzer(face).IsValid():
             raise ValueError('Invalid closed profile')
         vertex = TopExp_Explorer(wire, TopAbs_VERTEX)
         p = BRep_Tool.Pnt_s(TopoDS.Vertex_s(vertex.Current()))
-        loops[entity.id], faces[entity.id] = wire, face
-        sample[entity.id] = (p.X(), p.Y(), p.Z())
+        loops[key], faces[key], members[key] = wire, face, identifiers
+        sample[key] = (p.X(), p.Y(), p.Z())
     containers = {key: set() for key in loops}
     bad = set()
+    for key, wire in loops.items():
+        for edge in open_edges:
+            distance = BRepExtrema_DistShapeShape(wire, edge)
+            if not distance.IsDone():
+                raise ValueError('Could not classify open sketch edges reliably')
+            if distance.Value() <= TOLERANCE:
+                bad.add(key)
     keys = list(loops)
     for i, a in enumerate(keys):
         for b in keys[i+1:]:
@@ -84,7 +103,10 @@ def regions(sketch):
         face = builder.Face()
         if not builder.IsDone() or not BRepCheck_Analyzer(face).IsValid():
             raise ValueError('Could not construct a valid material region with holes')
-        result.append(Region(key, holes, face))
+        identifiers = tuple(sorted(identifier for boundary in (key, *holes) for identifier in members[boundary]))
+        line_ids = tuple(identifier for identifier in identifiers
+                         if any(isinstance(e, Line) and e.id == identifier for e in sketch.entities))
+        result.append(Region(key, holes, face, identifiers, line_ids))
     return tuple(result)
 
 
@@ -96,7 +118,14 @@ def resolve_region(sketch, outer_id, hole_ids):
 
 
 def extrude_region(sketch, parameters, *, with_faces=False):
-    region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids)
+    try:
+        region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids)
+    except ValueError as error:
+        if parameters.line_ids:
+            raise ProfileError(f'Unresolved line profile: {error}') from error
+        raise
+    if parameters.line_ids != region.line_ids:
+        raise ValueError('Selected line-profile membership changed; reselect the material region')
     vector = gp_Vec(*(n*parameters.distance for n in sketch.frame.normal))
     builder = BRepPrimAPI_MakePrism(region.face, vector, True)
     shape = builder.Shape()

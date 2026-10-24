@@ -194,7 +194,7 @@ class FaceReference:
             raise ValueError('Unsupported semantic face')
         if self.face == 'side':
             valid_id(self.boundary_id)
-            if self.segment not in ('edge0', 'edge1', 'edge2', 'edge3', 'tangent0', 'tangent1'):
+            if self.segment not in ('edge0', 'edge1', 'edge2', 'edge3', 'tangent0', 'tangent1', 'line'):
                 raise ValueError('Unsupported boundary segment')
         elif self.face == 'evaluated':
             if (self.boundary_id is not None or not isinstance(self.segment, str)

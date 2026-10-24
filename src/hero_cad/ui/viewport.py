@@ -29,6 +29,7 @@ class Viewport(QVTKRenderWindowInteractor):
     toolHintChanged = Signal(str)
     viewFeedback = Signal(str)
     previousViewAvailable = Signal(bool)
+    xrayChanged = Signal(str)
     sketchContextRequested = Signal(object, object)
     faceContextRequested = Signal(object, object)
     deleteRequested = Signal()
@@ -42,6 +43,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.edge_tolerance_px = 6
         self.selection_mode = 'face'
         self.display_mode = 'Shaded with CAD Edges'
+        self.xray_mode = 'Off'
         self.solid_visible = True
         self._press = None
         self._dragged = False
@@ -217,7 +219,26 @@ class Viewport(QVTKRenderWindowInteractor):
         self.solid_visible = bool(visible)
         self.apply_display_mode()
 
+    def set_xray_mode(self, mode):
+        if mode not in ('Off', 'Celadon', 'Orange'):
+            raise ValueError('Unknown X-Ray mode')
+        self.xray_mode = mode
+        self.apply_solid_style()
+        self.xrayChanged.emit(mode)
+        self.GetRenderWindow().Render()
+
+    def apply_solid_style(self):
+        editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
+        explicit = self.xray_mode != 'Off'
+        opacity = .85 if explicit else .35 if editing else 1.
+        self.actor.GetProperty().SetOpacity(opacity)
+        self.edge_actor.GetProperty().SetOpacity(opacity)
+        self.actor.GetProperty().SetColor(*((1., .65, .15) if self.xray_mode == 'Orange' else (.65, .79, .86)))
+        # A brighter warm selection distinguishes it from orange reference bodies.
+        self.highlight_actor.GetProperty().SetColor(*((1., .93, .65) if self.xray_mode == 'Orange' else (1., .65, .15)))
+
     def apply_display_mode(self):
+        self.apply_solid_style()
         self.actor.SetVisibility(self.solid_visible and self.display_mode != 'CAD Wireframe')
         self.edge_actor.SetVisibility(self.solid_visible and self.display_mode in ('Shaded with CAD Edges', 'CAD Wireframe'))
         self.actor.GetProperty().EdgeVisibilityOff()

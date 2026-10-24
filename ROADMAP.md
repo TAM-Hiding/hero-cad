@@ -76,3 +76,8 @@ Rename the application/distribution/CLI/package, preserve all .starcad contracts
 ## PR #19 — sketch visibility and face reliability
 
 All sketch planes retain translucent current-body context. Multiple sketches can share a face. Eligible planar Boolean output faces use unique source ancestry + CAD adjacency fingerprints, scoped to the selected evaluated feature. Ambiguous/missing identities remain an explicit limitation; general topological naming and plane reassignment remain deferred. No new sketch/modeling tools are added. Stop after opening PR #19; do not merge automatically or begin subsequent feature work.
+
+
+## PR #20 — closed profiles and viewport refinement
+
+Simple closed Line loops (including concave/dovetail profiles) use the existing selectable material-region/extrusion/Boolean pipeline. Independent loops and mixed primitive holes work; endpoint graphs use 1e-7 mm tolerance and stable member UUIDs. Crossing/branch/overlap trimming and mixed line/arc chains remain deferred. Off/Celadon/Orange session X-Ray and conservative solid mesh/analytic-normal refinement are included. No fillets, chamfers, new tools, construction planes, rotary sketch, surface warp or document-extension migration. Stop after opening PR #20; do not merge automatically.

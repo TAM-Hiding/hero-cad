@@ -69,7 +69,7 @@ class ProfileView:
                     candidates.append((t, feature.id, region))
         candidates.sort(key=lambda row: row[:2])
         if not candidates or (len(candidates) > 1 and abs(candidates[0][0]-candidates[1][0]) < 1e-8):
-            v.viewFeedback.emit(errors[0] if errors else 'No unambiguous material region here. Holes, overlapping/touching loops and line chains cannot be filled; enter the intended sketch if profiles coincide.')
+            v.viewFeedback.emit(errors[0] if errors else 'No unambiguous material region here. Holes, overlapping/touching loops and open line chains cannot be filled; enter the intended sketch if profiles coincide.')
         else:
             _, sketch_id, region = candidates[0]
             self.selection = (sketch_id, region)
