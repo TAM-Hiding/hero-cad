@@ -1,10 +1,10 @@
 from dataclasses import replace
 from math import cos, sin, radians, hypot
 import pytest
-from star_cad.document import Document
-from star_cad.features import Feature
-from star_cad.sketch import Circle, Line, Rectangle, Slot, SketchParameters
-from star_cad.tools import ToolController, ToolEvent
+from hero_cad.document import Document
+from hero_cad.features import Feature
+from hero_cad.sketch import Circle, Line, Rectangle, Slot, SketchParameters
+from hero_cad.tools import ToolController, ToolEvent
 
 
 def test_atomic_delete_history_dependencies_and_persistence(tmp_path):

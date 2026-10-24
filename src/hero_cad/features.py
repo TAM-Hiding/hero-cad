@@ -1,7 +1,7 @@
 """Ordered immutable feature definitions; no UI or display references."""
 from dataclasses import dataclass, field
 from math import isfinite
-from star_cad.sketch import SketchParameters, new_id, valid_id
+from hero_cad.sketch import SketchParameters, new_id, valid_id
 
 
 @dataclass(frozen=True)

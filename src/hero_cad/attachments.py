@@ -6,7 +6,7 @@ from OCP.GeomAbs import GeomAbs_Plane
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from star_cad.sketch import PlaneFrame, FaceReference, Rectangle, Slot
+from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Slot
 
 
 class AttachmentError(ValueError):

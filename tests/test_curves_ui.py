@@ -1,7 +1,7 @@
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
-from star_cad.sketch import Circle, Slot
+from hero_cad.sketch import Circle, Slot
 from test_sketch_ui import window, enter, pixel, click, hover
 
 

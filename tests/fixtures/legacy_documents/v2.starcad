@@ -1,0 +1,67 @@
+{
+  "format": "star-cad",
+  "version": 2,
+  "units": "mm",
+  "features": [
+    {
+      "id": "839dbd73-60f3-4ce5-aff9-7987d859ddab",
+      "type": "box",
+      "parameters": {
+        "width": 40.0,
+        "depth": 30.0,
+        "height": 20.0
+      },
+      "references": []
+    },
+    {
+      "id": "cf11510b-826c-4e6d-aca0-3ef02591566d",
+      "type": "sketch",
+      "parameters": {
+        "plane": "XZ",
+        "frame": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "u": [
+            1,
+            0,
+            0
+          ],
+          "v": [
+            0,
+            0,
+            1
+          ]
+        },
+        "entities": [
+          {
+            "type": "line",
+            "parameters": {
+              "x1": 0,
+              "y1": 0,
+              "x2": 10,
+              "y2": 5,
+              "id": "ec63b4aa-2d7e-487d-bdf5-cf9cf84c571b"
+            }
+          },
+          {
+            "type": "rectangle",
+            "parameters": {
+              "x": 20,
+              "y": 5,
+              "width": 10,
+              "height": 8,
+              "angle": 0.0,
+              "id": "586bce65-e76d-4d68-b11a-a157570e672f"
+            }
+          }
+        ]
+      },
+      "references": [
+        "plane:XZ"
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 """Click-inside analytic material regions; independent of edge/face filters."""
-from star_cad.profiles import regions, contains
-from star_cad.ui.display_geometry import tessellate
+from hero_cad.profiles import regions, contains
+from hero_cad.ui.display_geometry import tessellate
 
 
 class ProfileView:

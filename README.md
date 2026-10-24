@@ -1,4 +1,14 @@
-# STAR-CAD
+# HERO-CAD
+
+Formerly STAR-CAD. The application, console command and Python package are now
+**HERO-CAD**, **hero-cad** and **hero_cad**. Existing **.starcad** documents and
+their internal format are unchanged.
+
+Planned repository: [TAM-Hiding/hero-cad](https://github.com/TAM-Hiding/hero-cad).
+Until the owner renames it after this PR merges, work remains in
+[TAM-Hiding/star-cad](https://github.com/TAM-Hiding/star-cad).
+See [MIGRATION.md](MIGRATION.md) for existing-install upgrades and the
+post-merge repository rename checklist.
 
 Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspired workflow, with a small, understandable toolset. No accounts, subscriptions, cloud requirements, or telemetry. AI-assisted modeling is a future capability; ordinary modeling must always work offline.
 
@@ -155,10 +165,10 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.lock
 python -m pip install --no-deps -e .
-QT_QPA_PLATFORM=xcb star-cad
+QT_QPA_PLATFORM=xcb hero-cad
 ```
 
-Run these commands from a checkout of this repo. Installation needs network access; the application does not. `python -m star_cad` is an alternative entry point. The lock file records the tested development environment; `pip install -e '.[dev]'` resolves transitive dependencies afresh. Binary dependencies are substantial (Qt, OCCT, VTK); lightweight here describes product scope, not a tiny download.
+Run these commands from a checkout of this repo. Installation needs network access; the application does not. `python -m hero_cad` is an alternative entry point. The lock file records the tested development environment; `pip install -e '.[dev]'` resolves transitive dependencies afresh. Binary dependencies are substantial (Qt, OCCT, VTK); lightweight here describes product scope, not a tiny download.
 
 Controls: left drag orbits when no construction tool is active; middle drag or **Shift-right drag** pans; wheel zooms. **F / Fit all** frames visible geometry. Standard Isometric, Front, Top and Right views are available outside sketch mode. Zoom is bounded relative to model size; maximum magnification is reduced by 20% from v0.0.3. Finishing a larger sketch can move the orthographic camera backward along its viewing direction to keep geometry in front of its near plane; scale and focal point are retained. Real solids still occlude curves behind them. Sketch mode starts perpendicular to its plane; orbiting in Select remains possible, and reentering the sketch restores its plane view.
 
@@ -181,4 +191,4 @@ Full tests require a working GL context; Qt offscreen alone is not evidence that
 
 ## Design and licensing
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), and [DEPENDENCIES.md](DEPENDENCIES.md). STAR-CAD source is MIT, retaining the repository's original license. STAR-CAD makes use of Open CASCADE Technology. Its libraries and other dependencies retain their own licenses; the app's MIT license does not relicense them.
+See [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), and [DEPENDENCIES.md](DEPENDENCIES.md). HERO-CAD source is MIT, retaining the repository's original license. HERO-CAD makes use of Open CASCADE Technology. Its libraries and other dependencies retain their own licenses; the app's MIT license does not relicense them.

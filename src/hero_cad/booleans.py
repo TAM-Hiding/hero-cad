@@ -7,7 +7,7 @@ from OCP.BRepBndLib import BRepBndLib
 from OCP.TopAbs import TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from star_cad.geometry import volume
+from hero_cad.geometry import volume
 
 
 class OperationError(ValueError):

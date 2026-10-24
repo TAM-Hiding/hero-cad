@@ -4,19 +4,19 @@ from itertools import product
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
-from star_cad.ui.camera_alignment import planar_view_target
+from hero_cad.ui.camera_alignment import planar_view_target
 from vtkmodules.vtkFiltersCore import vtkAppendPolyData
-from star_cad.ui.picking import candidates
-from star_cad.ui.sketch_view import SketchView
-from star_cad.ui.construction_dimensions import ConstructionDimensions
-from star_cad.ui.profile_view import ProfileView
+from hero_cad.ui.picking import candidates
+from hero_cad.ui.sketch_view import SketchView
+from hero_cad.ui.construction_dimensions import ConstructionDimensions
+from hero_cad.ui.profile_view import ProfileView
 import vtkmodules.vtkRenderingOpenGL2  # noqa: F401 registers rendering backend
 import vtkmodules.vtkInteractionStyle  # noqa: F401
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
 from vtkmodules.vtkRenderingCore import vtkActor, vtkCamera, vtkCellPicker, vtkPolyDataMapper, vtkRenderer
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
-from star_cad.ui.display_geometry import (
+from hero_cad.ui.display_geometry import (
     Selection, edge_mesh, selected_mesh, subshapes, tessellate,
 )
 

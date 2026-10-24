@@ -1,7 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
-from star_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature
-from star_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature
+from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference
 
 
 def fields(data, expected):
@@ -36,7 +36,7 @@ def serialize(features):
 
 def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
-        raise ValueError('Expected a STAR-CAD document in millimetres')
+        raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
     if type(version) is not int or version not in (1, 2, 3, 4, 5, 6):
         raise ValueError('Unsupported document version')

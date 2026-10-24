@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from star_cad.document import Document
-from star_cad.sketch import Circle, Rectangle, FaceReference
+from hero_cad.document import Document
+from hero_cad.sketch import Circle, Rectangle, FaceReference
 from test_sketch_ui import window, enter, pixel, hover
 
 

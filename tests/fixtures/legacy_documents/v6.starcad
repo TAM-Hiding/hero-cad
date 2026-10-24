@@ -1,0 +1,151 @@
+{
+  "format": "star-cad",
+  "version": 6,
+  "units": "mm",
+  "features": [
+    {
+      "id": "a71a55cc-a304-4747-9110-bf46849a080c",
+      "type": "box",
+      "parameters": {
+        "width": 40.0,
+        "depth": 30.0,
+        "height": 20.0
+      },
+      "references": []
+    },
+    {
+      "id": "ad4abbe9-688d-4f11-839b-5d5675c2bedb",
+      "type": "sketch",
+      "parameters": {
+        "plane": "FACE",
+        "frame": {
+          "origin": [
+            0.0,
+            0.0,
+            20.0
+          ],
+          "u": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "v": [
+            0.0,
+            1.0,
+            0.0
+          ]
+        },
+        "entities": [
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 10,
+              "y": 10,
+              "radius": 2,
+              "id": "3cec3224-4060-4439-b69b-8e49a8aef72e"
+            }
+          }
+        ],
+        "attachment": {
+          "parent_id": "a71a55cc-a304-4747-9110-bf46849a080c",
+          "face": "+Z",
+          "boundary_id": null,
+          "segment": null
+        }
+      },
+      "references": [
+        "a71a55cc-a304-4747-9110-bf46849a080c"
+      ]
+    },
+    {
+      "id": "66707133-2093-4005-b312-23030b5acd4b",
+      "type": "extrude",
+      "parameters": {
+        "sketch_id": "ad4abbe9-688d-4f11-839b-5d5675c2bedb",
+        "outer_id": "3cec3224-4060-4439-b69b-8e49a8aef72e",
+        "hole_ids": [],
+        "distance": -5
+      },
+      "references": [
+        "ad4abbe9-688d-4f11-839b-5d5675c2bedb"
+      ]
+    },
+    {
+      "id": "ad954df4-abc0-4c93-932a-02fabf29c157",
+      "type": "boolean",
+      "parameters": {
+        "operation": "cut",
+        "target_id": "a71a55cc-a304-4747-9110-bf46849a080c",
+        "tool_ids": [
+          "66707133-2093-4005-b312-23030b5acd4b"
+        ]
+      },
+      "references": [
+        "a71a55cc-a304-4747-9110-bf46849a080c",
+        "66707133-2093-4005-b312-23030b5acd4b"
+      ]
+    },
+    {
+      "id": "016fedbd-c374-4757-babe-2084d843a1b3",
+      "type": "sketch",
+      "parameters": {
+        "plane": "FACE",
+        "frame": {
+          "origin": [
+            0.0,
+            0.0,
+            20.0
+          ],
+          "u": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "v": [
+            0.0,
+            1.0,
+            0.0
+          ]
+        },
+        "entities": [
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 25,
+              "y": 10,
+              "radius": 1.5,
+              "id": "a98ab781-ff57-45f4-8152-db3a412bc4ca"
+            }
+          }
+        ],
+        "attachment": {
+          "parent_id": "a71a55cc-a304-4747-9110-bf46849a080c",
+          "face": "+Z",
+          "boundary_id": null,
+          "segment": null
+        }
+      },
+      "references": [
+        "a71a55cc-a304-4747-9110-bf46849a080c"
+      ]
+    },
+    {
+      "id": "2e78be3a-2fce-42e6-933c-463a3f49021b",
+      "type": "extrude",
+      "parameters": {
+        "sketch_id": "016fedbd-c374-4757-babe-2084d843a1b3",
+        "outer_id": "a98ab781-ff57-45f4-8152-db3a412bc4ca",
+        "hole_ids": [],
+        "distance": 10.0,
+        "operation": "cut",
+        "target_id": "ad954df4-abc0-4c93-932a-02fabf29c157",
+        "extent": "through_all",
+        "direction": -1
+      },
+      "references": [
+        "016fedbd-c374-4757-babe-2084d843a1b3",
+        "ad954df4-abc0-4c93-932a-02fabf29c157"
+      ]
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 import pytest
 from PySide6.QtCore import Qt
-from star_cad.geometry import volume
-from star_cad.ui.main_window import MainWindow
-from star_cad.ui.viewport import tessellate
-from star_cad.document import Document
+from hero_cad.geometry import volume
+from hero_cad.ui.main_window import MainWindow
+from hero_cad.ui.viewport import tessellate
+from hero_cad.document import Document
 
 
 def test_tessellation_matches_solid_bounds():

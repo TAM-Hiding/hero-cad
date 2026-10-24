@@ -2,10 +2,10 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from star_cad.document import Document
-from star_cad.features import BoxParameters
-from star_cad.sketch import Circle, Rectangle, FaceReference
-from star_cad.attachments import planar_frame
+from hero_cad.document import Document
+from hero_cad.features import BoxParameters
+from hero_cad.sketch import Circle, Rectangle, FaceReference
+from hero_cad.attachments import planar_frame
 from test_sketch_ui import window, pixel, hover
 from test_sketch_editing_ui import type_dimension
 from test_face_attachments import compound_fixture, coincident

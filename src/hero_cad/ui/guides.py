@@ -1,6 +1,6 @@
 """Disposable view guides and session-only grid settings."""
 from math import ceil, floor, log10
-from star_cad.ui.display_geometry import paths_mesh
+from hero_cad.ui.display_geometry import paths_mesh
 
 
 class ViewGuides:

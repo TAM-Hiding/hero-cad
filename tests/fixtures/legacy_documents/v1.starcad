@@ -1,0 +1,10 @@
+{
+  "format": "star-cad",
+  "version": 1,
+  "units": "mm",
+  "box": {
+    "width": 50,
+    "depth": 25,
+    "height": 20
+  }
+}

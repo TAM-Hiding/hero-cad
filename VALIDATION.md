@@ -1,3 +1,5 @@
+> Historical records below PR #18 retain the original STAR-CAD commands and repository URLs as tested. Current commands are in README.md and MIGRATION.md; the old document-format marker remains intentional.
+
 # M0 validation
 
 Environment: Ubuntu 24.04.3 x86-64, CPython 3.12.14. Versions are recorded in requirements-dev.lock.
@@ -301,3 +303,29 @@ The initial full run exposed a redundant direction=-1 state in signed-distance N
 New rendered checks require nonblank output in every display mode, a visible difference between genuine CAD wireframe and mesh triangulation, and visible orange candidate geometry. Context/preview tests confirm target/tool selection, no document mutation before Apply, Cancel restoration, one committed operation, historical input labels, Undo/Redo, blind-to-Through-All editing and changed target thickness. Existing camera, face attachment, curve precision, snapping, live dimensions, deletion, grid and reference visibility regressions pass.
 
 Ready for physical bracket-Join, through-hole and blind-pocket acceptance using the steps above; no user .starcad bracket file was supplied, so its exact geometry is a manual check. Boolean-result face attachments, touching-only/split-result operations, Combine membership editing and asynchronous preview remain limited as documented. PR #18 has not been started.
+
+## PR #18 — HERO-CAD rebrand and repository migration preparation
+
+Merged PR #17 was cloned after workspace maintenance removed the prior transient checkout. Rename targets the application/UI strings, Python distribution, console command, import package, current documentation, metadata and workflow install label. No repository settings or logo assets are changed; version remains 0.0.12 and .starcad format/schema stay unchanged.
+
+A fresh Python 3.12 venv installed the pinned requirements, then the new editable distribution via .venv/bin/python -m pip install --no-deps -e .; installation succeeded as hero-cad-0.0.12. .venv/bin/python -m pip check: no broken requirements.
+
+Before renaming, six document fixtures were written/validated with the unchanged star_cad package at commit 7b39cdf23731ed63f9a929b3674d56b43140b5e0. They cover v1 box, v2 line/rectangle, v3 curves, v4 holed extrusion, v5 face-attached slot/prism and v6 Boolean/Through All cuts. File hashes and kernel volume/body counts are committed with their provenance.
+
+Local targeted command: .venv/bin/python -m pytest tests/test_rebranding.py -q -k 'pre_rename or installed_package': **7 passed, 3 deselected**. The tests verify installed entry-point metadata, unchanged source fixture bytes, all schema versions, regeneration, Undo/Redo, save/reopen and identical v3–v6 JSON. New GUI tests check HERO-CAD titles/file filters and run both the actual hero-cad executable and python -m hero_cad from outside the checkout, using test-only event-loop inspection/automatic exit. No production smoke-test hook was added.
+
+Full Ubuntu 22.04/24.04 Xvfb/Mesa suite and real GUI launcher checks are pending. Local Qt offscreen is not render acceptance. Compileall, whitespace and stale-import audit are required before review.
+
+Manual acceptance: use MIGRATION.md to replace the old editable distribution; run hero-cad and python -m hero_cad, confirm HERO-CAD title/name, open an existing sketch/face-attachment/extrusion/Boolean .starcad file, edit and regenerate, Undo/Redo and Save/reopen. Verify installation scripts/desktop shortcuts use the new command; there is no bundled desktop entry. The repository remains TAM-Hiding/star-cad for this PR; owner rename and final logo integration are explicitly separate post-merge actions. No subsequent feature work.
+
+### Verified PR #18 results
+
+[Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/40130793626), code/test commit 926429f859672ac29061ad99723d28f71cd5b4e0: **330 passed on Ubuntu 22.04 and 330 on Ubuntu 24.04**, Python 3.12 with Xvfb/Mesa software OpenGL. Clean editable installation and pip check pass. Sixty-seven upstream warnings per job; no render checks skipped.
+
+The actual installed hero-cad command and python -m hero_cad both launch successfully from outside the checkout. Test-only event-loop inspection confirms the visible HERO-CAD main window, Qt application/display names and existing version; each process exits normally. No production test hook or CLI flag was added. File dialogs retain .starcad filters under the new brand.
+
+The immutable pre-rename v1–v6 fixtures load, regenerate, preserve source bytes, survive Undo/Redo and save/reopen, and retain identical v3–v6 JSON content. All existing sketch, extrusion, face attachment, Boolean, precision, camera, keyboard/display-mode, file and rendered regressions pass with hero_cad imports. An AST audit rejects stale old-package imports in source/tests; the serialized star-cad marker, migration examples and historical validation commands/URLs are intentional exceptions.
+
+Local clean install: hero-cad-0.0.12; pip check reports no broken requirements. Local core/kernel suite: **140 passed**; targeted installed-package/legacy-fixture checks: **7 passed, 3 deselected**. Compileall, whitespace and remote/local source comparisons pass.
+
+MIGRATION.md contains the existing-install upgrade instructions and owner-only post-merge repository rename checklist. The remote remains https://github.com/TAM-Hiding/star-cad.git. No repository rename/settings change, logo asset, visual-layout change, dependency upgrade or subsequent feature work was performed. The owner still needs to carry out the post-merge GitHub rename and check Actions in the renamed repository.

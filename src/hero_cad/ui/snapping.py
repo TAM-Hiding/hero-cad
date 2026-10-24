@@ -1,7 +1,7 @@
 """Local construction-point snapping with projected screen-distance acceptance."""
 from dataclasses import dataclass
 from math import floor, hypot
-from star_cad.sketch import Circle, Slot
+from hero_cad.sketch import Circle, Slot
 
 
 @dataclass(frozen=True)

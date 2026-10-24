@@ -67,3 +67,7 @@ Named box faces, extrusion caps and reliably identified Rectangle/Slot planar si
 ## v0.0.12 / PR #17 — parametric material operations
 
 Join/Cut/Intersect feature history, explicit body consumption, New Body/material-operation extrusion, directional Through All, modeless candidate previews and explicit display modes. Boolean-result face attachments and general topology naming remain deferred. Stop after PR #17; do not begin PR #18 automatically.
+
+## PR #18 — HERO-CAD rebrand and migration preparation
+
+Rename the application/distribution/CLI/package, preserve all .starcad contracts, prepare hero-cad repository metadata and local installation/owner migration instructions. No layout or modeling changes; no placeholder logo. Repository rename is an owner action after merge. Stop after PR #18.

@@ -3,8 +3,8 @@ import pytest
 from PySide6.QtCore import QPoint, QPointF, QEvent, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
-from star_cad.document import Document
-from star_cad.ui.main_window import MainWindow
+from hero_cad.document import Document
+from hero_cad.ui.main_window import MainWindow
 
 
 def window(qtbot):

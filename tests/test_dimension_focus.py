@@ -78,7 +78,7 @@ def test_visible_editor_can_be_clicked_and_escape_cancels_live_preview(qtbot):
 
 
 def test_rectangle_fields_update_preview_before_commit(qtbot):
-    from star_cad.sketch import Rectangle
+    from hero_cad.sketch import Rectangle
     w = window(qtbot)
     sid = enter(w)
     v = w.viewport

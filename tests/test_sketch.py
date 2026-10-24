@@ -3,10 +3,10 @@ import json
 from math import hypot
 import pytest
 from OCP.BRepCheck import BRepCheck_Analyzer
-from star_cad.document import Document
-from star_cad.features import FeatureError
-from star_cad.sketch import Line, Rectangle, PLANES, diagonal_rectangle, edge_rectangle
-from star_cad.tools import ToolController, ToolEvent
+from hero_cad.document import Document
+from hero_cad.features import FeatureError
+from hero_cad.sketch import Line, Rectangle, PLANES, diagonal_rectangle, edge_rectangle
+from hero_cad.tools import ToolController, ToolEvent
 
 
 @pytest.mark.parametrize('plane', PLANES)
@@ -169,7 +169,7 @@ def test_kernel_sketch_lengths_and_bounds(plane):
 
 
 def test_save_size_limit_preserves_previous_file_and_savepoint(tmp_path, monkeypatch):
-    import star_cad.document as module
+    import hero_cad.document as module
     doc = Document()
     path = tmp_path/'keep.starcad'
     doc.save(path)

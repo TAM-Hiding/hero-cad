@@ -2,8 +2,8 @@ import pytest
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.Bnd import Bnd_Box
 from OCP.BRepBndLib import BRepBndLib
-from star_cad.document import BoxParameters, Document
-from star_cad.geometry import volume
+from hero_cad.document import BoxParameters, Document
+from hero_cad.geometry import volume
 
 
 def test_box_regenerates_exact_solid():
@@ -25,7 +25,7 @@ def test_reject_invalid_dimensions(value):
 
 
 def test_failed_regeneration_keeps_document(monkeypatch):
-    import star_cad.document as module
+    import hero_cad.document as module
     document = Document()
     previous = document.parameters, document.shape
     def fail(**kwargs):
@@ -87,7 +87,7 @@ def test_invalid_files_rejected(tmp_path, contents):
 
 
 def test_failed_save_preserves_file_path_and_dirty_state(tmp_path, monkeypatch):
-    import star_cad.document as module
+    import hero_cad.document as module
     document = Document()
     path = tmp_path / 'part.starcad'
     document.save(path)
@@ -107,7 +107,7 @@ def test_failed_save_preserves_file_path_and_dirty_state(tmp_path, monkeypatch):
 
 
 def test_failed_undo_preserves_history(monkeypatch):
-    import star_cad.document as module
+    import hero_cad.document as module
     document = Document()
     document.set_box(BoxParameters(width=50))
     shape = document.shape
@@ -121,7 +121,7 @@ def test_failed_undo_preserves_history(monkeypatch):
 
 
 def test_failed_flush_does_not_replace_existing_file(tmp_path, monkeypatch):
-    import star_cad.document as module
+    import hero_cad.document as module
     document = Document()
     path = tmp_path / 'part.starcad'
     document.save(path)

@@ -8,12 +8,12 @@ from OCP.TopAbs import TopAbs_FACE
 from OCP.TopoDS import TopoDS
 from OCP.TopLoc import TopLoc_Location
 from OCP.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
-from star_cad.attachments import AttachmentError, planar_frame, reference_key
-from star_cad.document import Document
-from star_cad.features import BoxParameters, FeatureError
-from star_cad.geometry import volume
-from star_cad.sketch import Circle, Rectangle, Slot, FaceReference
-from star_cad.persistence import serialize, deserialize
+from hero_cad.attachments import AttachmentError, planar_frame, reference_key
+from hero_cad.document import Document
+from hero_cad.features import BoxParameters, FeatureError
+from hero_cad.geometry import volume
+from hero_cad.sketch import Circle, Rectangle, Slot, FaceReference
+from hero_cad.persistence import serialize, deserialize
 
 
 def prism(plane='XY', entity=None, distance=10):
@@ -167,7 +167,7 @@ def test_v5_roundtrip_chain_and_reference_validation(tmp_path):
 def test_nonplanar_and_unknown_faces_rejected_without_history():
     d, source, eid, circle = prism(entity=Circle(0,0,5))
     n = len(d._undo)
-    from star_cad.ui.display_geometry import subshapes
+    from hero_cad.ui.display_geometry import subshapes
     faces = subshapes(d.solid_shapes[eid],TopAbs_FACE)
     curved = next(f for f in faces if BRepAdaptor_Surface(f).GetType().name != 'GeomAbs_Plane')
     with pytest.raises(AttachmentError,match='planar'):
@@ -182,7 +182,7 @@ def test_nonplanar_and_unknown_faces_rejected_without_history():
 
 def compound_fixture(monkeypatch):
     """Test-only located box; product gains no transform/import operation."""
-    import star_cad.document as module
+    import hero_cad.document as module
     original = module.make_box
     x,y = gp_Trsf(),gp_Trsf()
     x.SetRotation(gp_Ax1(gp_Pnt(),gp_Dir(1,0,0)),radians(31))

@@ -1,0 +1,81 @@
+{
+  "format": "star-cad",
+  "version": 4,
+  "units": "mm",
+  "features": [
+    {
+      "id": "7c3813c8-01cf-455d-b5aa-0f0797e71121",
+      "type": "box",
+      "parameters": {
+        "width": 40.0,
+        "depth": 30.0,
+        "height": 20.0
+      },
+      "references": []
+    },
+    {
+      "id": "d4e326f0-7944-466b-ae7d-99e986def236",
+      "type": "sketch",
+      "parameters": {
+        "plane": "XY",
+        "frame": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "u": [
+            1,
+            0,
+            0
+          ],
+          "v": [
+            0,
+            1,
+            0
+          ]
+        },
+        "entities": [
+          {
+            "type": "rectangle",
+            "parameters": {
+              "x": 0,
+              "y": 0,
+              "width": 50,
+              "height": 25,
+              "angle": 0.0,
+              "id": "bd8e9716-ea34-47ba-9c20-98388677b49d"
+            }
+          },
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 10,
+              "y": 10,
+              "radius": 2,
+              "id": "66c56803-ee19-46f1-97f3-a1195e6c53fb"
+            }
+          }
+        ]
+      },
+      "references": [
+        "plane:XY"
+      ]
+    },
+    {
+      "id": "40f56cb1-f1d5-454a-805c-f377f97e1cc4",
+      "type": "extrude",
+      "parameters": {
+        "sketch_id": "d4e326f0-7944-466b-ae7d-99e986def236",
+        "outer_id": "bd8e9716-ea34-47ba-9c20-98388677b49d",
+        "hole_ids": [
+          "66c56803-ee19-46f1-97f3-a1195e6c53fb"
+        ],
+        "distance": 12.5
+      },
+      "references": [
+        "d4e326f0-7944-466b-ae7d-99e986def236"
+      ]
+    }
+  ]
+}

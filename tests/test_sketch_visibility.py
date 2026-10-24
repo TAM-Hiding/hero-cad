@@ -4,7 +4,7 @@ import pytest
 from math import cos, pi, sin
 from vtkmodules.util.numpy_support import vtk_to_numpy
 from vtkmodules.vtkRenderingCore import vtkWindowToImageFilter
-from star_cad.sketch import Circle, Slot
+from hero_cad.sketch import Circle, Slot
 from test_sketch_ui import window, enter
 
 

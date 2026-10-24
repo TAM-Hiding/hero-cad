@@ -6,7 +6,7 @@ from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Ax1, gp_Dir, gp_Pln, gp_Pnt, gp_Trsf, gp_Vec
 from PySide6.QtCore import QPoint, Qt
-from star_cad.ui.camera_alignment import deterministic_up, planar_view_target
+from hero_cad.ui.camera_alignment import deterministic_up, planar_view_target
 from test_sketch_ui import window, pixel
 
 
@@ -60,7 +60,7 @@ def angled_window(qtbot):
 
 def test_exact_planar_target_location_orientation_and_projection():
     shape, world, expected_normal = transformed_box()
-    from star_cad.ui.display_geometry import subshapes
+    from hero_cad.ui.display_geometry import subshapes
     from OCP.TopAbs import TopAbs_FACE
     faces = subshapes(shape, TopAbs_FACE)
     # Locate the transformed top plane by its known geometric point/normal.
