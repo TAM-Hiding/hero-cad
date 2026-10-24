@@ -128,11 +128,10 @@ def test_extrusion_distance_validation(distance):
         d.add_extrusion(sid, d.feature(sid).parameters.entities[0].id, distance=distance)
 
 
-def test_line_chains_are_explicitly_deferred_and_malformed_files_rejected(tmp_path):
+def test_open_lines_do_not_hide_primitive_profiles_and_malformed_files_rejected(tmp_path):
     outer = Rectangle(0, 0, 20, 10)
     d, sid = sketch_document([outer, Line(2, 2, 4, 2)])
-    with pytest.raises(ValueError, match='line-chain'):
-        regions(d.feature(sid).parameters)
+    assert [r.outer_id for r in regions(d.feature(sid).parameters)] == [outer.id]
     d.delete(entities=[(sid, d.feature(sid).parameters.entities[-1].id)])
     eid = d.add_extrusion(sid, outer.id)
     path = tmp_path/'solid.starcad'

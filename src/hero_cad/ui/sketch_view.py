@@ -80,8 +80,7 @@ class SketchView:
         self._path_cache = {k: v for k, v in self._path_cache.items() if k in keep}
         if self.feature:
             self.viewport.set_solid_visibility(True)
-            self.viewport.actor.GetProperty().SetOpacity(.35)
-            self.viewport.edge_actor.GetProperty().SetOpacity(.35)
+            self.viewport.apply_solid_style()
         self.prepare_display()
         if self.actor.GetVisibility():
             bounds = self.mapper.GetInput().GetBounds()
@@ -168,8 +167,7 @@ class SketchView:
         self.origin_actor.VisibilityOff()
         self.highlight_actor.VisibilityOff()
         self.viewport.set_solid_visibility(True)
-        self.viewport.actor.GetProperty().SetOpacity(1.)
-        self.viewport.edge_actor.GetProperty().SetOpacity(1.)
+        self.viewport.apply_solid_style()
         if self.saved_camera:
             self.viewport.renderer.GetActiveCamera().DeepCopy(self.saved_camera)
             self.saved_camera = None

@@ -126,9 +126,13 @@ class OperationPanel(QDockWidget):
     def definition(self):
         op,target = self.operation.currentData(),self.target.currentData()
         if self.source:
+            from hero_cad.profiles import resolve_region
+            line_ids = (self.window.document.feature(self.edit_id).parameters.line_ids if self.edit_id else
+                        resolve_region(self.window.document.feature(self.source[0]).parameters,
+                                       self.source[1], self.source[2]).line_ids)
             p = ExtrudeParameters(*self.source,self.distance.value(),op,
                                   None if op == 'new' else target,
-                                  self.extent.currentData() if op == 'cut' else 'distance',self.direction.currentData())
+                                  self.extent.currentData() if op == 'cut' else 'distance',self.direction.currentData(), line_ids)
             refs = (p.sketch_id,) + ((p.target_id,) if p.target_id else ())
             return Feature('extrude',p,refs,self.feature_id)
         tools = tuple(i for i in self.bodies if i != target)

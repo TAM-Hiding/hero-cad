@@ -26,6 +26,7 @@ class ExtrudeParameters:
     target_id: str | None = None
     extent: str = 'distance'
     direction: int = 1
+    line_ids: tuple = ()
 
     def __post_init__(self):
         if self.operation not in ('new', 'join', 'cut', 'intersect'):
@@ -44,6 +45,12 @@ class ExtrudeParameters:
             object.__setattr__(self, 'direction', 1)
         valid_id(self.sketch_id)
         valid_id(self.outer_id)
+        if not isinstance(self.line_ids, tuple) or len(self.line_ids) > 256:
+            raise ValueError('Invalid line-profile membership')
+        for identifier in self.line_ids:
+            valid_id(identifier)
+        if self.line_ids != tuple(sorted(set(self.line_ids))):
+            raise ValueError('Line-profile membership must be unique and sorted')
         if not isinstance(self.hole_ids, tuple) or len(self.hole_ids) > 255:
             raise ValueError('Invalid profile holes')
         for identifier in self.hole_ids:

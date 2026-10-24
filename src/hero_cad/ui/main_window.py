@@ -192,6 +192,22 @@ class MainWindow(QMainWindow):
         toolbar.addAction(self.combine_action)
         self.viewport.selectionChanged.connect(lambda _: self.update_actions())
         view_menu = self.menuBar().addMenu("&View")
+        toolbar.addWidget(QLabel(" X-Ray: "))
+        self.xray_choice = QComboBox()
+        self.xray_choice.addItems(['Off', 'Celadon', 'Orange'])
+        self.xray_choice.setAccessibleName('X-Ray appearance')
+        self.xray_choice.currentTextChanged.connect(self.viewport.set_xray_mode)
+        toolbar.addWidget(self.xray_choice)
+        xray_menu = view_menu.addMenu('X-Ray')
+        self.xray_actions, self.xray_group = {}, QActionGroup(self)
+        for name in ('Off', 'Celadon', 'Orange'):
+            action = xray_menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(name == 'Off')
+            self.xray_group.addAction(action)
+            action.triggered.connect(lambda checked, mode=name: self.viewport.set_xray_mode(mode))
+            self.xray_actions[name] = action
+        self.viewport.xrayChanged.connect(self.sync_xray)
         modes = view_menu.addMenu("Display Mode")
         self.display_actions = {}
         self.display_group = QActionGroup(self)
@@ -230,6 +246,11 @@ class MainWindow(QMainWindow):
         view_menu.addAction(opacity_action)
         self.refresh(fit=True)
         self.operation_panel = OperationPanel(self)
+
+    def sync_xray(self, mode):
+        with QSignalBlocker(self.xray_choice):
+            self.xray_choice.setCurrentText(mode)
+        self.xray_actions[mode].setChecked(True)
 
     def add_panel(self, title, widget, area):
         dock = QDockWidget(title, self)

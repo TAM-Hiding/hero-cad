@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature, FeatureError, FeatureStatus
 from hero_cad.geometry import make_box, make_sketch, compound
-from hero_cad.profiles import extrude_region
+from hero_cad.profiles import extrude_region, resolve_region, ProfileError
 from hero_cad.persistence import deserialize, serialize
 from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
@@ -134,7 +134,7 @@ class Document:
                             active.difference_update(targets)
                             active.add(feature.id)
                         statuses[feature.id] = FeatureStatus(True)
-                    except OperationError as error:
+                    except (OperationError, ProfileError) as error:
                         if existing is not None and feature.id not in existing:
                             raise
                         statuses[feature.id] = FeatureStatus(False, str(error))
@@ -211,6 +211,15 @@ class Document:
                                        operation, target_id, extent, direction)
         refs = (sketch_id,) + ((target_id,) if target_id else ())
         feature = Feature('extrude', parameters, refs)
+        try:
+            source = next((f for f in self.features if f.id == sketch_id and f.type == 'sketch'), None)
+            if source is None:
+                raise ValueError('Extrusion source must be an earlier sketch')
+            region = resolve_region(source.parameters, outer_id, hole_ids)
+        except ValueError as error:
+            self.last_failure = FeatureError(feature.id, str(error))
+            raise self.last_failure from error
+        feature = replace(feature, parameters=replace(parameters, line_ids=region.line_ids))
         self.set_features(self.features + (feature,))
         return feature.id
 
@@ -238,7 +247,7 @@ class Document:
                 raise ValueError(f'Cannot delete: {feature.type} {feature.id} references the selected feature')
             if feature.type == 'extrude' and feature.id not in feature_ids:
                 p = feature.parameters
-                if any((p.sketch_id, identifier) in entity_keys for identifier in (p.outer_id, *p.hole_ids)):
+                if any((p.sketch_id, identifier) in entity_keys for identifier in (p.outer_id, *p.hole_ids, *p.line_ids)):
                     raise ValueError('Cannot delete: extrusion references the selected profile boundary')
         candidate = []
         for feature in self.features:

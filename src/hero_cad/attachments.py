@@ -7,7 +7,7 @@ from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Circle
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Circle, Slot
+from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Circle, Slot, Line
 
 
 class AttachmentError(ValueError):
@@ -41,6 +41,8 @@ def planar_frame(face, *, anchor=None, up=None):
 
 def segments(entity):
     """Stable parameter identities, in source-local coordinates."""
+    if isinstance(entity, Line):
+        return {'line': entity.points}
     if isinstance(entity, Rectangle):
         return {f'edge{i}': (entity.points[i], entity.points[i+1]) for i in range(4)}
     if isinstance(entity, Slot):
@@ -65,7 +67,7 @@ def extrusion_faces(builder, region, sketch, parameters):
         edges.append((edge, (a.X(), a.Y(), a.Z()), (b.X(), b.Y(), b.Z())))
         explorer.Next()
     for entity in sketch.entities:
-        if entity.id not in (parameters.outer_id, *parameters.hole_ids):
+        if entity.id not in region.boundary_ids:
             continue
         # Curved prism walls cannot host sketches, but their exact source
         # identity distinguishes neighboring planar regions after Booleans.
