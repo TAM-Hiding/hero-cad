@@ -53,7 +53,7 @@ class ProfileView:
             if not 0 <= t <= 1:
                 continue
             world = tuple(ray[0][i]+t*direction[i] for i in range(3))
-            if v.actor.GetVisibility() and not v.visible_edge(world):
+            if not v.sketch.active_id and v.actor.GetVisibility() and not v.visible_edge(world):
                 continue
             if feature.id not in self.cache:
                 try:
@@ -74,6 +74,9 @@ class ProfileView:
             _, sketch_id, region = candidates[0]
             self.selection = (sketch_id, region)
             self.mapper.SetInputData(tessellate(region.face))
+            # Keep the orange material region readable through the new
+            # translucent body context; model-view highlighting stays subtle.
+            self.actor.GetProperty().SetOpacity(.6 if v.sketch.active_id else .3)
             self.actor.VisibilityOn()
             v.profilePicked.emit(self.selection)
             v.viewFeedback.emit(f'Material profile selected · {len(region.hole_ids)} hole(s) · Extrude… creates a new body')

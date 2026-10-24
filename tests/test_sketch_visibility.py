@@ -72,10 +72,11 @@ def test_visible_solids_occlude_sketch_and_hidden_solids_do_not(qtbot):
     v = w.viewport
     w.document.add_entity(identifier, Circle(20, 15, 8))
     w.refresh()
-    # In sketch mode the box is hidden, so its former depth must not occlude.
+    # In sketch mode the translucent box retains context without hiding curves.
     w.grid_action.setChecked(False)
     w.axes_action.setChecked(False)
-    assert not v.actor.GetVisibility()
+    assert v.actor.GetVisibility()
+    assert v.actor.GetProperty().GetOpacity() == .35
     assert np.count_nonzero(cyan(capture(v))) > 50
     w.finish_sketch_action.trigger()
     v.orient('Top')
@@ -115,7 +116,9 @@ def test_major_minor_grid_and_snap_marker_render(qtbot):
     hover(v, pixel(v, frame.to_world((5, 5)))+QPoint(2, 0))
     assert v.sketch.snap_result.target == 'GRID'
     marker = capture(v)
-    gold = (marker[..., 0] > 180) & (marker[..., 1] > 130) & (marker[..., 2] < 100)
+    # The visible translucent body tints markers behind it. Verify gold
+    # chroma rather than the former isolated-view RGB threshold.
+    gold = (marker[..., 0] > 160) & (marker[..., 0]-marker[..., 2] > 40) & (marker[..., 1]-marker[..., 2] > 20)
     assert np.count_nonzero(gold) > 5
     hover(v, pixel(v, frame.to_world((0, 0)))+QPoint(2, 0))
     assert v.sketch.snap_result.target == 'ORIGIN'

@@ -2,11 +2,12 @@
 from math import cos, sin, radians, dist
 from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Surface
-from OCP.GeomAbs import GeomAbs_Plane
+from OCP.BRepAdaptor import BRepAdaptor_Curve
+from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Circle
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Slot
+from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Circle, Slot
 
 
 class AttachmentError(ValueError):
@@ -66,6 +67,21 @@ def extrusion_faces(builder, region, sketch, parameters):
     for entity in sketch.entities:
         if entity.id not in (parameters.outer_id, *parameters.hole_ids):
             continue
+        # Curved prism walls cannot host sketches, but their exact source
+        # identity distinguishes neighboring planar regions after Booleans.
+        centers = ({'circle': (entity.x, entity.y)} if isinstance(entity, Circle) else
+                   {'endA': (entity.x, entity.y), 'endB': entity.second_center}
+                   if isinstance(entity, Slot) else {})
+        for name, center in centers.items():
+            center = sketch.frame.to_world(center)
+            matches = [edge for edge, _, _ in edges
+                       if BRepAdaptor_Curve(edge).GetType() == GeomAbs_Circle
+                       and dist(BRepAdaptor_Curve(edge).Circle().Location().Coord(), center) < 1e-7]
+            if len(matches) == 1:
+                generated = [TopoDS.Face_s(f) for f in builder.Generated(matches[0])
+                             if f.ShapeType() == TopAbs_FACE]
+                if len(generated) == 1:
+                    result[('curve', entity.id, name)] = generated[0]
         for name, (a, b) in segments(entity).items():
             a, b = sketch.frame.to_world(a), sketch.frame.to_world(b)
             matches = [edge for edge, p, q in edges
@@ -99,6 +115,10 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
     face = face_maps.get(parent.id, {}).get(key)
     if face is None:
         raise AttachmentError(f'Unresolved face {reference.face} / {reference.boundary_id or ""} / {reference.segment or ""} on {parent.id}')
+    if reference.face == 'evaluated':
+        # OCCT's source plane provides a deterministic model-space anchor.
+        # No pick point, camera state, or nearest-face fallback is used.
+        return planar_frame(face)
     if parent.type == 'box':
         return planar_frame(face)
     source = definitions[parent.parameters.sketch_id].parameters
@@ -121,11 +141,13 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
     return planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)
 
 
-def identify_face(face, face_maps, definitions):
+def identify_face(face, face_maps, definitions, *, active_ids=None):
     # Read the analytic plane first to distinguish unsupported curved faces.
     planar_frame(face)
     matches = []
     for parent_id, mapping in face_maps.items():
+        if active_ids is not None and parent_id not in active_ids:
+            continue
         for key, candidate in mapping.items():
             if candidate.IsSame(face):
                 if definitions[parent_id].type == 'box':

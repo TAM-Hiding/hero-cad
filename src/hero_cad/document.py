@@ -11,6 +11,7 @@ from hero_cad.persistence import deserialize, serialize
 from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
 from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
+from hero_cad.face_history import primitive_lineage, evaluated_faces
 
 
 class Document:
@@ -55,7 +56,7 @@ class Document:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids, active = set(), set()
         existing = {f.id for f in self.features} if hasattr(self, 'statuses') else None
-        face_maps, resolved = {}, []
+        face_maps, lineages, resolved = {}, {}, []
         inputs = {f.id: f for f in features}
         for feature in features:
             try:
@@ -98,6 +99,7 @@ class Document:
                     try:
                         if feature.type == 'box':
                             solids[feature.id], face_maps[feature.id] = make_box(**asdict(feature.parameters), with_faces=True)
+                            lineages[feature.id] = primitive_lineage(feature.id, face_maps[feature.id])
                             active.add(feature.id)
                         elif feature.type == 'sketch':
                             p = feature.parameters
@@ -113,18 +115,22 @@ class Document:
                             if any(t not in active for t in targets):
                                 raise OperationError('Target/tool is not a current resulting body')
                             if feature.type == 'boolean':
-                                result = combine(feature.parameters.operation, solids[targets[0]],
-                                                 [solids[t] for t in targets[1:]])
-                                faces = {}
+                                result, lineage = combine(feature.parameters.operation, solids[targets[0]],
+                                                          [solids[t] for t in targets[1:]],
+                                                          lineages=[lineages[t] for t in targets])
+                                faces = evaluated_faces(lineage)
                             else:
                                 p = feature.parameters
                                 if p.extent == 'through_all':
                                     p = replace(p, distance=through_distance(source.parameters.frame, solids[p.target_id], p.direction))
                                 result, faces = extrude_region(source.parameters, p, with_faces=True)
+                                lineage = primitive_lineage(feature.id, faces)
                                 if p.operation != 'new':
-                                    result = combine(p.operation, solids[p.target_id], [result])
-                                    faces = {}  # Boolean topology has no semantic naming contract.
+                                    result, lineage = combine(p.operation, solids[p.target_id], [result],
+                                                              lineages=[lineages[p.target_id], lineage])
+                                    faces = evaluated_faces(lineage)
                             solids[feature.id], face_maps[feature.id] = result, faces
+                            lineages[feature.id] = lineage
                             active.difference_update(targets)
                             active.add(feature.id)
                         statuses[feature.id] = FeatureStatus(True)
@@ -176,7 +182,8 @@ class Document:
         return feature.id
 
     def face_reference(self, face):
-        return identify_face(face, self.face_maps, {f.id: f for f in self.features})
+        return identify_face(face, self.face_maps, {f.id: f for f in self.features},
+                             active_ids=self.active_body_ids)
 
     def add_face_sketch(self, reference):
         definitions = {f.id: f for f in self.features}

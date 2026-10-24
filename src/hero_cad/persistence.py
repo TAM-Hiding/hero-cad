@@ -31,14 +31,14 @@ def serialize(features):
                 parameters['attachment'] = asdict(sketch.attachment)
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references)})
-    return {'format': 'star-cad', 'version': 6 if any(f.type == 'boolean' or (f.type == 'extrude' and f.parameters.operation != 'new') for f in features) else 5 if any(f.type == 'sketch' and f.parameters.attachment for f in features) else 4 if any(f.type == 'extrude' for f in features) else 3, 'units': 'mm', 'features': result}
+    return {'format': 'star-cad', 'version': 7 if any(f.type == 'sketch' and f.parameters.attachment and f.parameters.attachment.face == 'evaluated' for f in features) else 6 if any(f.type == 'boolean' or (f.type == 'extrude' and f.parameters.operation != 'new') for f in features) else 5 if any(f.type == 'sketch' and f.parameters.attachment for f in features) else 4 if any(f.type == 'extrude' for f in features) else 3, 'units': 'mm', 'features': result}
 
 
 def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -79,6 +79,8 @@ def deserialize(data):
             stored = PlaneFrame(parameters['plane'], **{k: tuple(v) for k,v in parameters['frame'].items()})
             if attached:
                 fields(parameters['attachment'], ('parent_id', 'face', 'boundary_id', 'segment'))
+                if version < 7 and parameters['attachment']['face'] == 'evaluated':
+                    raise ValueError('Evaluated face references require document version 7')
                 value = SketchParameters('FACE', tuple(entities), FaceReference(**parameters['attachment']), stored)
             else:
                 value = SketchParameters(parameters['plane'], tuple(entities))

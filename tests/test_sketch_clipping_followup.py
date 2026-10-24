@@ -39,7 +39,8 @@ def test_empty_sketch_plane_visible_before_and_after_first_click(qtbot, plane, g
     w.tool_choice.setCurrentText('Line')
     qtbot.mouseClick(v, Qt.LeftButton, pos=pixel(v, frame.to_world((0, 0))))
     assert 0 < depth(v, frame.origin) < 1
-    assert not v.actor.GetVisibility() and not v.edge_actor.GetVisibility()
+    assert v.actor.GetVisibility() and v.edge_actor.GetVisibility()
+    assert v.actor.GetProperty().GetOpacity() == .35
     hover(v, pixel(v, frame.to_world((1, 1))))
     assert 0 < depth(v, frame.to_world((1, 1))) < 1
     assert v.sketch.preview_actor.GetVisibility()

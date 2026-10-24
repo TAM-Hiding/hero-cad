@@ -90,10 +90,11 @@ def test_face_sketch_keeps_solids_and_other_sketches_as_read_only_context(qtbot)
     assert v.actor.GetVisibility() and v.actor.GetProperty().GetOpacity() == .35
 
 
-def test_origin_sketch_retains_isolated_editing(qtbot):
+def test_origin_sketch_retains_translucent_body_context(qtbot):
     w = window(qtbot)
     sid = enter(w)
-    assert not w.viewport.actor.GetVisibility() and not w.viewport.edge_actor.GetVisibility()
+    assert w.viewport.actor.GetVisibility() and w.viewport.edge_actor.GetVisibility()
+    assert w.viewport.actor.GetProperty().GetOpacity() == .35
     w.finish_sketch()
     assert w.viewport.actor.GetVisibility() and w.viewport.actor.GetProperty().GetOpacity() == 1
 

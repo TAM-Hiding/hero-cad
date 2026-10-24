@@ -71,3 +71,8 @@ Join/Cut/Intersect feature history, explicit body consumption, New Body/material
 ## PR #18 — HERO-CAD rebrand and migration preparation
 
 Rename the application/distribution/CLI/package, preserve all .starcad contracts, prepare hero-cad repository metadata and local installation/owner migration instructions. No layout or modeling changes; no placeholder logo. Repository rename is an owner action after merge. Stop after PR #18.
+
+
+## PR #19 — sketch visibility and face reliability
+
+All sketch planes retain translucent current-body context. Multiple sketches can share a face. Eligible planar Boolean output faces use unique source ancestry + CAD adjacency fingerprints, scoped to the selected evaluated feature. Ambiguous/missing identities remain an explicit limitation; general topological naming and plane reassignment remain deferred. No new sketch/modeling tools are added. Stop after opening PR #19; do not merge automatically or begin subsequent feature work.

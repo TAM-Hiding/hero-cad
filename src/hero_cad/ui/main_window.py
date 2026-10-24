@@ -584,7 +584,7 @@ class MainWindow(QMainWindow):
         parent = self.document.feature(ref.parent_id)
         label = 'Box' if parent.type == 'box' else 'Combine' if parent.type == 'boolean' else 'Extrusion ' + str(
             [f.id for f in self.document.features if f.type == 'extrude'].index(parent.id)+1)
-        face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face'}.get(ref.face, ref.face)
+        face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face', 'evaluated': 'Evaluated Planar Face'}.get(ref.face, ref.face)
         return f'{label} / {face}' + (f' / {ref.boundary_id} / {ref.segment}' if ref.face == 'side' else '')
 
     def face_context_menu(self, hit, position):
@@ -833,6 +833,20 @@ class MainWindow(QMainWindow):
         if not self.select_for_context(key):
             return
         menu = self.context_menu(key)
+        if not self.viewport.sketch.active_id:
+            # A finished curve on the face must not hide New Sketch. Keep its
+            # existing edit/delete actions and also offer the solid beneath it.
+            point = self.viewport.mapFromGlobal(position)
+            width, height = self.viewport.GetRenderWindow().GetSize()
+            face = self.viewport.face_pick_at(point.x()*width/max(self.viewport.width(), 1),
+                                              height-1-point.y()*height/max(self.viewport.height(), 1))
+            if face:
+                try:
+                    reference = self.document.face_reference(face[0])
+                except ValueError:
+                    pass
+                else:
+                    menu.addAction('New Sketch', lambda: self.create_face_sketch(reference))
         menu.popup(position)
         self._context_menu = menu
 
