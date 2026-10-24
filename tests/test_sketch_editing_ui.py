@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, QPoint, QPointF
-from star_cad.document import Document
-from star_cad.sketch import Circle, Line
+from hero_cad.document import Document
+from hero_cad.sketch import Circle, Line
 from test_sketch_ui import window, enter, click, pixel, hover
 import pytest
 

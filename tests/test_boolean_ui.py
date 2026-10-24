@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from star_cad.features import BoxParameters
-from star_cad.sketch import Circle,FaceReference
-from star_cad.geometry import volume
+from hero_cad.features import BoxParameters
+from hero_cad.sketch import Circle,FaceReference
+from hero_cad.geometry import volume
 from test_sketch_ui import window,pixel
 from test_booleans import cylinder
 

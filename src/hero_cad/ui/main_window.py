@@ -8,13 +8,13 @@ from PySide6.QtWidgets import (
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
     QSlider, QHBoxLayout, QWidgetAction, QInputDialog,
 )
-from star_cad import __version__
-from star_cad.document import BoxParameters, Document
-from star_cad.features import ExtrudeParameters
-from star_cad.geometry import volume, compound
-from star_cad.sketch import PLANES
-from star_cad.ui.viewport import Viewport
-from star_cad.ui.operation_panel import OperationPanel
+from hero_cad import __version__
+from hero_cad.document import BoxParameters, Document
+from hero_cad.features import ExtrudeParameters
+from hero_cad.geometry import volume, compound
+from hero_cad.sketch import PLANES
+from hero_cad.ui.viewport import Viewport
+from hero_cad.ui.operation_panel import OperationPanel
 
 
 class MainWindow(QMainWindow):
@@ -281,7 +281,7 @@ class MainWindow(QMainWindow):
         self.view_choice.setEnabled(not active)
         name = self.document.path.name if self.document.path else "Untitled"
         marker = " *" if self.document.dirty or pending else ""
-        self.setWindowTitle(f"STAR-CAD {__version__} — {name}{marker}")
+        self.setWindowTitle(f"HERO-CAD {__version__} — {name}{marker}")
 
     def base_box_visibility_changed(self, checked):
         self._base_box_visibility_explicit = True
@@ -379,8 +379,8 @@ class MainWindow(QMainWindow):
         path = self.document.path
         if save_as or path is None:
             selected, _ = QFileDialog.getSaveFileName(
-                self, "Save STAR-CAD document", str(path or "Untitled.starcad"),
-                "STAR-CAD documents (*.starcad)")
+                self, "Save HERO-CAD document", str(path or "Untitled.starcad"),
+                "HERO-CAD documents (*.starcad)")
             if not selected:
                 return False
             path = selected
@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
 
     def open_document(self):
         selected, _ = QFileDialog.getOpenFileName(
-            self, "Open STAR-CAD document", "", "STAR-CAD documents (*.starcad)")
+            self, "Open HERO-CAD document", "", "HERO-CAD documents (*.starcad)")
         if not selected:
             return
         try:
@@ -770,7 +770,7 @@ class MainWindow(QMainWindow):
         if self.viewport.selections:
             result = set()
             from OCP.TopAbs import TopAbs_FACE, TopAbs_EDGE
-            from star_cad.ui.display_geometry import subshapes
+            from hero_cad.ui.display_geometry import subshapes
             for identifier in self.document.active_body_ids:
                 shape = self.document.solid_shapes[identifier]
                 for selection in self.viewport.selections:

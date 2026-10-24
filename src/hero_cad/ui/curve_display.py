@@ -1,6 +1,6 @@
 """Screen-error-bounded display sampling; never used to build CAD geometry."""
 from math import asin, ceil, cos, log2, pi, radians, sin, sqrt
-from star_cad.sketch import Circle, Slot
+from hero_cad.sketch import Circle, Slot
 
 PIXEL_ERROR = 0.25
 MAX_SEGMENTS = 32768

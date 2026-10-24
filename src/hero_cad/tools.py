@@ -1,7 +1,7 @@
 """UI-independent construction state machines; Shift is sampled only at initiation."""
 from dataclasses import dataclass, replace
 from math import hypot, atan2, degrees, isfinite
-from star_cad.sketch import Circle, Line, Slot, diagonal_rectangle, edge_rectangle
+from hero_cad.sketch import Circle, Line, Slot, diagonal_rectangle, edge_rectangle
 
 
 @dataclass(frozen=True)

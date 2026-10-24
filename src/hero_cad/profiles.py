@@ -10,8 +10,8 @@ from OCP.TopAbs import TopAbs_EDGE, TopAbs_IN, TopAbs_VERTEX, TopAbs_WIRE, TopAb
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Pnt, gp_Vec
-from star_cad.geometry import make_sketch, volume
-from star_cad.sketch import SketchParameters, Line
+from hero_cad.geometry import make_sketch, volume
+from hero_cad.sketch import SketchParameters, Line
 
 TOLERANCE = 1e-7
 
@@ -103,6 +103,6 @@ def extrude_region(sketch, parameters, *, with_faces=False):
     if not builder.IsDone() or shape.ShapeType() != TopAbs_SOLID or not BRepCheck_Analyzer(shape).IsValid() or volume(shape) <= 0:
         raise ValueError('OCCT could not build a valid positive-volume extrusion')
     if with_faces:
-        from star_cad.attachments import extrusion_faces
+        from hero_cad.attachments import extrusion_faces
         return shape, extrusion_faces(builder, region, sketch, parameters)
     return shape

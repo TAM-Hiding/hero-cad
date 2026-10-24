@@ -5,12 +5,12 @@ import pytest
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepPrimAPI import BRepPrimAPI_MakeBox
 from OCP.gp import gp_Pnt
-from star_cad.booleans import combine,bounds,OperationError
-from star_cad.document import Document
-from star_cad.features import BoxParameters,Feature,BooleanParameters,FeatureError
-from star_cad.geometry import volume
-from star_cad.sketch import Circle,Rectangle,FaceReference
-from star_cad.persistence import serialize,deserialize
+from hero_cad.booleans import combine,bounds,OperationError
+from hero_cad.document import Document
+from hero_cad.features import BoxParameters,Feature,BooleanParameters,FeatureError
+from hero_cad.geometry import volume
+from hero_cad.sketch import Circle,Rectangle,FaceReference
+from hero_cad.persistence import serialize,deserialize
 
 
 def cylinder(d, x=5, depth=15):

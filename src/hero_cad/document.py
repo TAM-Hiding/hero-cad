@@ -4,13 +4,13 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from star_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature, FeatureError, FeatureStatus
-from star_cad.geometry import make_box, make_sketch, compound
-from star_cad.profiles import extrude_region
-from star_cad.persistence import deserialize, serialize
-from star_cad.sketch import SketchParameters
-from star_cad.booleans import combine, through_distance, OperationError
-from star_cad.attachments import AttachmentError, resolve_attachment, identify_face
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature, FeatureError, FeatureStatus
+from hero_cad.geometry import make_box, make_sketch, compound
+from hero_cad.profiles import extrude_region
+from hero_cad.persistence import deserialize, serialize
+from hero_cad.sketch import SketchParameters
+from hero_cad.booleans import combine, through_distance, OperationError
+from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
 
 
 class Document:

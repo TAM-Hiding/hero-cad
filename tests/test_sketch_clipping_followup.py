@@ -1,7 +1,7 @@
 """Empty-plane clipping after extrusion, including tool/first-click transitions."""
 import pytest
 from PySide6.QtCore import Qt
-from star_cad.sketch import Circle
+from hero_cad.sketch import Circle
 from test_sketch_ui import window, pixel, hover
 
 

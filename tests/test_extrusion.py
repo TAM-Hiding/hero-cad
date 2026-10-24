@@ -5,11 +5,11 @@ import pytest
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.Bnd import Bnd_Box
 from OCP.BRepBndLib import BRepBndLib
-from star_cad.document import Document
-from star_cad.features import ExtrudeParameters, FeatureError
-from star_cad.geometry import volume
-from star_cad.profiles import regions, contains
-from star_cad.sketch import Circle, Rectangle, Slot, Line
+from hero_cad.document import Document
+from hero_cad.features import ExtrudeParameters, FeatureError
+from hero_cad.geometry import volume
+from hero_cad.profiles import regions, contains
+from hero_cad.sketch import Circle, Rectangle, Slot, Line
 
 
 def sketch_document(entities, plane='XY'):

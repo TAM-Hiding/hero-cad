@@ -41,7 +41,7 @@ def make_sketch(parameters):
     from OCP.TopoDS import TopoDS_Compound
     from OCP.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
     from math import cos, sin, radians
-    from star_cad.sketch import Circle, Line, Slot
+    from hero_cad.sketch import Circle, Line, Slot
     builder = BRep_Builder()
     compound = TopoDS_Compound()
     builder.MakeCompound(compound)

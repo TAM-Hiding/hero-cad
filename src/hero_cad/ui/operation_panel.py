@@ -2,10 +2,10 @@
 from dataclasses import replace
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel
-from star_cad.document import Document
-from star_cad.features import Feature, ExtrudeParameters, BooleanParameters
-from star_cad.geometry import compound, volume
-from star_cad.ui.display_geometry import tessellate
+from hero_cad.document import Document
+from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
+from hero_cad.geometry import compound, volume
+from hero_cad.ui.display_geometry import tessellate
 
 
 class OperationPanel(QDockWidget):

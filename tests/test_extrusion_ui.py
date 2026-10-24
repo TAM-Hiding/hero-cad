@@ -2,9 +2,9 @@ from dataclasses import replace
 from math import pi
 import pytest
 from PySide6.QtCore import Qt, QPoint
-from star_cad.document import Document
-from star_cad.geometry import volume
-from star_cad.sketch import Circle, Rectangle, Slot
+from hero_cad.document import Document
+from hero_cad.geometry import volume
+from hero_cad.sketch import Circle, Rectangle, Slot
 from test_sketch_ui import window, enter, click, pixel
 
 

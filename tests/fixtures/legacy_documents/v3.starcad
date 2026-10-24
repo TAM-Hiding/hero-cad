@@ -1,0 +1,66 @@
+{
+  "format": "star-cad",
+  "version": 3,
+  "units": "mm",
+  "features": [
+    {
+      "id": "65721fee-a60b-4a26-8fe4-44e3aad4bfba",
+      "type": "box",
+      "parameters": {
+        "width": 40.0,
+        "depth": 30.0,
+        "height": 20.0
+      },
+      "references": []
+    },
+    {
+      "id": "b41b1872-0e6d-49c9-ac08-860686f7b36c",
+      "type": "sketch",
+      "parameters": {
+        "plane": "YZ",
+        "frame": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "u": [
+            0,
+            1,
+            0
+          ],
+          "v": [
+            0,
+            0,
+            1
+          ]
+        },
+        "entities": [
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 3,
+              "y": 4,
+              "radius": 0.02,
+              "id": "92ed1236-d506-46c7-b42c-b7b0a3c5969b"
+            }
+          },
+          {
+            "type": "slot",
+            "parameters": {
+              "x": 10,
+              "y": 5,
+              "radius": 2,
+              "distance": 12,
+              "angle": 17,
+              "id": "cb30de7e-86a8-4611-a58d-893a35ce6fba"
+            }
+          }
+        ]
+      },
+      "references": [
+        "plane:YZ"
+      ]
+    }
+  ]
+}

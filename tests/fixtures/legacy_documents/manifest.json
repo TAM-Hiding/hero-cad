@@ -1,0 +1,64 @@
+{
+  "writer_commit": "7b39cdf23731ed63f9a929b3674d56b43140b5e0",
+  "files": {
+    "v1.starcad": {
+      "sha256": "47216431269f1f4d2e90d6b06065c40e0feae2e6c678b788d382fe32b666f3be",
+      "volume": 24999.999999999993,
+      "active_bodies": 1,
+      "feature_types": [
+        "box"
+      ]
+    },
+    "v2.starcad": {
+      "sha256": "e924da66858c58be717d68791558d610db86f69b755c43c529c71754849e4479",
+      "volume": 24000.0,
+      "active_bodies": 1,
+      "feature_types": [
+        "box",
+        "sketch"
+      ]
+    },
+    "v3.starcad": {
+      "sha256": "9519c4f63677664f3e85028f692864b138b9805b1504826d000904a01e7aa6fb",
+      "volume": 24000.0,
+      "active_bodies": 1,
+      "feature_types": [
+        "box",
+        "sketch"
+      ]
+    },
+    "v4.starcad": {
+      "sha256": "9374c7c35ebb3dc385aaeff2dba210b0575994308317b30a8673954d8e2ea7f8",
+      "volume": 39467.92036732051,
+      "active_bodies": 2,
+      "feature_types": [
+        "box",
+        "sketch",
+        "extrude"
+      ]
+    },
+    "v5.starcad": {
+      "sha256": "f6d388cf7ff57e68af51749bc9cfd828434f4710514d50047c5be69f151a237d",
+      "volume": 24381.106186954104,
+      "active_bodies": 2,
+      "feature_types": [
+        "box",
+        "sketch",
+        "extrude"
+      ]
+    },
+    "v6.starcad": {
+      "sha256": "45c653b36ab2bf510c7b3fe8b2352e1dd8d34555cbcb02de09b92566852a65fc",
+      "volume": 23795.796477516662,
+      "active_bodies": 1,
+      "feature_types": [
+        "box",
+        "sketch",
+        "extrude",
+        "boolean",
+        "sketch",
+        "extrude"
+      ]
+    }
+  }
+}

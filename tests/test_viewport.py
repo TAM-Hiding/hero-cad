@@ -3,9 +3,9 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
-from star_cad.document import BoxParameters, Document
-from star_cad.ui.display_geometry import edge_mesh, selected_mesh, subshapes, tessellate
-from star_cad.ui.main_window import MainWindow
+from hero_cad.document import BoxParameters, Document
+from hero_cad.ui.display_geometry import edge_mesh, selected_mesh, subshapes, tessellate
+from hero_cad.ui.main_window import MainWindow
 
 
 def project(viewport, point):

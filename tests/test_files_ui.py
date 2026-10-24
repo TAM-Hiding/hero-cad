@@ -1,7 +1,7 @@
 import pytest
 from PySide6.QtWidgets import QFileDialog, QMessageBox
-from star_cad.document import BoxParameters, Document
-from star_cad.ui.main_window import MainWindow
+from hero_cad.document import BoxParameters, Document
+from hero_cad.ui.main_window import MainWindow
 
 
 def window(qtbot):

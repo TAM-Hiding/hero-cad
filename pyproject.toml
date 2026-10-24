@@ -3,21 +3,26 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "star-cad"
+name = "hero-cad"
 version = "0.0.12"
 description = "Local-first parametric mechanical CAD for Linux"
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 dependencies = ["PySide6==6.8.3", "cadquery-ocp==7.9.3.1.1", "vtk==9.6.2"]
 
+[project.urls]
+Repository = "https://github.com/TAM-Hiding/hero-cad"
+Issues = "https://github.com/TAM-Hiding/hero-cad/issues"
+
 [project.optional-dependencies]
 dev = ["pytest==8.3.5", "pytest-qt==4.4.0"]
 
 [project.scripts]
-star-cad = "star_cad.app:main"
+hero-cad = "hero_cad.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["hero_cad*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

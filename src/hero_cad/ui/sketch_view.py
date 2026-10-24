@@ -3,12 +3,12 @@ from math import dist
 from vtkmodules.vtkRenderingCore import vtkCamera
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
-from star_cad.tools import ToolController, ToolEvent
-from star_cad.ui.camera_alignment import deterministic_up
-from star_cad.ui.display_geometry import paths_mesh
-from star_cad.ui.guides import ViewGuides
-from star_cad.ui.snapping import center_targets, snap_point
-from star_cad.ui.curve_display import display_points, segment_count
+from hero_cad.tools import ToolController, ToolEvent
+from hero_cad.ui.camera_alignment import deterministic_up
+from hero_cad.ui.display_geometry import paths_mesh
+from hero_cad.ui.guides import ViewGuides
+from hero_cad.ui.snapping import center_targets, snap_point
+from hero_cad.ui.curve_display import display_points, segment_count
 
 
 class SketchView:

@@ -3,10 +3,10 @@ from dataclasses import replace
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QApplication
-from star_cad.sketch import Circle, Line, Slot
-from star_cad.document import Document
-from star_cad.ui.curve_display import MAX_SEGMENTS, PIXEL_ERROR, display_points, segment_count
-from star_cad.ui.snapping import center_targets, snap_point
+from hero_cad.sketch import Circle, Line, Slot
+from hero_cad.document import Document
+from hero_cad.ui.curve_display import MAX_SEGMENTS, PIXEL_ERROR, display_points, segment_count
+from hero_cad.ui.snapping import center_targets, snap_point
 from test_sketch_ui import window, enter, pixel, hover
 
 

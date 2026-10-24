@@ -9,9 +9,9 @@ from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_WIRE
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from star_cad.document import Document
-from star_cad.sketch import Circle, Line, Slot
-from star_cad.tools import ToolController, ToolEvent
+from hero_cad.document import Document
+from hero_cad.sketch import Circle, Line, Slot
+from hero_cad.tools import ToolController, ToolEvent
 
 
 @pytest.mark.parametrize('plane', ['XY', 'XZ', 'YZ'])
