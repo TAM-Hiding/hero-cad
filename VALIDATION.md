@@ -317,3 +317,15 @@ Local targeted command: .venv/bin/python -m pytest tests/test_rebranding.py -q -
 Full Ubuntu 22.04/24.04 Xvfb/Mesa suite and real GUI launcher checks are pending. Local Qt offscreen is not render acceptance. Compileall, whitespace and stale-import audit are required before review.
 
 Manual acceptance: use MIGRATION.md to replace the old editable distribution; run hero-cad and python -m hero_cad, confirm HERO-CAD title/name, open an existing sketch/face-attachment/extrusion/Boolean .starcad file, edit and regenerate, Undo/Redo and Save/reopen. Verify installation scripts/desktop shortcuts use the new command; there is no bundled desktop entry. The repository remains TAM-Hiding/star-cad for this PR; owner rename and final logo integration are explicitly separate post-merge actions. No subsequent feature work.
+
+### Verified PR #18 results
+
+[Full Ubuntu CI](https://github.com/TAM-Hiding/star-cad/actions/runs/40130793626), code/test commit 926429f859672ac29061ad99723d28f71cd5b4e0: **330 passed on Ubuntu 22.04 and 330 on Ubuntu 24.04**, Python 3.12 with Xvfb/Mesa software OpenGL. Clean editable installation and pip check pass. Sixty-seven upstream warnings per job; no render checks skipped.
+
+The actual installed hero-cad command and python -m hero_cad both launch successfully from outside the checkout. Test-only event-loop inspection confirms the visible HERO-CAD main window, Qt application/display names and existing version; each process exits normally. No production test hook or CLI flag was added. File dialogs retain .starcad filters under the new brand.
+
+The immutable pre-rename v1–v6 fixtures load, regenerate, preserve source bytes, survive Undo/Redo and save/reopen, and retain identical v3–v6 JSON content. All existing sketch, extrusion, face attachment, Boolean, precision, camera, keyboard/display-mode, file and rendered regressions pass with hero_cad imports. An AST audit rejects stale old-package imports in source/tests; the serialized star-cad marker, migration examples and historical validation commands/URLs are intentional exceptions.
+
+Local clean install: hero-cad-0.0.12; pip check reports no broken requirements. Local core/kernel suite: **140 passed**; targeted installed-package/legacy-fixture checks: **7 passed, 3 deselected**. Compileall, whitespace and remote/local source comparisons pass.
+
+MIGRATION.md contains the existing-install upgrade instructions and owner-only post-merge repository rename checklist. The remote remains https://github.com/TAM-Hiding/star-cad.git. No repository rename/settings change, logo asset, visual-layout change, dependency upgrade or subsequent feature work was performed. The owner still needs to carry out the post-merge GitHub rename and check Actions in the renamed repository.
