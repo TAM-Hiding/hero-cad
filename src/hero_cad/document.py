@@ -161,8 +161,14 @@ class Document:
         features = tuple(features)
         if features == self.features:
             return
+        presentation_only = tuple(replace(f, sketch_visible=True) for f in features) == tuple(
+            replace(f, sketch_visible=True) for f in self.features)
         try:
-            shape, sketch_shapes, statuses, solids = self._regenerate(features)
+            if presentation_only:
+                shape, sketch_shapes, statuses, solids = self.shape, self.sketch_shapes, self.statuses, self.solid_shapes
+                self._regenerated_features = features
+            else:
+                shape, sketch_shapes, statuses, solids = self._regenerate(features)
         except FeatureError as error:
             self.last_failure = error
             raise
@@ -171,6 +177,12 @@ class Document:
         self.features, self.shape, self.sketch_shapes, self.statuses = self._regenerated_features, shape, sketch_shapes, statuses
         self.solid_shapes = solids
         self.last_failure = None
+
+    def set_sketch_visibility(self, identifier, visible):
+        feature = self.feature(identifier)
+        if feature.type != 'sketch' or type(visible) is not bool:
+            raise ValueError('Expected sketch and boolean visibility')
+        self.replace_feature(replace(feature, sketch_visible=visible))
 
     def set_box(self, parameters):
         box = next(f for f in self.features if f.type == 'box')

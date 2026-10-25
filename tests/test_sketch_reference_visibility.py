@@ -66,7 +66,7 @@ def test_face_sketch_keeps_solids_and_other_sketches_as_read_only_context(qtbot)
     v,d = w.viewport,w.document
     assert v.actor.GetVisibility() and v.edge_actor.GetVisibility()
     assert v.actor.GetProperty().GetOpacity() == .35
-    assert v.edge_actor.GetProperty().GetOpacity() == .35
+    assert v.edge_actor.GetProperty().GetOpacity() == 1.  # Auto keeps CAD boundaries readable.
     assert (source,rect.id) in v.sketch.mapping
     point = pixel(v,d.feature(source).parameters.frame.to_world((25,0)))
     x,y = point.x()*v.GetRenderWindow().GetSize()[0]/v.width(), v.GetRenderWindow().GetSize()[1]-1-point.y()*v.GetRenderWindow().GetSize()[1]/v.height()
@@ -112,6 +112,10 @@ def test_reference_visibility_and_grid_with_plate_render(qtbot):
     camera.SetPosition(*(focus[i]+100*frame.normal[i] for i in range(3)))
     camera.SetParallelScale(22)
     v.clamp_zoom()
+    shown = capture(v)
+    # Off preserves the old translucent-edge presentation. In Auto, the stronger
+    # actual CAD boundary intentionally takes priority over coincident inactive curves.
+    w.contrast_actions['Off'].trigger()
     shown = capture(v)
     # Translucent reference surfaces/edges tint the source curve; compare
     # its actual contribution instead of requiring the untinted cyan color.

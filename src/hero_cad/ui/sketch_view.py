@@ -42,7 +42,7 @@ class SketchView:
         self.origin_actor.PickableOff()
         self.origin_actor.UseBoundsOff()
         self.origin_actor.VisibilityOff()
-        self.mapper, self.actor = viewport.add_actor((0.4, 0.85, 0.95))
+        self.mapper, self.actor = viewport.add_actor((0.32, 0.72, 0.88))
         self.foreground_mapper, self.foreground_actor = viewport.add_actor((0.4, 0.85, 0.95))
         self.foreground_actor.PickableOff()
         self.foreground_actor.UseBoundsOff()
@@ -115,7 +115,9 @@ class SketchView:
         """Refresh quality bands before rendering, never recursively render here."""
         ppm = self.pixels_per_mm
         context = bool(self.feature)
-        visible = tuple(f for f in self.features if not self.active_id or context or f.id == self.active_id)
+        profiles = getattr(self.viewport, 'profiles', None)
+        scope = self.active_id or (profiles.scope_id if profiles and profiles.active else None)
+        visible = tuple(f for f in self.features if f.sketch_visible or f.id == scope)
         rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
         key = (visible, tuple(count for _, _, count in rows))
         if key != self._display_key:

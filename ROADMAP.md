@@ -111,3 +111,11 @@ commit pipeline; foreground active sketch visibility and explicit browser-scoped
 profile access through bodies. No offset planes, Push/Pull, new geometry tool,
 persistence/reference changes or broad redesign. Stop after opening PR #25 for
 review; do not merge automatically or begin later feature work.
+
+## PR #26 — viewport readability
+
+Grid crossing/coverage correction, numeric scale labels, persistent Auto/Off/
+Always CAD-edge contrast, and persistent auto-hide preference with per-document
+sketch display metadata. Manual browser visibility and temporary edit/explicit
+profile reveal preserve evaluation and ordinary Undo/Redo. Desktop Nvidia review
+remains necessary; no new modeling or reference architecture is introduced.

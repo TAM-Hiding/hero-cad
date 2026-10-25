@@ -36,8 +36,21 @@ class ViewGuides:
         for mapper, actor in ((self.grid_mapper, self.grid_actor), (self.minor_mapper, self.minor_actor)):
             # The modest offset applies only to guide lines, behind sketch lines.
             mapper.SetResolveCoincidentTopologyToPolygonOffset()
-            mapper.SetRelativeCoincidentTopologyLineOffsetParameters(0, 2)
+            mapper.SetRelativeCoincidentTopologyLineOffsetParameters(0, 2 if actor is self.minor_actor else 1)
             actor.VisibilityOff()
+            shader = actor.GetShaderProperty()
+            uniforms = shader.GetVertexCustomUniforms()
+            uniforms.SetUniform2f('gridViewport', (1., 1.))
+            uniforms.SetUniformf('gridAlign', 0.)
+            uniforms.SetUniformf('gridCenter', .5 if actor is self.minor_actor else 0.)
+            shader.AddVertexShaderReplacement(
+                '//VTK::PositionVC::Impl', True,
+                '//VTK::PositionVC::Impl\nif (gridAlign > .5) {\n'
+                ' vec2 pixels = (gl_Position.xy / gl_Position.w * .5 + .5) * gridViewport;\n'
+                ' pixels = floor(pixels + (.5 - gridCenter)) + gridCenter;\n'
+                ' gl_Position.xy = (pixels / gridViewport * 2. - 1.) * gl_Position.w;\n'
+                '}\n', False)
+        self.grid_actor.GetProperty().SetLineWidth(2)
         viewport.renderer.GetActiveCamera().AddObserver('ModifiedEvent', lambda *_: self.update())
 
     def actor(self, color):
@@ -80,15 +93,34 @@ class ViewGuides:
         if self.fade_xray and v.xray_mode != 'Off':
             opacity *= .6
         pixels = self.spacing * max(v.height(), 1)/(2*camera.GetParallelScale())
-        self.grid_actor.GetProperty().SetColor(*color)
-        self.grid_actor.GetProperty().SetOpacity(opacity)
-        self.minor_actor.GetProperty().SetColor(*(c*.65 for c in color))
-        self.minor_actor.GetProperty().SetOpacity(opacity * min(1., max(.15, pixels/4)))
+        self.effective_opacity = opacity
+        # Precompose guide colors once, rather than alpha-blending every crossing.
+        # Opaque guide fragments retain ordinary depth testing and cannot accumulate.
+        background = v.renderer.GetBackground()
+        for actor, rgb, strength in (
+                (self.grid_actor, color, opacity),
+                (self.minor_actor, tuple(c*.65 for c in color), opacity*min(1., max(.15, pixels/4)))):
+            actor.GetProperty().SetColor(*(background[i]*(1-strength)+rgb[i]*strength for i in range(3)))
+            actor.GetProperty().SetOpacity(1.)
         visible = bool(frame) and self.grid_visible
         self.grid_actor.SetVisibility(visible)
         self.minor_actor.SetVisibility(visible)
         if not visible:
             return
+        # Pixel-align raster positions only for horizontal/vertical face-normal
+        # lines. The mesh and all model/snap coordinates stay exact.
+        renderer = v.renderer
+        renderer.SetWorldPoint(*frame.origin, 1); renderer.WorldToDisplay()
+        origin = renderer.GetDisplayPoint()
+        renderer.SetWorldPoint(*frame.to_world((1, 0)), 1); renderer.WorldToDisplay()
+        along_u = renderer.GetDisplayPoint()
+        normal = abs(sum(a*b for a,b in zip(camera.GetDirectionOfProjection(), frame.normal)))
+        aligned = (camera.GetParallelProjection() and normal > 1-1e-10
+                   and min(abs(along_u[i]-origin[i]) for i in (0,1)) < 1e-6)
+        for actor in (self.grid_actor, self.minor_actor):
+            uniforms = actor.GetShaderProperty().GetVertexCustomUniforms()
+            uniforms.SetUniform2f('gridViewport', tuple(float(x) for x in v.GetRenderWindow().GetSize()))
+            uniforms.SetUniformf('gridAlign', float(aligned))
         center = frame.to_local(camera.GetFocalPoint())
         aspect = max(v.width(), 1)/max(v.height(), 1)
         half = camera.GetParallelScale()*max(aspect, 1)*1.5
@@ -130,7 +162,7 @@ class ViewGuides:
                 v.renderer.WorldToDisplay()
                 x, y, z = v.renderer.GetDisplayPoint()
                 value = local[axis]
-                text = f'{"U" if axis == 0 else "V"}: {value:.6g} mm'
+                text = f'{0 if value == 0 else value:.6g}'
                 x, y = x+5, y+5
                 box = (x, y, x+len(text)*8+4, y+19)
                 if not (0 <= z <= 1 and x >= 4 and y >= 4 and box[2] < width-4 and box[3] < height-4):

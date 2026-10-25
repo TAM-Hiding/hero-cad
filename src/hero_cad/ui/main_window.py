@@ -6,7 +6,7 @@ from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
-    QSlider, QHBoxLayout, QWidgetAction, QInputDialog,
+    QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView,
 )
 from hero_cad import __version__
 from hero_cad.document import BoxParameters, Document
@@ -32,7 +32,13 @@ class MainWindow(QMainWindow):
         self.viewport = Viewport(self)
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
-        self.browser.setHeaderLabel("Model · mm")
+        self.browser.setColumnCount(2)
+        self.browser.setHeaderLabels(['Model · mm', 'Visible'])
+        self.browser.header().setStretchLastSection(False)
+        self.browser.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.browser.header().setSectionResizeMode(1, QHeaderView.Fixed)
+        self.browser.setColumnWidth(1, 54)
+        self.browser.viewport().installEventFilter(self)
         self.browser.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.browser.installEventFilter(self)
         self.browser.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -267,6 +273,24 @@ class MainWindow(QMainWindow):
         self.show_base_box.toggled.connect(self.base_box_visibility_changed)
         settings_menu = self.menuBar().addMenu("&Settings")
         settings_menu.addAction(self.show_base_box)
+        contrast_menu = settings_menu.addMenu('High-Contrast Geometry')
+        self.contrast_actions = {}
+        self.contrast_group = QActionGroup(self)
+        contrast = self.preferences.value('viewport/v1/contrast', 'Auto')
+        if contrast not in ('Off', 'Auto', 'Always'):
+            contrast = 'Auto'
+        for mode in ('Off', 'Auto', 'Always'):
+            action = contrast_menu.addAction(mode)
+            action.setCheckable(True)
+            self.contrast_group.addAction(action)
+            action.setChecked(mode == contrast)
+            action.triggered.connect(lambda checked, value=mode: self.contrast_preference(value))
+            self.contrast_actions[mode] = action
+        self.viewport.contrast_mode = contrast
+        self.auto_hide_sketches = settings_menu.addAction('Auto-Hide Consumed Sketches')
+        self.auto_hide_sketches.setCheckable(True)
+        self.auto_hide_sketches.setChecked(str(self.preferences.value('viewport/v1/auto_hide_sketches', 'true')).lower() == 'true')
+        self.auto_hide_sketches.toggled.connect(lambda value: self.save_view_preference('auto_hide_sketches', value))
         opacity_row = QWidget()
         opacity_layout = QHBoxLayout(opacity_row)
         opacity_layout.addWidget(QLabel("Dimension popup opacity"))
@@ -294,6 +318,14 @@ class MainWindow(QMainWindow):
         self.island_action.toggled.connect(self.tool_island.set_user_visible)
         self.refresh(fit=True)
         self.operation_panel = OperationPanel(self)
+
+    def save_view_preference(self, name, value):
+        self.preferences.setValue('viewport/v1/'+name, value)
+        self.preferences.sync()
+
+    def contrast_preference(self, value):
+        self.save_view_preference('contrast', value)
+        self.viewport.set_contrast_mode(value)
 
     def grid_preference(self, name, value):
         self.preferences.setValue('grid/v1/'+name, value)
@@ -397,6 +429,21 @@ class MainWindow(QMainWindow):
         self.addDockWidget(area, dock)
 
     def eventFilter(self, watched, event):
+        if watched is self.browser.viewport() and event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease, QEvent.MouseButtonDblClick):
+            pos = event.position().toPoint()
+            item = self.browser.itemAt(pos)
+            key = item.data(0, Qt.UserRole) if item else None
+            if self.browser.columnAt(pos.x()) == 1 and key and key[0] == 'sketch':
+                if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                    feature = self.document.feature(key[1])
+                    self.document.set_sketch_visibility(feature.id, not feature.sketch_visible)
+                    self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
+                    item.setText(1, '●' if not feature.sketch_visible else '○')
+                    item.setToolTip(1, 'Click to hide sketch' if not feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
+                    self.update_actions()
+                    self.update_status()
+                    self.viewport.GetRenderWindow().Render()
+                return True
         if watched is self.browser and event.type() == QEvent.KeyPress and event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self.delete_selected()
             return True
@@ -714,6 +761,8 @@ class MainWindow(QMainWindow):
                     number = len([k for k in self.browser_items if k[0] == 'sketch']) + 1
                     item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {self.sketch_plane_label(feature)}" + (" · UNRESOLVED" if not status.valid else "")])
                     key = ('sketch', feature.id)
+                    item.setText(1, '●' if feature.sketch_visible else '○')
+                    item.setToolTip(1, 'Click to hide sketch' if feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
                     for i, entity in enumerate(feature.parameters.entities, 1):
                         child = QTreeWidgetItem(item, [f"{type(entity).__name__} {i}"])
                         child_key = ('entity', feature.id, entity.id)

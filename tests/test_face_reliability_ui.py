@@ -19,7 +19,7 @@ def test_origin_plane_shows_cut_body_and_editable_geometry_through_it(qtbot, pla
     sid = enter(w, plane)
     assert v.actor.GetVisibility() and v.edge_actor.GetVisibility()
     assert v.actor.GetProperty().GetOpacity() == .35
-    assert v.edge_actor.GetProperty().GetOpacity() == .35
+    assert v.edge_actor.GetProperty().GetOpacity() == 1.  # Auto keeps CAD boundaries readable.
     # The displayed mesh maps actual current output faces, never the old prism.
     assert all(any(face.IsSame(current) for current in d.face_maps[result].values())
                or not planar_is_face(face) for face in v.faces)

@@ -263,3 +263,18 @@ frames, hit-testing and model-view occlusion remain. Browser-scoped Select Profi
 provides intentional access through bodies; unscoped picking stays conservative.
 No parameters, schema, B-rep, reference system or navigation architecture change.
 See docs/EXTRUSION_QUICK_INPUT.md for causes, controls, screenshot and desktop QA.
+
+## PR #26 — bounded presentation changes
+
+The existing grid actors precompose guide color/strength to avoid translucent
+crossing accumulation. Grid-only vertex raster alignment at exact horizontal/
+vertical face normal stabilizes 1/2-pixel minor/major coverage, leaving world mesh,
+1–2–5 spacing and snapping untouched. Numeric labels retain local coordinates.
+Cached analytic planar normals drive Auto CAD-edge contrast at render time;
+ordinary depth, selected actor and sketch foreground pass remain independent.
+Feature.sketch_visible is display metadata ignored by feature evaluation.
+Visibility-only transactions reuse native caches; new extrusion commits can hide
+its source in that same transaction. Optional v11 sketch-visible metadata uses
+existing history/atomic persistence, with v1–v10 defaults unchanged. Browser column
+input bypasses selection and does not refresh/remesh solids. See
+docs/VIEWPORT_CLARITY.md for rendering evidence, file compatibility and limits.
