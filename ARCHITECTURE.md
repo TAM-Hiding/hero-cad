@@ -213,3 +213,22 @@ candidates are discarded on completion. Camera/preferences are not reset.
 Grid appearance uses application QSettings, bounded projected local-coordinate
 labels, existing exact adaptive intervals and the unchanged snap system.
 See docs/RELIABILITY_GRID.md for causes, reproduction precision, controls and limits.
+
+## PR #23 — persistent ancestry witnesses
+
+The existing semantic seeds/OCCT Modified/Generated/IsDeleted lineage and evaluated
+signature system is extended, not replaced. Eligible new evaluated FaceReferences
+persist FaceSupport (construction origins, fixed planar root, source-local point,
+normal sense and original sibling count). V9 adds only this optional metadata;
+v1–v8 and legacy exact-only references retain their prior interpretation.
+New supported frames derive from the construction root and stored sense using
+the existing attached_frame as the resolved/last-resolved world frame. Resolution
+requires known ancestry and support plane, then a unique exact signature or one
+interior descendant containing the transported point. Boundary ambiguity,
+missing roots/points and sibling-count reductions produce controlled diagnostics
+and suppress dependents, never a cached-plane/index/nearest-face fallback.
+Document exposes derived face_lineages/source_faces and a construction-face
+face_descendants query. Native caches are not serialized and publish only after
+a successful candidate. Viewport indices remain transient; picks now retain the
+interior point used by new references. See docs/PERSISTENT_REFERENCES.md for the
+architecture inventory, conservative limits, compatibility and desktop checks.

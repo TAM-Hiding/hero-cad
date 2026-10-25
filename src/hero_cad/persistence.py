@@ -1,7 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature
-from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference
+from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport
 
 
 def fields(data, expected):
@@ -36,6 +36,13 @@ def serialize(features):
             if sketch.attachment:
                 version = max(version, 8 if sketch.attachment.segment == 'line' else 7 if sketch.attachment.face == 'evaluated' else 5)
                 parameters['attachment'] = asdict(sketch.attachment)
+                if sketch.attachment.support is None:
+                    parameters['attachment'].pop('support')
+                else:
+                    version = max(version, 9)
+                    support = parameters['attachment']['support']
+                    support['origins'] = list(support['origins'])
+                    support['anchor'] = list(support['anchor'])
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references)})
     return {'format': 'star-cad', 'version': version, 'units': 'mm', 'features': result}
@@ -45,7 +52,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -85,12 +92,24 @@ def deserialize(data):
                 raise ValueError('Invalid sketch frame')
             stored = PlaneFrame(parameters['plane'], **{k: tuple(v) for k,v in parameters['frame'].items()})
             if attached:
-                fields(parameters['attachment'], ('parent_id', 'face', 'boundary_id', 'segment'))
+                attachment = parameters['attachment']
+                if version < 9 and isinstance(attachment, dict) and 'support' in attachment:
+                    raise ValueError('Ancestry support requires document version 9')
+                enriched = version >= 9 and isinstance(attachment, dict) and 'support' in attachment
+                fields(attachment, ('parent_id', 'face', 'boundary_id', 'segment') + (('support',) if enriched else ()))
+                attachment = dict(attachment)
+                if enriched:
+                    support = attachment['support']
+                    fields(support, ('origins', 'root', 'anchor', 'sense', 'count'))
+                    if not isinstance(support['origins'], list) or not isinstance(support['anchor'], list):
+                        raise ValueError('Invalid persisted ancestry support')
+                    attachment['support'] = FaceSupport(**{**support, 'origins': tuple(support['origins']),
+                                                           'anchor': tuple(support['anchor'])})
                 if version < 7 and parameters['attachment']['face'] == 'evaluated':
                     raise ValueError('Evaluated face references require document version 7')
                 if version < 8 and parameters['attachment']['segment'] == 'line':
                     raise ValueError('Line-profile side references require document version 8')
-                value = SketchParameters('FACE', tuple(entities), FaceReference(**parameters['attachment']), stored)
+                value = SketchParameters('FACE', tuple(entities), FaceReference(**attachment), stored)
             else:
                 value = SketchParameters(parameters['plane'], tuple(entities))
                 if stored != value.frame:

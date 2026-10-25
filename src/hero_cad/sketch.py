@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from math import acos, atan2, ceil, cos, degrees, hypot, isfinite, pi, radians, sin
 from uuid import UUID, uuid4
+import json
 
 
 def new_id():
@@ -181,15 +182,75 @@ def slot_from_centers(a, b, radius):
                 degrees(atan2(b[1]-a[1], b[0]-a[0])))
 
 
+def decode_face_origin(token):
+    """Canonical construction identity used by existing OCCT face lineage."""
+    if not isinstance(token, str) or len(token) > 512:
+        raise ValueError('Invalid face ancestry token')
+    try:
+        identifier, key = json.loads(token)
+        valid_id(identifier)
+        if isinstance(key, str):
+            if key not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z'):
+                raise ValueError('Invalid box ancestry')
+        elif isinstance(key, list) and len(key) == 3:
+            face, boundary, segment = key
+            if face == 'curve':
+                valid_id(boundary)
+                if segment not in ('circle', 'endA', 'endB'):
+                    raise ValueError('Invalid curve ancestry')
+            else:
+                ref = FaceReference(identifier, face, boundary, segment)
+                if ref.face not in ('start', 'end', 'side'):
+                    raise ValueError('Ancestry must identify construction geometry')
+            key = tuple(key)
+        else:
+            raise ValueError('Invalid face ancestry key')
+        if json.dumps([identifier, key], separators=(',', ':')) != token:
+            raise ValueError('Noncanonical face ancestry')
+        return identifier, key
+    except (TypeError, KeyError, json.JSONDecodeError) as error:
+        raise ValueError('Invalid face ancestry token') from error
+
+
+@dataclass(frozen=True)
+class FaceSupport:
+    """Source-relative witness, not a second world-space sketch plane."""
+    origins: tuple
+    root: str
+    anchor: tuple
+    sense: int
+    count: int
+
+    def __post_init__(self):
+        if (not isinstance(self.origins, tuple) or not 1 <= len(self.origins) <= 512
+                or any(not isinstance(t, str) for t in self.origins)
+                or self.origins != tuple(sorted(set(self.origins)))):
+            raise ValueError('Expected sorted unique face ancestry')
+        for token in self.origins:
+            decode_face_origin(token)
+        if self.root not in self.origins:
+            raise ValueError('Reference root must belong to its ancestry')
+        if not isinstance(self.anchor, tuple) or len(self.anchor) != 2:
+            raise ValueError('Expected source-local attachment point')
+        numbers(*self.anchor)
+        if type(self.sense) is not int or self.sense not in (-1, 1):
+            raise ValueError('Invalid attachment normal sense')
+        if type(self.count) is not int or not 1 <= self.count <= 10000:
+            raise ValueError('Invalid ancestral face multiplicity')
+
+
 @dataclass(frozen=True)
 class FaceReference:
     parent_id: str
     face: str
     boundary_id: str | None = None
     segment: str | None = None
+    support: FaceSupport | None = None
 
     def __post_init__(self):
         valid_id(self.parent_id)
+        if self.support is not None and (type(self.support) is not FaceSupport or self.face != 'evaluated'):
+            raise ValueError('Ancestry support belongs only to evaluated faces')
         if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side', 'evaluated'):
             raise ValueError('Unsupported semantic face')
         if self.face == 'side':

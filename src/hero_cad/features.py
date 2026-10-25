@@ -103,6 +103,7 @@ class Feature:
 class FeatureStatus:
     valid: bool
     error: str | None = None
+    reference_state: str | None = None
 
 
 class FeatureError(ValueError):

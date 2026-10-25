@@ -32,14 +32,15 @@ def propagate(builder, result, sources):
     """Normalize history descendants to faces in the actual oriented result."""
     descendants = []
     for face, tokens in sources:
-        descendants.append((tuple([face, *builder.Modified(face), *builder.Generated(face)]), tokens))
+        unchanged = [] if builder.IsDeleted(face) else [face]
+        descendants.append((tuple([*unchanged, *builder.Modified(face), *builder.Generated(face)]), tokens))
     return tuple((TopoDS.Face_s(face), frozenset(token for candidates, tokens in descendants
                                                if any(face.IsSame(candidate) for candidate in candidates)
                                                for token in tokens))
                  for face in subshapes(result, TopAbs_FACE))
 
 
-def evaluated_faces(lineage):
+def evaluated_candidates(lineage):
     """Publish only unique planar ancestry + edge-neighbor signatures.
 
     Split counts prevent a disappearing ambiguous sibling from turning a
@@ -60,5 +61,10 @@ def evaluated_faces(lineage):
                      sorted([sorted(other), counts[other]] for other in neighbors)]
         key = sha256(json.dumps(signature, separators=(',', ':')).encode()).hexdigest()
         candidates.append((key, face))
+    return tuple(candidates)
+
+
+def evaluated_faces(lineage):
+    candidates = evaluated_candidates(lineage)
     unique = Counter(key for key, _ in candidates)
     return {('evaluated', None, key): face for key, face in candidates if unique[key] == 1}

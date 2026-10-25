@@ -339,7 +339,7 @@ class MainWindow(QMainWindow):
         if selection is None or selection.kind != 'face':
             return None, 'Select an origin plane or a supported planar face.'
         try:
-            return self.document.face_reference(selection.shape), ''
+            return self.document.face_reference(selection.shape, point=selection.point), ''
         except ValueError as error:
             return None, str(error)
 
@@ -751,12 +751,12 @@ class MainWindow(QMainWindow):
     def face_context_menu(self, hit, position):
         if self.viewport.sketch.active_id:
             return
-        self.viewport.select_face(hit[0])
+        self.viewport.select_face(hit[0], hit[1])
         menu = QMenu(self)
         if len(self.selected_body_ids()) >= 2:
             menu.addAction(self.combine_action)
         try:
-            reference = self.document.face_reference(hit[0])
+            reference = self.document.face_reference(hit[0], point=hit[1])
             menu.addAction(self.new_sketch_action)
         except ValueError as error:
             if menu.isEmpty():
@@ -1008,7 +1008,7 @@ class MainWindow(QMainWindow):
                                               height-1-point.y()*height/max(self.viewport.height(), 1))
             if face:
                 try:
-                    reference = self.document.face_reference(face[0])
+                    reference = self.document.face_reference(face[0], point=face[1])
                 except ValueError:
                     pass
                 else:

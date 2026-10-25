@@ -526,3 +526,63 @@ instructions. Existing conservative topology-reference limitations remain;
 substantial topology changes may unresolve attachments. Preview remains
 synchronous. No Ubuntu 22.04 or physical laptop result is claimed here. Open
 PR #22 for review and stop without merging or starting later feature work.
+
+## PR #23 — persistent geometry references / ancestry foundation
+
+Local environment: Ubuntu 24.04.3 x86-64, Python 3.12.14, PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1, VTK 9.6.2. Fresh `.venv` created with copied Python
+interpreter; requirements-dev.lock installed, then `pip install --no-deps -e .`.
+Qt xcb, real Xvfb TCP display 1600×1000×24 and Mesa software OpenGL. Local
+Ubuntu 22.04 and physical laptop acceptance were not run. Existing CI matrix
+for Ubuntu 22.04/24.04 remains unchanged; no CI success is claimed here.
+
+Commands (Xvfb and pytest in the same shell; TCP is required in this workspace):
+
+```
+export LD_LIBRARY_PATH=/tmp/hero-pr23-x11/usr/lib/x86_64-linux-gnu
+export DISPLAY=localhost:166 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+/tmp/hero-pr23-x11/usr/bin/Xvfb :166 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp &
+.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest tests/test_document.py tests/test_persistent_references.py -q
+.venv/bin/python -m compileall -q src tests
+.venv/bin/pip check
+git diff --check
+```
+
+Results:
+
+- **470 passed**, 87 upstream VTK/NumPy deprecation warnings, **123.13 seconds**,
+  no skips. Final full run includes the contextual multi-selection witness test.
+- Required document/new reference checks: **41 passed**, 2.71 seconds.
+- Earlier full run: 469 passed / 125.06 seconds before the final context-batch
+  refinement; focused final viewport tests: 3 passed / 3.58 seconds.
+- `pip check`: no broken requirements; compileall and diff checks passed.
+- No dependency, authoritative B-rep precision, new geometry tool or extension
+  changes. V9 adds optional support metadata while legacy data stays readable.
+
+Coverage includes stable semantic roots and ordinary size edits; source-local
+frame transport; real one-to-two top-face splits with recorded common ancestry;
+unique interior descendant recovery; ambiguous boundary / removed witness / lost
+root / deleted supporting face; conservative merge refusal; shuffled OCCT
+subshape traversal; New Body, Join/Cut/Intersect operation extrusions and Combine;
+legacy exact-only v7 behavior plus existing v1–v8 regressions; metadata/UUID/frame
+persistence; malformed metadata; Undo/Redo, blocked downstream features and
+unrelated editing; atomic rejection without replacing reference caches; actual
+left/right picks, sketch reentry, diagnostics and correct context target while
+preserving a selected batch. Existing render checks use real OpenGL pixels and
+continue passing; there is no new visual layout to approve.
+
+Initial regression runs exposed expected schema-number changes (new enriched
+references save v9), and old tests equating two entire references created by
+separate pixel-rounded clicks. Tests now distinguish the stable current face
+identity from the per-attachment witness while still requiring exact stored
+metadata/feature equality across save/reload. Existing legacy serialization
+fixtures remain unchanged. No existing geometry/gesture tests were removed.
+
+See docs/PERSISTENT_REFERENCES.md for the prior architecture inventory, collection
+through OCCT Modified/Generated/IsDeleted, source-local resolution rules, schema
+compatibility, explicit limits and the desktop acceptance checklist. Persistent
+edge naming, arbitrary ambiguous initial faces, unknown ancestry, sibling merges
+and aggressive repair remain out of scope. A cached historical plane never
+permits evaluation after support is missing. Open PR #23 for review, do not merge
+automatically, and do not begin later feature work.
