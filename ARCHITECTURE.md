@@ -278,3 +278,20 @@ its source in that same transaction. Optional v11 sketch-visible metadata uses
 existing history/atomic persistence, with v1–v10 defaults unchanged. Browser column
 input bypasses selection and does not refresh/remesh solids. See
 docs/VIEWPORT_CLARITY.md for rendering evidence, file compatibility and limits.
+
+## PR #27 — preferences and local desktop integration
+
+preferences.py owns a bounded typed catalogue over existing QSettings keys,
+adding persistent identifiers for established session-only display/input options.
+Preferences validates startup values and signals changes. The preferences dialog
+and existing quick controls use that same store and existing behavior callbacks;
+island layout writes go through it too. Category resets exclude documents and
+unrelated settings. Per-sketch visibility remains document state; navigation and
+base-box session semantics are unchanged. See docs/PREFERENCES.md for the audit.
+
+The optional hero-cad-install-launcher command generates per-user XDG desktop,
+wrapper, icon-copy and ownership-manifest files from the current Python/console
+entry point. It requires supplied approved artwork; none is invented/bundled.
+The app declares its desktop-file identity and loads the installed icon. No
+standalone packaging, system-wide installer or geometry/schema change is added.
+See docs/DESKTOP_LAUNCHER.md for startup and maintenance limits.

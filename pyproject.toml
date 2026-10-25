@@ -19,6 +19,7 @@ dev = ["pytest==8.3.5", "pytest-qt==4.4.0"]
 
 [project.scripts]
 hero-cad = "hero_cad.app:main"
+hero-cad-install-launcher = "hero_cad.desktop_launcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
