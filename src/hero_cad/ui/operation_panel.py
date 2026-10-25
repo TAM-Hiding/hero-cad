@@ -1,7 +1,10 @@
 """Modeless analytic operation preview; document changes only on Apply."""
 from dataclasses import replace
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel
+from math import isfinite
+import re
+from PySide6.QtCore import Qt, QTimer, QSignalBlocker
+from PySide6.QtGui import QCursor, QShortcut, QKeySequence, QGuiApplication
+from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout
 from hero_cad.document import Document
 from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
 from hero_cad.geometry import compound, volume
@@ -13,12 +16,19 @@ class OperationPanel(QDockWidget):
         super().__init__('Operation preview', window)
         self.window = window
         self.active = False
+        self.quick_mode = False
         self.candidate = None
-        form = QFormLayout()
+        self.preview_timer = QTimer(self)
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.setInterval(180)
+        self.preview_timer.timeout.connect(self.preview)
+        form = self.form = QFormLayout()
         widget = QWidget()
         widget.setLayout(form)
         self.setWidget(widget)
         self.operation, self.target = QComboBox(), QComboBox()
+        self.target.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+        self.target.setMinimumContentsLength(16)
         self.extent, self.direction = QComboBox(), QComboBox()
         self.extent.addItem('Specified distance','distance')
         self.extent.addItem('Through All (Cut)','through_all')
@@ -29,10 +39,19 @@ class OperationPanel(QDockWidget):
         self.distance.setRange(-100000,100000)
         self.distance.setSuffix(' mm')
         self.distance.setKeyboardTracking(False)
+        self.quick_distance = QLineEdit()
+        self.quick_distance.setAccessibleName('Extrusion distance in millimeters')
+        self.quick_distance.setToolTip('Signed millimeters: + follows the sketch normal; − reverses direction')
+        self.quick_distance.textChanged.connect(self.quick_text_changed)
+        self.quick_distance.returnPressed.connect(self.apply_input)
+        self.advanced = QPushButton('Advanced…')
+        self.advanced.setCheckable(True)
+        self.advanced.toggled.connect(lambda _: self.layout_controls())
         self.tools_label = QLabel()
         self.tools_label.setWordWrap(True)
         self.feedback = QLabel('Preview before applying. Negative distance reverses direction.')
         self.feedback.setWordWrap(True)
+        form.addRow('Distance · mm',self.quick_distance)
         form.addRow('Operation',self.operation)
         form.addRow('Target body',self.target)
         form.addRow('Tool bodies',self.tools_label)
@@ -42,25 +61,35 @@ class OperationPanel(QDockWidget):
         self.preview_button = QPushButton('Preview result')
         self.apply_button = QPushButton('Apply')
         self.cancel_button = QPushButton('Cancel')
+        form.addRow(self.advanced)
         form.addRow(self.feedback)
-        for button in (self.preview_button,self.apply_button,self.cancel_button):
-            form.addRow(button)
+        buttons = QWidget()
+        row = QHBoxLayout(buttons)
+        row.setContentsMargins(0,0,0,0)
+        for button in (self.preview_button,self.cancel_button,self.apply_button):
+            row.addWidget(button)
+        form.addRow(buttons)
         self.preview_button.clicked.connect(self.preview)
-        self.apply_button.clicked.connect(self.commit)
+        self.apply_button.clicked.connect(self.apply_input)
         self.cancel_button.clicked.connect(self.cancel)
         self.operation.currentIndexChanged.connect(self.changed)
         for field in (self.target,self.extent,self.direction):
             field.currentIndexChanged.connect(self.invalidate)
-        self.distance.valueChanged.connect(self.invalidate)
+        self.distance.valueChanged.connect(self.spin_distance_changed)
         self.mapper,self.actor = window.viewport.add_actor((1.,.65,.15))
         self.actor.GetProperty().SetOpacity(.8)
         self.actor.PickableOff()
         self.actor.VisibilityOff()
         window.addDockWidget(Qt.RightDockWidgetArea,self)
+        self.escape = QShortcut(QKeySequence(Qt.Key_Escape),self)
+        self.escape.setContext(Qt.WidgetWithChildrenShortcut)
+        self.escape.activated.connect(self.cancel)
+        self.layout_controls()
         self.hide()
 
-    def open(self, *, source=None, bodies=(), feature=None):
+    def open(self, *, source=None, bodies=(), feature=None, quick=False):
         self.cancel()
+        self.quick_mode = False
         self.source, self.bodies, self.edit_id = source, tuple(bodies), feature.id if feature else None
         self.active = False
         self.operation.clear()
@@ -93,10 +122,39 @@ class OperationPanel(QDockWidget):
             self.distance.setValue(10)
             self.extent.setCurrentIndex(0)
             self.direction.setCurrentIndex(1)
+        self.quick_mode = bool(quick and source and not feature)
+        with QSignalBlocker(self.quick_distance):
+            self.quick_distance.setText(format(self.distance.value(),'.15g'))
+        self.advanced.setChecked(False)
         self.active = True
+        self.setFloating(self.quick_mode)
+        self.setWindowModality(Qt.NonModal)
+        self.setWindowTitle('Extrude' if self.quick_mode else 'Operation preview')
+        self.widget().setStyleSheet("""
+            QWidget { background: #242e34; color: #dae5e3; }
+            QLineEdit, QComboBox, QDoubleSpinBox { background: #33434b; color: #dae5e3;
+                border: 1px solid #758b91; padding: 4px; }
+            QPushButton { background: #33434b; border: 1px solid #758b91; padding: 5px; }
+            QPushButton:disabled { color: #7e9094; }
+        """ if self.quick_mode else '')
         self.changed()
         self.show()
         self.raise_()
+        if self.quick_mode:
+            self.adjustSize()
+            self.resize(350,self.sizeHint().height())
+            cursor = QCursor.pos()
+            screen = QGuiApplication.screenAt(cursor) or self.window.screen()
+            area = screen.availableGeometry()
+            x = cursor.x()+24
+            y = cursor.y()+24
+            if x+self.width()>area.right():
+                x = cursor.x()-self.width()-24
+            if y+self.height()>area.bottom():
+                y = cursor.y()-self.height()-24
+            self.move(max(area.left(),min(x,area.right()-self.width()+1)),
+                      max(area.top(),min(y,area.bottom()-self.height()+1)))
+            QTimer.singleShot(0,self.focus_distance)
 
     def changed(self, *_):
         if not self.active:
@@ -106,31 +164,124 @@ class OperationPanel(QDockWidget):
         self.extent.setEnabled(bool(self.source) and op == 'cut')
         self.distance.setEnabled(bool(self.source) and self.extent.currentData() != 'through_all')
         self.direction.setEnabled(bool(self.source) and op == 'cut' and self.extent.currentData() == 'through_all')
+        self.layout_controls()
         self.invalidate()
 
     def invalidate(self, *_):
         if not self.active:
             return
+        self.layout_controls()
+        had_preview = bool(self.actor.GetVisibility())
+        self.preview_timer.stop()
         self.candidate = None
         self.tools_label.setText('Extruded sketch profile' if self.source else ', '.join(
             self.window.body_label(i) for i in self.bodies if i != self.target.currentData()))
         self.apply_button.setEnabled(False)
-        self.feedback.setText('Preview updated values before Apply. Signed distance: + follows the sketch normal, − reverses it.')
+        self.feedback_text('Preview updated values before Apply. Signed distance: + follows the sketch normal, − reverses it.')
         self.distance.setEnabled(bool(self.source) and not (self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'))
         self.direction.setEnabled(bool(self.source) and self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all')
         self.actor.VisibilityOff()
-        self.window.display_solids()
-        self.window.viewport.sketch.update(self.window.viewport.sketch.features)
-        self.window.viewport.GetRenderWindow().Render()
+        if not self.quick_mode or had_preview:
+            self.window.display_solids()
+            self.window.viewport.sketch.update(self.window.viewport.sketch.features)
+            self.window.viewport.GetRenderWindow().Render()
+        if self.quick_mode:
+            try:
+                self.input_distance()
+            except ValueError as error:
+                self.feedback_text(str(error))
+            else:
+                self.apply_button.setEnabled(True)
+                self.preview_timer.start()
+
+    def feedback_text(self, text):
+        self.feedback.setText(text)
+        self.feedback.setToolTip(text)
+        if self.quick_mode:
+            self.layout_controls()
+
+    def layout_controls(self):
+        quick = self.quick_mode
+        advanced = not quick or self.advanced.isChecked()
+        self.form.setRowVisible(self.quick_distance,quick)
+        self.form.setRowVisible(self.distance,not quick)
+        self.form.setRowVisible(self.tools_label,not quick)
+        self.form.setRowVisible(self.advanced,quick)
+        self.form.setRowVisible(self.extent,advanced)
+        self.form.setRowVisible(self.direction,advanced)
+        self.form.setRowVisible(self.target,not quick or self.operation.currentData() != 'new')
+        self.preview_button.setVisible(advanced)
+        self.feedback.setMaximumWidth(320 if quick else 16777215)
+        self.feedback.setMaximumHeight(80 if quick else 16777215)
+        if hasattr(self,'source'):
+            self.quick_distance.setEnabled(bool(self.source) and not (
+                self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'))
+        if quick and self.isVisible():
+            self.adjustSize()
+            area = self.screen().availableGeometry()
+            self.move(max(area.left(),min(self.x(),area.right()-self.width()+1)),
+                      max(area.top(),min(self.y(),area.bottom()-self.height()+1)))
+
+    def focus_distance(self):
+        if self.active and self.quick_mode:
+            self.activateWindow()
+            self.quick_distance.setFocus(Qt.OtherFocusReason)
+            self.quick_distance.selectAll()
+
+    def input_distance(self):
+        if not self.quick_mode or (self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'):
+            return self.distance.value()
+        text = self.quick_distance.text().strip()
+        if not re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?',text):
+            raise ValueError('Enter a signed distance in mm.')
+        value = float(text)
+        if not isfinite(value) or not 1e-6 <= abs(value) <= 100000:
+            raise ValueError('Distance must be nonzero, from ±0.000001 to ±100000 mm.')
+        return value
+
+    def quick_text_changed(self, *_):
+        if not self.quick_mode or not self.active:
+            return
+        try:
+            value = self.input_distance()
+            with QSignalBlocker(self.distance):
+                self.distance.setValue(value)
+        except ValueError:
+            pass
+        self.invalidate()
+
+    def spin_distance_changed(self, value):
+        if self.quick_mode:
+            with QSignalBlocker(self.quick_distance):
+                self.quick_distance.setText(format(value,'.15g'))
+        self.invalidate()
+
+    def apply_input(self):
+        self.preview_timer.stop()
+        if not self.quick_mode:
+            return self.commit()
+        try:
+            self.input_distance()
+        except ValueError as error:
+            self.feedback_text(str(error))
+            self.focus_distance()
+            return False
+        if self.candidate is None or self.window.document.features != self.baseline:
+            if not self.preview():
+                self.focus_distance()
+                return False
+        return self.commit()
 
     def definition(self):
         op,target = self.operation.currentData(),self.target.currentData()
+        if op != 'new' and target is None:
+            raise ValueError('Select an available target body for this operation.')
         if self.source:
             from hero_cad.profiles import resolve_region
             line_ids = (self.window.document.feature(self.edit_id).parameters.line_ids if self.edit_id else
                         resolve_region(self.window.document.feature(self.source[0]).parameters,
                                        self.source[1], self.source[2]).line_ids)
-            p = ExtrudeParameters(*self.source,self.distance.value(),op,
+            p = ExtrudeParameters(*self.source,self.input_distance(),op,
                                   None if op == 'new' else target,
                                   self.extent.currentData() if op == 'cut' else 'distance',self.direction.currentData(), line_ids)
             refs = (p.sketch_id,) + ((p.target_id,) if p.target_id else ())
@@ -140,6 +291,7 @@ class OperationPanel(QDockWidget):
         return Feature('boolean',p,(target,*tools),self.feature_id)
 
     def preview(self):
+        self.preview_timer.stop()
         if not self.active:
             return False
         self.candidate = None
@@ -164,27 +316,28 @@ class OperationPanel(QDockWidget):
             self.window.viewport.GetRenderWindow().Render()
             self.candidate,self.baseline = candidate,d.features
             unresolved = sum(not s.valid for s in candidate.statuses.values())
-            self.feedback.setText(f'Result preview · {len(candidate.active_body_ids)} current body/bodies · {volume(candidate.shape):.9g} mm³'
+            self.feedback_text(f'Result preview · {len(candidate.active_body_ids)} current body/bodies · {volume(candidate.shape):.9g} mm³'
                                   + (f' · {unresolved} unresolved dependent feature(s); see browser after Apply' if unresolved else ''))
             self.apply_button.setEnabled(True)
             return True
         except Exception as error:
             self.window.display_solids()
-            self.feedback.setText(str(error))
+            self.feedback_text(str(error))
             self.window.statusBar().showMessage(str(error),6000)
             return False
 
     def commit(self):
         if self.candidate is None or self.window.document.features != self.baseline:
-            self.feedback.setText('Document changed or no valid preview; preview again')
+            self.feedback_text('Document changed or no valid preview; preview again')
             self.apply_button.setEnabled(False)
             return False
         feature = self.definition()
         try:
             self.window.document.set_features(self.candidate.features)
         except Exception as error:
-            self.feedback.setText(str(error))
+            self.feedback_text(str(error))
             return False
+        self.preview_timer.stop()
         self.active = False
         self.candidate = None
         self.apply_button.setEnabled(False)
@@ -197,9 +350,12 @@ class OperationPanel(QDockWidget):
         w.entity_context = ('extrude',feature.id) if feature.type == 'extrude' else None
         w.browser_key = (feature.type,feature.id)
         w.refresh(fit=True)
+        w.activateWindow()
+        w.viewport.setFocus(Qt.OtherFocusReason)
         return True
 
     def cancel(self, *_):
+        self.preview_timer.stop()
         self.actor.VisibilityOff()
         was_active,self.active = self.active,False
         self.candidate = None
@@ -212,6 +368,8 @@ class OperationPanel(QDockWidget):
             self.window.viewport.sketch.update(self.window.viewport.sketch.features)
             self.window.viewport.GetRenderWindow().Render()
             self.window.update_actions()
+            self.window.activateWindow()
+            self.window.viewport.setFocus(Qt.OtherFocusReason)
 
     def closeEvent(self,event):
         self.cancel()

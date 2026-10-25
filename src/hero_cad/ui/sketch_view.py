@@ -43,6 +43,14 @@ class SketchView:
         self.origin_actor.UseBoundsOff()
         self.origin_actor.VisibilityOff()
         self.mapper, self.actor = viewport.add_actor((0.4, 0.85, 0.95))
+        self.foreground_mapper, self.foreground_actor = viewport.add_actor((0.4, 0.85, 0.95))
+        self.foreground_actor.PickableOff()
+        self.foreground_actor.UseBoundsOff()
+        self.foreground_actor.GetProperty().LightingOff()
+        self.foreground_actor.GetProperty().SetLineWidth(1)
+        viewport.sketch_foreground(self.foreground_actor, True)
+        self.foreground_actor.VisibilityOff()
+        self._foreground_key = None
         self.preview_mapper, self.preview_actor = viewport.add_actor((0.65, 0.95, 0.7))
         self.highlight_mapper, self.highlight_actor = viewport.add_actor((1.0, 0.65, 0.15))
         for mapper, actor in ((self.mapper, self.actor), (self.preview_mapper, self.preview_actor),
@@ -115,6 +123,16 @@ class SketchView:
             self.mapping = [(f.id, e.id) for f, e, _ in rows]
             self.actor.SetVisibility(bool(rows))
             self._display_key = key
+        profiles = getattr(self.viewport, 'profiles', None)
+        scope = self.active_id or (profiles.scope_id if profiles and profiles.active else None)
+        foreground_key = (key, scope)
+        if foreground_key != self._foreground_key:
+            paths = [self.world_path(f,e,n) for f,e,n in rows if f.id == scope]
+            self.foreground_mapper.SetInputData(paths_mesh(paths))
+            self.foreground_actor.SetVisibility(bool(paths))
+            self._foreground_key = foreground_key
+        for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor):
+            self.viewport.sketch_foreground(actor, bool(self.active_id))
         highlight_key = (key, self.active_id, frozenset(self.entity_ids))
         if highlight_key != self._highlight_key:
             paths = [self.world_path(f, e, n) for f, e, n in rows if e.id in self.entity_ids and (not self.active_id or f.id == self.active_id)]

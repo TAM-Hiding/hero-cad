@@ -103,3 +103,11 @@ from strict historical recovery. Reuse known source support; permit verified
 current planar geometry when ancestry is absent, with conservative snapshot
 resolution. No new modeling feature, repair UI or general naming rewrite.
 Stop after opening PR #24; do not merge automatically or begin later work.
+
+## PR #25 — focused interaction pass
+
+Keyboard-first floating extrusion presentation over the existing candidate and
+commit pipeline; foreground active sketch visibility and explicit browser-scoped
+profile access through bodies. No offset planes, Push/Pull, new geometry tool,
+persistence/reference changes or broad redesign. Stop after opening PR #25 for
+review; do not merge automatically or begin later feature work.

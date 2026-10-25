@@ -656,3 +656,75 @@ unknown ancestry does not justify recovering arbitrary dimensional/topology edit
 See docs/CURRENT_FACE_ATTACHMENTS.md for root causes, data/safety details,
 remaining limitations and manual desktop checks. Stop after opening PR #24 for
 review; do not merge or begin later feature work.
+
+## PR #25 — extrusion quick input / origin-plane sketch access
+
+Local environment: Ubuntu 24.04.3 x86-64, Python 3.12.14, pinned PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1, VTK 9.6.2 in the existing `.venv`. Real Qt xcb/Xvfb
+TCP display (1600×1000×24) with Mesa software OpenGL. No dependencies changed.
+Ubuntu 22.04 and physical laptop checks were not run locally; existing Ubuntu
+22.04/24.04 CI matrix is unchanged and CI results are not claimed at publication.
+
+Commands (Xvfb and pytest in the same shell):
+
+```
+export LD_LIBRARY_PATH=/tmp/hero-pr24-x11/usr/lib/x86_64-linux-gnu
+export DISPLAY=localhost:189 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+/tmp/hero-pr24-x11/usr/bin/Xvfb :189 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp &
+.venv/bin/python -m pytest -q
+.venv/bin/python -m compileall -q src tests
+.venv/bin/pip check
+git diff --check
+```
+
+Final full suite: **520 passed**, 96 upstream VTK/NumPy deprecation warnings,
+**202.92 seconds**, no skips. Earlier full run: 520 passed / 201.06 seconds;
+final targeted quick-input/origin tests after feedback-size clamping: **33 passed**,
+9 warnings / 30.09 seconds. Full suite includes all document/kernel, Boolean,
+reference/persistence and existing gesture/render regressions. `pip check`: no
+broken requirements; compileall and diff checks passed.
+
+The actual floating panel was screen-captured and visually inspected for compact
+layout, dark palette, unit labels, focused raw input, operation, preview feedback,
+Apply/Cancel and viewport context. Screenshot is committed under
+`docs/screenshots/extrusion-quick-input.png`; the capture uses the normal window
+close path and exits cleanly. It is a real Qt/VTK application view, not generated
+art or a mockup.
+
+Confirmed interaction/display causes: origin frames were already mathematically
+correct. Model-view ProfileView explicitly rejected solid-occluded regions and
+lacked a selected-sketch inspection scope. Active sketch event priority already
+preceded solid picking, but active curves shared depth/compositing with obstructing
+bodies. Tests compare that original pass with the new foreground pass: obstructed
+XY/YZ cyan contrast improves under Orange X-Ray; the front-facing XZ case was
+already readable and does not regress. Normal finished-sketch occlusion remains
+covered by existing rendered tests. No geometric offset or global depth-test
+change is used.
+
+Coverage: actual focused keyboard input/selection replacement, positive/negative/
+higher-precision decimal values, Enter and Apply, Escape, invalid/incomplete/zero/
+nonfinite/range rejection without candidate construction, debounced preview and
+no preview history, New Body/Join/Cut/Intersect, target preservation/missing-target
+feedback, Through All under Advanced, available-screen clamping, later Properties
+and Edit Operation, undo/redo, save/reload; XY/XZ/YZ with and without displayed
+bodies, all existing entity types, active entity/profile priority, new construction,
+body opacity preferences, frame/entity preservation, hidden finished-profile
+access through explicit browser scope, coincident unscoped rejection, origin
+New Body/Cut/Join workflows, normal model face selection and sketch reentry.
+
+Initial tests correctly exposed a disabled-state update missing on extent changes;
+controls now update/clamp for every input change. Property checks after Undo/Redo
+explicitly reselect the result feature, consistent with existing selection reset
+semantics. No-solid checks inspect the empty display mesh rather than assuming
+an empty actor's visibility flag must be false. These do not weaken geometry or
+interaction acceptance checks.
+
+No B-rep/feature-history/precision/schema/reference changes, offset planes or new
+modeling tools. Quick input uses the original definition/candidate/preview/commit
+pipeline; parsing preserves the typed float without spin-box display rounding.
+Preview evaluation remains synchronous after the 180 ms debounce, so complex
+models may still pause. Foreground inspection is limited to active/explicitly
+scoped sketches; ordinary model depth and unscoped ambiguous selection stay intact.
+See docs/EXTRUSION_QUICK_INPUT.md for the controls, screenshot, root causes,
+limitations and manual desktop checklist. Stop after opening PR #25 for review;
+do not merge automatically or start later feature work.
