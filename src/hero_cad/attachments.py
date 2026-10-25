@@ -12,7 +12,7 @@ from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Circle
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_IN, TopAbs_ON
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from hero_cad.sketch import PlaneFrame, FaceReference, FaceSupport, decode_face_origin, Rectangle, Circle, Slot, Line
+from hero_cad.sketch import PlaneFrame, FaceReference, FaceSupport, FaceSnapshot, decode_face_origin, Rectangle, Circle, Slot, Line
 
 
 class ResolutionState(str, Enum):
@@ -99,7 +99,8 @@ def extrusion_faces(builder, region, sketch, parameters):
             center = sketch.frame.to_world(center)
             matches = [edge for edge, _, _ in edges
                        if BRepAdaptor_Curve(edge).GetType() == GeomAbs_Circle
-                       and dist(BRepAdaptor_Curve(edge).Circle().Location().Coord(), center) < 1e-7]
+                       and dist(BRepAdaptor_Curve(edge).Circle().Location().Coord(), center) < 1e-7
+                       and abs(BRepAdaptor_Curve(edge).Circle().Radius()-entity.radius) < 1e-7]
             if len(matches) == 1:
                 generated = [TopoDS.Face_s(f) for f in builder.Generated(matches[0])
                              if f.ShapeType() == TopAbs_FACE]
@@ -131,7 +132,12 @@ def reference_key(reference):
 
 
 def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None,
-                       lineages=None, source_faces=None):
+                       lineages=None, source_faces=None, bodies=None):
+    if reference.snapshot is not None:
+        resolution = resolve_snapshot(reference, bodies or {}, lineages or {})
+        if resolution.state != ResolutionState.RESOLVED:
+            raise AttachmentError(resolution.reason, resolution.state)
+        return resolution.frame
     if reference.support is not None:
         resolution = resolve_supported_face(reference, face_maps, definitions, lineages or {}, source_faces or {})
         if resolution.state != ResolutionState.RESOLVED:
@@ -170,11 +176,25 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
     return planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)
 
 
-def identify_face(face, face_maps, definitions, *, active_ids=None, lineages=None, source_faces=None, point=None):
+def identify_face(face, face_maps, definitions, *, active_ids=None, lineages=None, source_faces=None, point=None, bodies=None):
     # Read the analytic plane first to distinguish unsupported curved faces.
     planar_frame(face)
+    # Ownership is checked against actual evaluated bodies, independently of
+    # whether their optional semantic/ancestry maps publish the selected face.
+    owners = None
+    if bodies is not None:
+        from hero_cad.face_history import subshapes
+        owners = [identifier for identifier,body in bodies.items()
+                  if (active_ids is None or identifier in active_ids)
+                  and any(face.IsSame(candidate) for candidate in subshapes(body,TopAbs_FACE))]
+        if not owners:
+            raise AttachmentError('Selected face is missing from the current evaluated geometry')
+        if len(owners) != 1:
+            raise AttachmentError('Ambiguous owning body for selected face', ResolutionState.AMBIGUOUS)
     matches = []
     for parent_id, mapping in face_maps.items():
+        if owners is not None and parent_id not in owners:
+            continue
         if active_ids is not None and parent_id not in active_ids:
             continue
         for key, candidate in mapping.items():
@@ -184,10 +204,12 @@ def identify_face(face, face_maps, definitions, *, active_ids=None, lineages=Non
                 else:
                     matches.append(FaceReference(parent_id, *key))
     if len(matches) != 1:
-        raise AttachmentError('This face has no reliable semantic reference; attachment is unavailable')
+        if owners is None:
+            raise AttachmentError('This face has no reliable semantic reference; attachment is unavailable')
+        return new_current_reference(owners[0],face,definitions,lineages or {},source_faces or {},bodies,point)
     reference = matches[0]
     if reference.face == 'evaluated' and lineages is not None:
-        reference = supported_reference(reference, face, lineages, source_faces, definitions, point=point)
+        reference = supported_reference(reference, face, lineages, source_faces or {}, definitions, point=point)
     return reference
 
 
@@ -292,3 +314,48 @@ def resolve_supported_face(reference, face_maps, definitions, lineages, source_f
         return FaceResolution(ResolutionState.AMBIGUOUS,
                               reason=f'Ambiguous face on {reference.parent_id}: attachment point has no unique interior descendant')
     return missing('no descendant contains the source-local attachment point on its supporting plane')
+
+
+def new_current_reference(owner, face, definitions, lineages, source_faces, bodies, point):
+    """Explicit current selection may establish an identity; recovery may not."""
+    from hero_cad.face_geometry import face_digest
+    witness = interior_point(face, point)
+    reference = FaceReference(owner,'evaluated',segment=face_digest(face))
+    supported = supported_reference(reference,face,lineages,source_faces,definitions,point=witness)
+    if supported.support is not None:
+        result = resolve_supported_face(supported,{},definitions,lineages,source_faces)
+    else:
+        tokens = next((tokens for candidate,tokens in lineages.get(owner,()) if candidate.IsSame(face)),frozenset())
+        supported = replace(reference,snapshot=FaceSnapshot(tuple(witness),tuple(sorted(tokens))))
+        result = resolve_snapshot(supported,bodies,lineages)
+    if result.state != ResolutionState.RESOLVED or not result.face.IsSame(face):
+        raise AttachmentError(result.reason or 'Current face cannot be uniquely verified',result.state)
+    return supported
+
+
+def resolve_snapshot(reference, bodies, lineages):
+    """Exact geometry only: no plane/point fallback when a stored face changes."""
+    from hero_cad.face_geometry import face_digest
+    from hero_cad.face_history import subshapes
+    body = bodies.get(reference.parent_id)
+    if body is None:
+        return FaceResolution(ResolutionState.MISSING,reason='Unresolved face: owning evaluated body is missing')
+    matches = []
+    for raw in subshapes(body,TopAbs_FACE):
+        face = TopoDS.Face_s(raw)
+        try:
+            if face_digest(face) != reference.segment:
+                continue
+        except AttachmentError:
+            continue
+        tokens = next((t for f,t in lineages.get(reference.parent_id,()) if f.IsSame(face)),frozenset())
+        if reference.snapshot.origins and tokens != frozenset(reference.snapshot.origins):
+            continue
+        if point_state(face,reference.snapshot.anchor) == TopAbs_IN:
+            matches.append(face)
+    if len(matches) == 1:
+        return FaceResolution(ResolutionState.RESOLVED,matches[0],frame=planar_frame(matches[0],anchor=(0.,0.,0.)))
+    if matches:
+        return FaceResolution(ResolutionState.AMBIGUOUS,reason='Ambiguous current-face geometry in the referenced body')
+    return FaceResolution(ResolutionState.MISSING,
+                          reason='Unresolved face: checked current geometry changed or disappeared; automatic reassignment refused')

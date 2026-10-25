@@ -95,3 +95,11 @@ v9 optional reference metadata. Existing document versions remain supported.
 Conservative merges/unknown ancestry and edge naming remain deferred. No Push/Pull,
 launcher integration or subsequent feature milestone is included. Stop after
 opening PR #23 for review; do not merge automatically.
+
+## PR #24 — current planar-face reliability correction
+
+Fix concentric circular-wall naming and separate explicit reference creation
+from strict historical recovery. Reuse known source support; permit verified
+current planar geometry when ancestry is absent, with conservative snapshot
+resolution. No new modeling feature, repair UI or general naming rewrite.
+Stop after opening PR #24; do not merge automatically or begin later work.

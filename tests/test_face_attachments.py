@@ -173,7 +173,7 @@ def test_nonplanar_and_unknown_faces_rejected_without_history():
     with pytest.raises(AttachmentError,match='planar'):
         d.face_reference(curved)
     other = Document()
-    with pytest.raises(AttachmentError,match='reliable'):
+    with pytest.raises(AttachmentError,match='current evaluated'):
         d.face_reference(other.face_maps[other.features[0].id]['+Z'])
     with pytest.raises(AttachmentError,match='Unresolved'):
         d.add_face_sketch(FaceReference(eid,'side',circle.id,'edge0'))

@@ -240,15 +240,37 @@ class FaceSupport:
 
 
 @dataclass(frozen=True)
+class FaceSnapshot:
+    """Interior witness for a checked current-face geometry digest (no B-rep)."""
+    anchor: tuple
+    origins: tuple = ()
+
+    def __post_init__(self):
+        if not isinstance(self.anchor, tuple) or len(self.anchor) != 3:
+            raise ValueError('Expected current-face witness in model coordinates')
+        numbers(*self.anchor)
+        if (not isinstance(self.origins, tuple) or len(self.origins) > 512
+                or any(not isinstance(t, str) for t in self.origins)
+                or self.origins != tuple(sorted(set(self.origins)))):
+            raise ValueError('Invalid current-face ancestry')
+        for token in self.origins:
+            decode_face_origin(token)
+
+
+@dataclass(frozen=True)
 class FaceReference:
     parent_id: str
     face: str
     boundary_id: str | None = None
     segment: str | None = None
     support: FaceSupport | None = None
+    snapshot: FaceSnapshot | None = None
 
     def __post_init__(self):
         valid_id(self.parent_id)
+        if self.snapshot is not None and (type(self.snapshot) is not FaceSnapshot
+                                         or self.face != 'evaluated' or self.support is not None):
+            raise ValueError('Current-face snapshot requires an evaluated reference without source support')
         if self.support is not None and (type(self.support) is not FaceSupport or self.face != 'evaluated'):
             raise ValueError('Ancestry support belongs only to evaluated faces')
         if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side', 'evaluated'):

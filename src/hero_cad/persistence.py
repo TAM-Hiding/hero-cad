@@ -1,7 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature
-from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport
+from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport, FaceSnapshot
 
 
 def fields(data, expected):
@@ -36,6 +36,13 @@ def serialize(features):
             if sketch.attachment:
                 version = max(version, 8 if sketch.attachment.segment == 'line' else 7 if sketch.attachment.face == 'evaluated' else 5)
                 parameters['attachment'] = asdict(sketch.attachment)
+                if sketch.attachment.snapshot is None:
+                    parameters['attachment'].pop('snapshot')
+                else:
+                    version = max(version, 10)
+                    snapshot = parameters['attachment']['snapshot']
+                    snapshot['anchor'] = list(snapshot['anchor'])
+                    snapshot['origins'] = list(snapshot['origins'])
                 if sketch.attachment.support is None:
                     parameters['attachment'].pop('support')
                 else:
@@ -52,7 +59,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -96,8 +103,18 @@ def deserialize(data):
                 if version < 9 and isinstance(attachment, dict) and 'support' in attachment:
                     raise ValueError('Ancestry support requires document version 9')
                 enriched = version >= 9 and isinstance(attachment, dict) and 'support' in attachment
-                fields(attachment, ('parent_id', 'face', 'boundary_id', 'segment') + (('support',) if enriched else ()))
+                if version < 10 and isinstance(attachment, dict) and 'snapshot' in attachment:
+                    raise ValueError('Current-face snapshots require document version 10')
+                snapshot = version >= 10 and isinstance(attachment, dict) and 'snapshot' in attachment
+                fields(attachment, ('parent_id', 'face', 'boundary_id', 'segment')
+                       + (('support',) if enriched else ()) + (('snapshot',) if snapshot else ()))
                 attachment = dict(attachment)
+                if snapshot:
+                    value = attachment['snapshot']
+                    fields(value, ('anchor', 'origins'))
+                    if not isinstance(value['anchor'], list) or not isinstance(value['origins'], list):
+                        raise ValueError('Invalid current-face snapshot')
+                    attachment['snapshot'] = FaceSnapshot(tuple(value['anchor']),tuple(value['origins']))
                 if enriched:
                     support = attachment['support']
                     fields(support, ('origins', 'root', 'anchor', 'sense', 'count'))

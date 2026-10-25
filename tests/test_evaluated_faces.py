@@ -125,7 +125,7 @@ def test_two_successive_plate_holes_attach_to_current_result_and_edit_independen
     assert Document.load(d.path).features == d.features
     # Old parents stay available to their historical sketches but cannot be
     # mistaken for a new selection on the currently displayed body.
-    with pytest.raises(AttachmentError, match='reliable'):
+    with pytest.raises(AttachmentError, match='current evaluated'):
         d.face_reference(d.face_maps[d.features[0].id]['+Z'])
 
 

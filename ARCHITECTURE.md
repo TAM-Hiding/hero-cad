@@ -232,3 +232,18 @@ face_descendants query. Native caches are not serialized and publish only after
 a successful candidate. Viewport indices remain transient; picks now retain the
 interior point used by new references. See docs/PERSISTENT_REFERENCES.md for the
 architecture inventory, conservative limits, compatibility and desktop checks.
+
+## PR #24 — explicit current-face creation
+
+New selection verifies unique actual current-body ownership independently of the
+semantic publication map. Unpublished but source-supported faces can establish
+FaceSupport and must immediately resolve to the selected face. Without usable
+source support, optional FaceSnapshot stores an interior witness plus a checked,
+order-independent planar line/circle geometry digest, scoped to the owner UUID.
+Historical resolution never calls the creation factory: snapshots require the
+unique checked geometry; PR #23 source/legacy rules remain unchanged. V10 adds
+only optional snapshot data; older schemas stay readable and authoritative
+geometry/precision are unchanged. Circular prism source-edge association now
+checks radius as well as center, fixing concentric-wall identities that caused
+both adjacent caps to be excluded after Cut. See docs/CURRENT_FACE_ATTACHMENTS.md
+for exact reproduction, safety boundaries and desktop checks.

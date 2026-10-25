@@ -110,7 +110,7 @@ class Document:
                                 frame = resolve_attachment(p.attachment, face_maps, definitions,
                                                            previous_frame=p.attached_frame,
                                                            previous_source_frame=previous_source,
-                                                           lineages=lineages, source_faces=source_faces)
+                                                           lineages=lineages, source_faces=source_faces, bodies=solids)
                                 feature = replace(feature, parameters=replace(p, attached_frame=frame))
                             sketch_shapes[feature.id] = make_sketch(feature.parameters)
                         else:
@@ -188,7 +188,7 @@ class Document:
     def face_reference(self, face, *, point=None):
         return identify_face(face, self.face_maps, {f.id: f for f in self.features},
                              active_ids=self.active_body_ids, lineages=self.face_lineages,
-                             source_faces=self.source_faces, point=point)
+                             source_faces=self.source_faces, point=point, bodies=self.solid_shapes)
 
     def face_descendants(self, source_reference, evaluated_id):
         """Current faces descended from a semantic construction face at a history stage.
@@ -208,7 +208,7 @@ class Document:
     def add_face_sketch(self, reference):
         definitions = {f.id: f for f in self.features}
         frame = resolve_attachment(reference, self.face_maps, definitions,
-                                   lineages=self.face_lineages, source_faces=self.source_faces)
+                                   lineages=self.face_lineages, source_faces=self.source_faces, bodies=self.solid_shapes)
         feature = Feature('sketch', SketchParameters('FACE', attachment=reference, attached_frame=frame),
                           (reference.parent_id,))
         self.set_features(self.features + (feature,))
