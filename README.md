@@ -116,7 +116,7 @@ For an extruded cut, select a closed material profile and choose **Cut**, confir
 
 The orange shaded preview replaces the normal body rendering, including all current result bodies, so the target is not drawn underneath it. Navigation remains available. Changing a field clears the stale preview; Preview result revalidates it before Apply. Cancel leaves document/history untouched. **Edit Operation…** in a feature context menu or its Properties opens the same panel; combine tool membership is fixed to the selected set, while operation and target can be changed. Recreate a Combine to change that set.
 
-Operations require one valid connected positive-volume solid result. Disconnected, touching-only, zero-volume, non-intersecting and split-result operations are rejected conservatively. Initial invalid operations cannot be applied. If an accepted operation later loses overlap after an upstream edit, its parameters remain with an unresolved error and no stale result body; restoring inputs or Undo recovers it. Missing/forward/cyclic references remain hard errors. Synchronous OCCT preview can take time on complex inputs; no background worker is added.
+Operations require one valid connected positive-volume solid result. Join accepts genuine planar face contact or volume overlap when Fuse yields one valid solid. Disconnected, edge-only/point-only contact, zero-volume and split results are rejected; Cut/Intersect require positive-volume overlap. Initial invalid operations cannot be applied. If an accepted operation later loses overlap after an upstream edit, its parameters remain with an unresolved error and no stale result body; restoring inputs or Undo recovers it. Missing/forward/cyclic references remain hard errors. Synchronous OCCT preview can take time on complex inputs; no background worker is added.
 
 **Face-reference limits:** Boolean face references use source feature/boundary identities propagated through OCCT history plus neighboring CAD-face identities and split counts. Separate coplanar regions are distinct when this signature is unique. Faces with missing ancestry or indistinguishable signatures are rejected with feedback. Changing upstream topology can invalidate a reference even if a visually similar face remains; its sketch and local geometry are preserved as UNRESOLVED, with no nearest-face fallback. Later operations do not retarget older sketches. Existing primitive cap/side references remain compatible; changing a referenced New Body prism into a Boolean operation still unresolves those old primitive references. This is bounded support for the existing feature types, not general topological naming. Right-clicking a finished sketch curve over an eligible face also offers New Sketch alongside its existing edit/delete actions.
 
@@ -207,3 +207,13 @@ Full tests require a working GL context; Qt offscreen alone is not evidence that
 ## Design and licensing
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), and [DEPENDENCIES.md](DEPENDENCIES.md). HERO-CAD source is MIT, retaining the repository's original license. HERO-CAD makes use of Open CASCADE Technology. Its libraries and other dependencies retain their own licenses; the app's MIT license does not relicense them.
+
+### Join, recovery and grid appearance (PR #22)
+
+Join accepts valid face-contact protrusions as well as volume overlap, while
+rejecting disconnected/invalid solids. Undo and cancellation restore normal
+selection routing. In sketch mode, **Grid appearance** offers five colors,
+optional local millimetre scale labels and optional fading in X-Ray; these
+appearance preferences persist outside the document. See
+[reliability and grid notes](docs/RELIABILITY_GRID.md) for reproduction details,
+limitations and desktop testing instructions.

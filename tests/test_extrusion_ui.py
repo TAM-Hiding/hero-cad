@@ -73,12 +73,17 @@ def test_profile_cancel_invalid_depth_context_and_delete(qtbot, monkeypatch):
     w.extrude_action.trigger()
     w.operation_panel.cancel()
     assert w.document.features == before
+    assert not w.profile_action.isChecked() and not v.profiles.active
+    # Cancel exits temporary profile routing; explicitly reselect to retry.
+    w.profile_action.setChecked(True)
+    click(qtbot, v, frame, (15, 5))
     w.extrude_action.trigger()
     w.operation_panel.distance.setValue(0)
     assert not w.operation_panel.preview()
     w.operation_panel.cancel()
     assert w.document.features == before
     assert 'nonzero' in w.operation_panel.feedback.text()
+    w.profile_action.setChecked(True)
     qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, frame.to_world((15, 5))))
     assert [a.text() for a in w._context_menu.actions()] == ['Extrude…']
     w._context_menu.actions()[0].trigger()

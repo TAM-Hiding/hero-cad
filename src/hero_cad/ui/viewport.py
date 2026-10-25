@@ -33,6 +33,7 @@ class Viewport(QVTKRenderWindowInteractor):
     sketchContextRequested = Signal(object, object)
     faceContextRequested = Signal(object, object)
     deleteRequested = Signal()
+    cancelRequested = Signal()
     profilePicked = Signal(object)
     profileContextRequested = Signal(object)
 
@@ -224,6 +225,7 @@ class Viewport(QVTKRenderWindowInteractor):
             raise ValueError('Unknown X-Ray mode')
         self.xray_mode = mode
         self.apply_solid_style()
+        self.sketch.guides.update()
         self.xrayChanged.emit(mode)
         self.GetRenderWindow().Render()
 
@@ -535,6 +537,7 @@ class Viewport(QVTKRenderWindowInteractor):
             self.deleteRequested.emit()
             return
         if event.key() == Qt.Key_Escape:
+            self.cancelRequested.emit()
             self.profiles.clear()
             if self.sketch.active_id and self.sketch.controller.tool:
                 self.sketch.set_tool('select')
@@ -544,6 +547,12 @@ class Viewport(QVTKRenderWindowInteractor):
                 self.sketchEntityPicked.emit(None)
         else:
             super().keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, 'sketch'):
+            self.sketch.guides.update()
+            self.GetRenderWindow().Render()
 
     def focusNextPrevChild(self, next):
         # QWidget normally consumes Tab before keyPressEvent for focus traversal.
