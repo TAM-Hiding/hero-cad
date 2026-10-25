@@ -586,3 +586,73 @@ edge naming, arbitrary ambiguous initial faces, unknown ancestry, sibling merges
 and aggressive repair remain out of scope. A cached historical plane never
 permits evaluation after support is missing. Open PR #23 for review, do not merge
 automatically, and do not begin later feature work.
+
+## PR #24 — current-face attachment reliability
+
+Local environment: Ubuntu 24.04.3 x86-64, Python 3.12.14, PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1 and VTK 9.6.2 in the existing pinned `.venv`.
+Real Qt xcb/Xvfb (1600×1000×24, TCP display) and Mesa software OpenGL.
+No dependencies changed. Local Ubuntu 22.04 and physical laptop tests were not
+run; the existing Ubuntu 22.04/24.04 CI matrix is retained. CI is not claimed
+passed at publication.
+
+Commands (Xvfb and pytest run in the same shell):
+
+```
+export LD_LIBRARY_PATH=/tmp/hero-pr24-x11/usr/lib/x86_64-linux-gnu
+export DISPLAY=localhost:176 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+/tmp/hero-pr24-x11/usr/bin/Xvfb :176 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp &
+.venv/bin/python -m pytest -q
+.venv/bin/python -m pytest tests/test_current_face_references.py tests/test_document.py -q
+.venv/bin/python -m compileall -q src tests
+.venv/bin/pip check
+git diff --check
+```
+
+Final results: **487 passed**, 87 upstream VTK/NumPy deprecation warnings,
+**176.84 seconds**, no skips. Document/current-reference checks: **38 passed**,
+12.99 seconds. Earlier full run: 486 passed / 180.63 seconds before the final arc
+boundary traversal test and canonical snapshot-frame refinement. Targeted actual
+viewport/toolbar/island/preview tests passed. `pip check` reports no broken
+requirements; compileall and diff checks passed. Existing render/gesture tests
+remain in the complete real-OpenGL suite.
+
+Baseline reproduction on merged main b9e5191: solid-cylinder/separate central
+hole/two slots passed; 45 cutter-depth/position/angle combinations did not expose
+the error. An annular profile with concentric circles (radius 15/2 mm), extruded
+10 mm, immediately lost both cap references after the first offset slot Cut.
+Before Cut, its seed map published only the two caps; curved wall identities
+were absent. After Cut, two unnamed neighbors caused both end caps to be
+excluded with the exact reported semantic-reference message. The second slot
+retained the failure. Regeneration/load cannot change this deterministic baseline
+failure. The user's exact project was not supplied, so this is a confirmed
+matching reproduction, not a claim to have examined their actual feature data.
+
+Fixes: match circular seed edges by center AND radius; verify selected faces
+against current evaluated bodies; allow new references independently of semantic
+publication using strict existing source support or an optional uniquely checked
+current-face geometry digest. Historical recovery never invokes the new-reference
+factory. Incomplete-history fixtures test both usable roots and completely
+absent tags. Tests retain all existing missing/ambiguous/split/deleted-reference
+protections; new geometry-only references deliberately fail when their checked
+geometry changes rather than guessing a replacement.
+
+New tests cover original/modified caps, repeated front/back sketches through
+sequential cuts on XY/XZ/YZ, annular and separately drilled cylinders, source
+depth/hole radius/slot edits, persistence and Undo/Redo, untagged current geometry,
+legacy recovery separation, sorted boundary/face traversal, circular slot arcs,
+strict v10 snapshot validation, current ownership/selection diagnostics, real
+preview/Apply, toolbar/island availability and a new explicit selection after an
+old snapshot becomes unresolved. Older missing-current-face tests now expect the
+specific evaluated-geometry diagnostic rather than the obsolete generic message.
+API test loops re-pick actual regenerated faces rather than reusing stale native
+handles after a document transaction.
+
+No authoritative geometry or precision change, new tool, general naming rewrite,
+UI redesign, extension rename or reference-repair interface. Optional snapshots
+use v10; v1–v9 remain readable and unchanged reference forms keep prior schemas.
+Snapshot recovery is intentionally limited to uniquely checked current geometry;
+unknown ancestry does not justify recovering arbitrary dimensional/topology edits.
+See docs/CURRENT_FACE_ATTACHMENTS.md for root causes, data/safety details,
+remaining limitations and manual desktop checks. Stop after opening PR #24 for
+review; do not merge or begin later feature work.

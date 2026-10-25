@@ -227,3 +227,13 @@ support remains unresolved with retained parameters and suppressed dependents.
 Existing `.starcad` versions remain readable; version 9 stores the optional new
 metadata. See [persistent-reference notes](docs/PERSISTENT_REFERENCES.md) for
 compatibility, limits and desktop testing instructions.
+
+### Current planar-face attachment reliability (PR #24)
+
+Concentric hollow-cylinder walls retain distinct identities through cuts, keeping
+both planar end caps available for repeated sketches. Explicit new current-face
+selection can establish a checked reference even when ancestry is incomplete;
+existing broken or ambiguous attachments are not guessed onto another face.
+Optional current-geometry references use `.starcad` v10; older versions remain
+readable. See [current-face attachment notes](docs/CURRENT_FACE_ATTACHMENTS.md)
+for reproduction, conservative limits and desktop checks.
