@@ -85,9 +85,12 @@ class Feature:
     parameters: object
     references: tuple = ()
     id: str = field(default_factory=new_id)
+    sketch_visible: bool = True  # Presentation only; never suppresses evaluation.
 
     def __post_init__(self):
         valid_id(self.id)
+        if type(self.sketch_visible) is not bool or (self.type != 'sketch' and not self.sketch_visible):
+            raise ValueError('Visibility metadata is a boolean for sketches only')
         if not isinstance(self.type, str):
             raise ValueError('Feature type must be a string')
         expected = {'box': BoxParameters, 'sketch': SketchParameters, 'extrude': ExtrudeParameters, 'boolean': BooleanParameters}.get(self.type)

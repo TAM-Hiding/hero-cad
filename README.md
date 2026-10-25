@@ -17,7 +17,7 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 ### Sketch workflow
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
-2. The camera faces the plane orthographically; axes and origin appear. All sketch editing retains existing evaluated solids at 35% opacity and other sketches as placement references, respecting Settings → Show base box and the selected display mode.
+2. The camera faces the plane orthographically; axes and origin appear. All sketch editing retains existing evaluated solids at 35% opacity and other shown sketches as placement references, respecting Settings → Show base box and the selected display mode.
 3. Choose **Line**, **Rectangle** or **Circle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
 4. Choose **Select**, then click an entity (or its browser entry) to edit numeric parameters in Properties. Click **Apply entity parameters** to commit.
 5. Choose **Finish Sketch** to restore the previous model view. Select an existing sketch and choose **Edit Sketch**, or double-click its browser entry, to return.
@@ -95,7 +95,7 @@ Extrusions support **New Body, Join, Cut and Intersect**, without taper, drag-de
 
 ### Sketch on a planar face
 
-Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing any sketch, existing evaluated solids remain visible at 35% opacity with their boundary edges, and other sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids. Active sketch entities and material profiles can be selected through reference bodies. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
+Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing any sketch, existing evaluated solids remain visible at 35% opacity with their boundary edges, and other shown sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids. Active sketch entities and material profiles can be selected through reference bodies. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
 
 Supported references:
 - Box: **+X, −X, +Y, −Y, +Z, −Z**.
@@ -247,3 +247,15 @@ Active sketches stay clear through reference bodies at their correct coordinates
 For a hidden finished profile, select its sketch in the browser, then Select
 Profile and click inside. Normal model depth/face selection returns when that
 inspection mode ends. See [quick-input notes](docs/EXTRUSION_QUICK_INPUT.md).
+
+### Viewport clarity and sketch visibility
+
+**Settings → High-Contrast Geometry** defaults to **Auto** for sketch editing and
+face-normal orthographic views; choose Off or Always as preferred.
+**Auto-Hide Consumed Sketches** defaults On and hides the source only after a
+successful new extrusion. The browser's **Visible** column independently shows
+or hides sketches without suppressing geometry. Editing a hidden sketch reveals
+it temporarily. Visibility saves with the document and follows Undo/Redo.
+Grid majors/minors are two/one physical pixels with numeric-only scale labels;
+exact adaptive distances and snapping are unchanged. See
+[viewport clarity, compatibility and desktop checks](docs/VIEWPORT_CLARITY.md).

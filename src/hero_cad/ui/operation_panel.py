@@ -333,7 +333,12 @@ class OperationPanel(QDockWidget):
             return False
         feature = self.definition()
         try:
-            self.window.document.set_features(self.candidate.features)
+            features = self.candidate.features
+            if (feature.type == 'extrude' and not any(f.id == feature.id for f in self.baseline)
+                    and self.window.auto_hide_sketches.isChecked()):
+                features = tuple(replace(f, sketch_visible=False)
+                                 if f.id == feature.parameters.sketch_id else f for f in features)
+            self.window.document.set_features(features)
         except Exception as error:
             self.feedback_text(str(error))
             return False

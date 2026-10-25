@@ -45,6 +45,8 @@ class Viewport(QVTKRenderWindowInteractor):
         self.selection_mode = 'face'
         self.display_mode = 'Shaded with CAD Edges'
         self.xray_mode = 'Off'
+        self.contrast_mode = 'Auto'
+        self.planar_normals = []
         self.solid_visible = True
         self._press = None
         self._dragged = False
@@ -100,6 +102,7 @@ class Viewport(QVTKRenderWindowInteractor):
         # VTK and direct camera changes can render before InteractionEvent.
         # Repair clipping after display preparation, immediately before drawing.
         self.renderer.AddObserver('StartEvent', lambda *_: self.update_clipping() if self.sketch.feature else None)
+        self.renderer.AddObserver('StartEvent', lambda *_: self.apply_solid_style())
 
     def add_actor(self, color):
         mapper, actor = vtkPolyDataMapper(), vtkActor()
@@ -120,6 +123,12 @@ class Viewport(QVTKRenderWindowInteractor):
         # Build display data before replacing current mappings.
         surface, wire = tessellate(shape), edge_mesh(shape)
         self.faces = subshapes(shape, TopAbs_FACE)
+        self.planar_normals = []
+        for face in self.faces:
+            try:
+                self.planar_normals.append(planar_view_target(face, (0, 0, 0)).normal)
+            except ValueError:
+                pass
         self.edges = subshapes(shape, TopAbs_EDGE)
         self.mapper.SetInputData(surface)
         self.edge_mapper.SetInputData(wire)
@@ -246,12 +255,36 @@ class Viewport(QVTKRenderWindowInteractor):
         self.xrayChanged.emit(mode)
         self.GetRenderWindow().Render()
 
+    def set_contrast_mode(self, mode):
+        if mode not in ('Off', 'Auto', 'Always'):
+            raise ValueError('Unknown geometry contrast mode')
+        self.contrast_mode = mode
+        self.apply_solid_style()
+        self.GetRenderWindow().Render()
+
+    def high_contrast(self):
+        if self.contrast_mode != 'Auto':
+            return self.contrast_mode == 'Always'
+        if getattr(self, 'sketch', None) and self.sketch.active_id:
+            return True
+        camera = self.renderer.GetActiveCamera()
+        direction = camera.GetDirectionOfProjection()
+        # Within two degrees of a principal or actual analytic planar normal.
+        normals = [(1,0,0), (0,1,0), (0,0,1), *self.planar_normals]
+        return bool(camera.GetParallelProjection() and any(
+            abs(sum(a*b for a,b in zip(direction,n))) >= .999390827 for n in normals))
+
     def apply_solid_style(self):
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
         opacity = .85 if explicit else .35 if editing else 1.
         self.actor.GetProperty().SetOpacity(opacity)
         self.edge_actor.GetProperty().SetOpacity(opacity)
+        contrast = self.high_contrast()
+        self.edge_actor.GetProperty().SetColor(*((.055, .075, .095) if contrast else (.13, .20, .25)))
+        # Opaque dark boundaries contrast against pale solids, retaining real depth.
+        if contrast:
+            self.edge_actor.GetProperty().SetOpacity(1.)
         self.actor.GetProperty().SetColor(*((1., .65, .15) if self.xray_mode == 'Orange' else (.65, .79, .86)))
         # A brighter warm selection distinguishes it from orange reference bodies.
         self.highlight_actor.GetProperty().SetColor(*((1., .93, .65) if self.xray_mode == 'Orange' else (1., .65, .15)))

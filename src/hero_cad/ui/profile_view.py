@@ -50,6 +50,8 @@ class ProfileView:
         direction = tuple(ray[1][i]-ray[0][i] for i in range(3))
         scope = v.sketch.active_id or self.scope_id
         for feature in v.sketch.features:
+            if not scope and not feature.sketch_visible:
+                continue
             if scope and feature.id != scope:
                 continue
             frame = feature.parameters.frame

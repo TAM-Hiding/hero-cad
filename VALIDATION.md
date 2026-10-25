@@ -728,3 +728,64 @@ scoped sketches; ordinary model depth and unscoped ambiguous selection stay inta
 See docs/EXTRUSION_QUICK_INPUT.md for the controls, screenshot, root causes,
 limitations and manual desktop checklist. Stop after opening PR #25 for review;
 do not merge automatically or start later feature work.
+
+## PR #26 — viewport clarity, grid rendering and sketch display
+
+Baseline: merged PR #25, main `213b865cf774de89c962b8c536ef8551cc66047c`.
+Branch: `viewport-clarity`. Local environment: Ubuntu 24.04.3 x86-64,
+Python 3.12.14, PySide6 6.8.3, OCCT/OCP 7.9.3.1.1, VTK 9.6.2,
+Qt XCB with TCP Xvfb/Mesa software OpenGL. No dependency changes.
+
+Final checks:
+
+- Full suite: `HERO_DISPLAY=205 bash /tmp/hero-pr26-test.sh -m pytest -q`
+  → **541 passed, 147 upstream VTK/NumPy deprecation warnings, no skips**, 184.57 s.
+  The wrapper sets LD_LIBRARY_PATH to extracted X11 libraries, starts Xvfb
+  (1600×1000×24, TCP localhost display), and runs `.venv/bin/python` with
+  QT_QPA_PLATFORM=xcb and LIBGL_ALWAYS_SOFTWARE=1. This is the README full-suite
+  workflow with TCP rather than Unix sockets for this execution environment.
+- Focused visibility/face reliability/rendering regressions after correcting
+  inactive-curve brightness and adapting old opacity expectations to Auto:
+  **37 passed**, 91 upstream warnings, 23.34 s. The final full run includes the
+  additional compound-angle Auto test.
+- Original translucent-grid crossing reproduction: **1 passed**, two upstream
+  warnings. Restoring original actor styles produces brighter crossings;
+  corrected crossings match uninterrupted minor lines.
+- Grid raster checks: XY/XZ/YZ × two viewport sizes × three fractional zooms,
+  exact source mesh coordinates, one/two physical-pixel widths, minor brightness
+  variation ≤2 intensity levels; tilted views render nonblank. Existing tests
+  continue checking exact spacing, origin/center/grid snapping and fade settings.
+- New tests cover successful commit/Undo/Redo for all four extrusion operations
+  with auto-hide both on/off; invalid/failed/canceled operations; native-cache
+  reuse on display-only changes; v11 persistence and invalid metadata; legacy
+  visible defaults; independent browser toggles without changing selection;
+  temporary hidden-sketch editing; saved preferences; Auto/Off/Always in principal,
+  compound-angle and isometric views; holes, slots and Boolean blind pockets;
+  each X-Ray mode; unchanged selection colors; real hidden-edge occlusion.
+- `.venv/bin/python -m compileall -q src/hero_cad`,
+  `.venv/bin/python -m pip check` and `git diff --check` passed.
+- Actual Qt/VTK captures visually inspected at docs/screenshots/viewport-clarity.png
+  and docs/screenshots/sketch-grid-clarity.png. Native OpenGL color-buffer pixels
+  are composited into Qt's widget capture; plain QWidget.grab cannot capture VTK.
+
+The initial full run exposed an overly subdued inactive-curve palette on
+antialiased oblique curves; the final palette retains thin-curve readability.
+Existing opacity tests now expect the intentionally stronger Auto edges; an Off
+render test retains the original translucent-edge source-curve check. Strong CAD
+boundaries intentionally outrank coincident inactive curves. No geometry tests
+were removed. The isolated initial development run also terminated in VTK cleanup
+after failing UI tests; the final focused and complete runs exit successfully.
+
+The existing 1–2–5 spacing and nonoverlapping major/minor classification were
+already correct. Confirmed rendering mechanisms are per-crossing alpha
+accumulation and fractional-pixel MSAA coverage (a naive opaque rendering
+comparison varied by 19 mean intensity levels). The fix is confined to the
+existing grid actors and raster shader; mesh/snap coordinates remain exact.
+Full causes, design, v11 forward-compatibility note and desktop checklist:
+[docs/VIEWPORT_CLARITY.md](docs/VIEWPORT_CLARITY.md).
+
+Ubuntu 22.04 and the physical Nvidia laptop were not available for this run.
+The exact original laptop screenshots were not included with the text attachment;
+its larger-scale pattern still needs desktop confirmation. Hardware/HiDPI driver
+rasterization is not certified by the Mesa checks. CI results are not claimed here.
+No new modeling operations, persistent-reference changes or launcher work.

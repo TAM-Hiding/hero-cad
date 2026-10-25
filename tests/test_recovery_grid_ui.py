@@ -102,7 +102,7 @@ def test_grid_appearance_labels_and_snapping_unchanged(qtbot,plane):
     expected=snap()
     for name,color in g.COLORS.items():
         w.grid_color.setCurrentText(name)
-        assert g.grid_actor.GetProperty().GetColor()==pytest.approx(color)
+        assert g.grid_actor.GetProperty().GetColor()==pytest.approx(tuple(.6*b+.4*c for b,c in zip(v.renderer.GetBackground(),color)))
         assert max(g.minor_actor.GetProperty().GetColor()) < max(color)
         assert g.major_spacing==10 and g.spacing==1 and snap()==expected
         assert g.label_data
@@ -113,15 +113,15 @@ def test_grid_appearance_labels_and_snapping_unchanged(qtbot,plane):
             for b in g.label_data[i+1:]:
                 x,y,r,t=a[3];xx,yy,rr,tt=b[3]
                 assert r<xx or rr<x or t<yy or tt<y
-    normal=g.grid_actor.GetProperty().GetOpacity()
+    normal=g.effective_opacity
     labels=[(a,b,c) for a,b,c,_ in g.label_data]
     w.xray_choice.setCurrentText('Orange')
-    assert g.grid_actor.GetProperty().GetOpacity()==normal
+    assert g.effective_opacity==normal
     w.grid_fade_action.setChecked(True)
-    assert g.grid_actor.GetProperty().GetOpacity()==pytest.approx(normal*.6)
+    assert g.effective_opacity==pytest.approx(normal*.6)
     assert [(a,b,c) for a,b,c,_ in g.label_data]==labels
     w.xray_choice.setCurrentText('Off')
-    assert g.grid_actor.GetProperty().GetOpacity()==normal
+    assert g.effective_opacity==normal
     w.grid_action.setChecked(False)
     assert not any(label.GetVisibility() for label in g.labels)
     w.grid_action.setChecked(True);w.grid_scale_action.setChecked(False)

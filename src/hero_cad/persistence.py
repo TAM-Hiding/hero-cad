@@ -50,8 +50,11 @@ def serialize(features):
                     support = parameters['attachment']['support']
                     support['origins'] = list(support['origins'])
                     support['anchor'] = list(support['anchor'])
+        if not feature.sketch_visible:
+            version = max(version, 11)
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
-                       'references': list(feature.references)})
+                       'references': list(feature.references),
+                       **({'sketch_visible': False} if not feature.sketch_visible else {})})
     return {'format': 'star-cad', 'version': version, 'units': 'mm', 'features': result}
 
 
@@ -59,7 +62,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -70,7 +73,10 @@ def deserialize(data):
         raise ValueError('Expected 1–1000 ordered features')
     result = []
     for item in data['features']:
-        fields(item, ('id', 'type', 'parameters', 'references'))
+        visibility = isinstance(item, dict) and 'sketch_visible' in item
+        fields(item, ('id', 'type', 'parameters', 'references') + (('sketch_visible',) if visibility and version >= 11 else ()))
+        if visibility and (item['type'] != 'sketch' or type(item['sketch_visible']) is not bool):
+            raise ValueError('Invalid sketch visibility')
         if not isinstance(item['references'], list):
             raise ValueError('Invalid references')
         parameters = item['parameters']
@@ -155,5 +161,5 @@ def deserialize(data):
             value = BooleanParameters(parameters['operation'], parameters['target_id'], tuple(parameters['tool_ids']))
         else:
             raise ValueError('Unsupported feature type')
-        result.append(Feature(item['type'], value, tuple(item['references']), item['id']))
+        result.append(Feature(item['type'], value, tuple(item['references']), item['id'], item.get('sketch_visible', True)))
     return tuple(result)
