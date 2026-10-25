@@ -201,3 +201,15 @@ Slot is a UI alias for CircleTool(slot_mode=True), following its existing radius
 ui/tool_island.py is a QWidget/QFrame child of the VTK viewport, not a desktop floating window or full-viewport input sheet. It covers only its rectangular bounds. Header-only left dragging adjusts viewport-local coordinates; island blank-area mouse/wheel/double-click events are consumed so they cannot become navigation. Outside events remain on the viewport. Compact/Medium/Expanded presets use fixed requested dimensions and reflow one/two/three columns; vertical scrolling retains access when necessary. Context swaps retain position, preset and collapse state. A 224×180 logical-pixel viewport minimum and bounded hint height preserve one usable column/header in small windows. Effective dimensions/position clamp on actual viewport resize (including dock/toolbar changes); preferred position/preset remain intact so space recovery restores them. Collapsed expansion can also clamp if the expanded footprint no longer fits. No camera/model state is saved or changed by layout actions.
 
 QSettings('HERO-CAD','HERO-CAD'), under tool_island/v1, stores x/y pixels relative to the viewport, size preset, collapsed and requested visibility. Invalid settings fall back or clamp. Explicit user changes sync immediately; dragging writes on release, not each move. Successful window close syncs again. Defaults are visible, Medium, expanded and upper-right. Preferences are not document parameters and are unaffected by New/Open or Undo/Redo. Existing windows/toolbars/docks are not otherwise rearranged. Tests inject isolated INI settings, including a fresh-process read, so user layout cannot contaminate tests or be overwritten by them. No document schema, feature engine, B-rep precision, X-Ray or rendering architecture changes.
+
+## PR #22 — result-validated Join and temporary input recovery
+
+Join validates each actual Fuse result as one valid positive-volume solid rather
+than requiring Common volume, permitting genuine face contact. Cut/Intersect keep
+their overlap checks. Accepted builders feed the existing face-history path.
+History/cancel synchronizes the profile action and router; Escape cancels active
+construction, while history refresh preserves a valid selected tool. Preview
+candidates are discarded on completion. Camera/preferences are not reset.
+Grid appearance uses application QSettings, bounded projected local-coordinate
+labels, existing exact adaptive intervals and the unchanged snap system.
+See docs/RELIABILITY_GRID.md for causes, reproduction precision, controls and limits.

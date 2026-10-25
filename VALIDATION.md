@@ -465,3 +465,64 @@ screenshots, command-architecture limits and physical laptop instructions in
 Ubuntu 22.04 is not locally tested for this PR; the unchanged Actions matrix
 runs Ubuntu 22.04 and 24.04 after publication. No physical laptop/GPU testing
 is claimed for PR #21. Stop after opening PR #21; do not merge automatically.
+
+## PR #22 — Join, Undo recovery and grid appearance
+
+Environment: Ubuntu 24.04.3 x86-64, Python 3.12.14, PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1, VTK 9.6.2. Clean copied-interpreter `.venv-pr22`
+installed from requirements-dev.lock followed by `pip install --no-deps -e .`.
+No dependency/configuration/schema changes. Qt xcb with actual Xvfb TCP display,
+1600×1000×24, Mesa software OpenGL. Local Ubuntu 22.04 and physical laptop
+checks were not run; the existing GitHub Actions 22.04/24.04 matrix is retained.
+
+Commands (Xvfb and pytest ran in the same shell; this environment requires a TCP
+DISPLAY rather than UNIX sockets):
+
+```
+export LD_LIBRARY_PATH=/tmp/hero-pr22-x11/usr/lib/x86_64-linux-gnu
+export DISPLAY=localhost:151 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+/tmp/hero-pr22-x11/usr/bin/Xvfb :151 -screen 0 1600x1000x24 -ac -nolisten unix -listen tcp &
+.venv-pr22/bin/python -m pytest -q
+.venv-pr22/bin/python -m pytest tests/test_booleans.py tests/test_document.py -q
+.venv-pr22/bin/pip check
+.venv-pr22/bin/python -m compileall -q src tests
+git diff --check
+```
+
+Full suite: **449 passed**, 87 upstream VTK/NumPy deprecation warnings. A full
+run before the final label contrast adjustment passed in 169.29 seconds; final
+verification includes that adjustment. Kernel/document checks: **51 passed**.
+`pip check`: no broken requirements; compileall and diff checks passed.
+No skips. Render checks compare real pixels, including new local-coordinate
+labels on a face-attached sketch and resizing. Actual running-app capture was
+visually inspected; brighter labels with a subtle backing remain readable over
+translucent bodies. Screenshots were review intermediates, not app assets.
+
+New coverage: outward face-contact Join on extruded and multiply-cut targets,
+positive-volume overlap, edge/point/disconnected rejection, valid B-rep/volume,
+order-independent face-contact chains, upstream edits and save/reload; New Body
+→ Undo → face picking → Cut, repeated history and construction cancellation;
+preview cancellation and command state; all five grid colors, exact major/minor
+intervals, nonoverlapping local labels, adaptive spacing, X-Ray fading, persisted
+appearance, unchanged snapping on XY/XZ/YZ, face labels and resize.
+
+A separate baseline extraction of merged main (7f357f5) confirmed:
+
+```
+clean New Body commit then Undo: profiles.active=False, action.checked=False
+Select Profile then Undo:       profiles.active=True,  action.checked=True
+Escape afterward:               profiles.active=True,  action.checked=True
+```
+
+Thus retained temporary profile routing is established; the clean accidental
+New Body sequence alone was not a universal reproduction of the reported issue.
+Earlier regression runs caught an overbroad tool reset during Undo (corrected to
+retain a valid selected tool) and an old test expecting canceled profile routing
+to stay active (updated to explicitly reselect for the next operation). Final
+runs retain existing snapping/gesture/precision tests.
+
+See docs/RELIABILITY_GRID.md for root causes, limits and desktop acceptance
+instructions. Existing conservative topology-reference limitations remain;
+substantial topology changes may unresolve attachments. Preview remains
+synchronous. No Ubuntu 22.04 or physical laptop result is claimed here. Open
+PR #22 for review and stop without merging or starting later feature work.

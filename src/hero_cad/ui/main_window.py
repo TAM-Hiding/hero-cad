@@ -22,6 +22,8 @@ from hero_cad.ui.tool_island import ToolIsland
 class MainWindow(QMainWindow):
     def __init__(self, *, settings=None):
         super().__init__()
+        from hero_cad.ui.tool_island import application_settings
+        self.preferences = settings if settings is not None else application_settings()
         self.commands = CommandRegistry(self)
         self.resize(1200, 780)
         self.document = Document()
@@ -138,6 +140,31 @@ class MainWindow(QMainWindow):
         self.grid_action.setToolTip("Show major and minor grid lines; independent of snapping")
         self.grid_action.toggled.connect(self.viewport.sketch.guides.set_grid_visible)
         self.sketch_toolbar.addAction(self.grid_action)
+        grid_menu = QMenu('Grid appearance', self)
+        self.grid_color = QComboBox()
+        self.grid_color.addItems(self.viewport.sketch.guides.COLORS)
+        self.grid_color.setAccessibleName('Grid color')
+        color_widget = QWidgetAction(self)
+        color_widget.setDefaultWidget(self.grid_color)
+        grid_menu.addAction(color_widget)
+        self.grid_scale_action = grid_menu.addAction('Grid Scale')
+        self.grid_fade_action = grid_menu.addAction('Fade Grid in X-Ray')
+        guides = self.viewport.sketch.guides
+        for action, name in ((self.grid_scale_action, 'scale_visible'),
+                             (self.grid_fade_action, 'fade_xray')):
+            action.setCheckable(True)
+            checked = str(self.preferences.value('grid/v1/'+name, 'false')).lower() == 'true'
+            action.setChecked(checked)
+            setattr(guides, name, checked)
+            action.toggled.connect(lambda value, key=name: self.grid_preference(key, value))
+        color = self.preferences.value('grid/v1/color', 'Light Grey')
+        guides.color = color if isinstance(color, str) and color in guides.COLORS else 'Light Grey'
+        self.grid_color.setCurrentText(guides.color)
+        self.grid_color.currentTextChanged.connect(lambda value: self.grid_preference('color', value))
+        grid_button = QPushButton('Grid appearance ▾')
+        grid_button.setMenu(grid_menu)
+        self.sketch_toolbar.addWidget(grid_button)
+
         self.snap_grid_action = QAction("Snap to Grid", self)
         self.snap_origin_action = QAction("Origin Snap", self)
         self.snap_center_action = QAction("Center Snap", self)
@@ -168,6 +195,7 @@ class MainWindow(QMainWindow):
         self.finish_sketch_action.triggered.connect(self.finish_sketch)
         self.sketch_toolbar.addAction(self.finish_sketch_action)
         self.sketch_toolbar.hide()
+        self.viewport.cancelRequested.connect(self.cancel_interaction)
         self.viewport.entityCreated.connect(self.entity_created)
         self.viewport.sketchEntityPicked.connect(self.entity_picked)
         self.viewport.toolHintChanged.connect(lambda _: self.update_status())
@@ -191,6 +219,7 @@ class MainWindow(QMainWindow):
         self.profile_action.setCheckable(True)
         self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Enter its sketch if solids obscure it.")
         self.profile_action.toggled.connect(self.viewport.profiles.set_mode)
+        self.profile_action.toggled.connect(lambda _: self.update_actions())
         toolbar.addAction(self.profile_action)
         self.sketch_toolbar.addAction(self.profile_action)
         self.extrude_action = QAction("Extrude…", self)
@@ -258,13 +287,18 @@ class MainWindow(QMainWindow):
         opacity_action.setDefaultWidget(opacity_row)
         view_menu.addAction(opacity_action)
         self.setup_commands()
-        self.tool_island = ToolIsland(self.viewport, self.commands, settings=settings)
+        self.tool_island = ToolIsland(self.viewport, self.commands, settings=self.preferences)
         self.island_action = view_menu.addAction('Floating Tool Island')
         self.island_action.setCheckable(True)
         self.island_action.setChecked(self.tool_island.requested_visible)
         self.island_action.toggled.connect(self.tool_island.set_user_visible)
         self.refresh(fit=True)
         self.operation_panel = OperationPanel(self)
+
+    def grid_preference(self, name, value):
+        self.preferences.setValue('grid/v1/'+name, value)
+        self.preferences.sync()
+        self.viewport.sketch.guides.set_option(name, value)
 
     def sync_xray(self, mode):
         with QSignalBlocker(self.xray_choice):
@@ -469,7 +503,19 @@ class MainWindow(QMainWindow):
         self.refresh()
         return True
 
+    def cancel_interaction(self, *, history=False):
+        """End temporary input routing without changing camera or preferences."""
+        self.profile_action.setChecked(False)
+        self.viewport.profiles.set_mode(False)
+        self.viewport.dimensions.reset()
+        if self.viewport.sketch.controller.tool and not history:
+            self.viewport.sketch.set_tool('select')
+        if self.operation_panel.active:
+            self.operation_panel.cancel()
+        self.update_actions()
+
     def undo(self):
+        self.cancel_interaction(history=True)
         try:
             # Undo first cancels uncommitted property edits.
             if not self.has_pending_edits():
@@ -480,6 +526,7 @@ class MainWindow(QMainWindow):
         self.refresh()
 
     def redo(self):
+        self.cancel_interaction(history=True)
         if self.has_pending_edits():
             return
         try:

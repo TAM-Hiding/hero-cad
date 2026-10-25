@@ -55,19 +55,27 @@ def combine(operation, target, tools, *, lineages=None):
     pending_ancestry = list(lineages[1:]) if lineages is not None else None
     while pending:
         chosen = None
-        for i,tool in enumerate(pending):
-            overlap = run(BRepAlgoAPI_Common,result,tool)
-            if volume(overlap) > max(1e-15,min(volume(result),volume(tool))*1e-10):
-                chosen = i
+        for i, tool in enumerate(pending):
+            if operation == 'join':
+                # Face contact has zero intersection volume. The fuse itself
+                # decides connectivity/manifold validity, not an overlap proxy.
+                candidate = run(BRepAlgoAPI_Fuse, result, tool, with_history=True)
+                try:
+                    accepted = one_solid(candidate.Shape())
+                except OperationError:
+                    continue  # A later tool may bridge this disconnected input.
+                builder, chosen = candidate, i
                 break
-            if operation != 'join':
-                break
+            overlap = run(BRepAlgoAPI_Common, result, tool)
+            if volume(overlap) > max(1e-15, min(volume(result), volume(tool))*1e-10):
+                builder = run({'cut': BRepAlgoAPI_Cut, 'intersect': BRepAlgoAPI_Common}[operation],
+                              result, tool, with_history=True)
+                accepted, chosen = one_solid(builder.Shape()), i
+            break
         if chosen is None:
-            raise OperationError('Bodies do not overlap in volume; disconnected, touching-only or ineffective operations are rejected')
-        tool = pending.pop(chosen)
-        builder = run({'join': BRepAlgoAPI_Fuse, 'cut': BRepAlgoAPI_Cut,
-                       'intersect': BRepAlgoAPI_Common}[operation],result,tool, with_history=True)
-        result = one_solid(builder.Shape())
+            raise OperationError('Bodies require volume overlap or valid face contact for Join; operation must produce one valid connected solid')
+        pending.pop(chosen)
+        result = accepted
         if ancestry is not None:
             from hero_cad.face_history import propagate
             ancestry = propagate(builder, result, (*ancestry, *pending_ancestry.pop(chosen)))

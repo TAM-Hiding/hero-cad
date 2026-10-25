@@ -186,6 +186,8 @@ class OperationPanel(QDockWidget):
             self.feedback.setText(str(error))
             return False
         self.active = False
+        self.candidate = None
+        self.apply_button.setEnabled(False)
         self.actor.VisibilityOff()
         self.hide()
         w = self.window
@@ -201,11 +203,15 @@ class OperationPanel(QDockWidget):
         self.actor.VisibilityOff()
         was_active,self.active = self.active,False
         self.candidate = None
+        self.apply_button.setEnabled(False)
         self.hide()
         if was_active:
+            self.window.profile_action.setChecked(False)
+            self.window.viewport.profiles.set_mode(False)
             self.window.display_solids()
             self.window.viewport.sketch.update(self.window.viewport.sketch.features)
             self.window.viewport.GetRenderWindow().Render()
+            self.window.update_actions()
 
     def closeEvent(self,event):
         self.cancel()

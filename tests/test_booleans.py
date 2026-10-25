@@ -59,8 +59,11 @@ def test_disjoint_or_touching_rejected_and_document_atomic(op):
     assert d.features==before and len(d._undo)==n
     a=BRepPrimAPI_MakeBox(10,10,10).Shape()
     touching=BRepPrimAPI_MakeBox(gp_Pnt(10,0,0),10,10,10).Shape()
-    with pytest.raises(OperationError):
-        combine(op,a,[touching])
+    if op == 'join':
+        assert volume(combine(op,a,[touching])) == pytest.approx(2000)
+    else:
+        with pytest.raises(OperationError):
+            combine(op,a,[touching])
 
 
 @pytest.mark.parametrize('through',[False,True])
@@ -157,3 +160,68 @@ def test_dependency_validation_and_legacy_defaults():
 def test_join_connected_chain_does_not_depend_on_tool_order():
     box=lambda x:BRepPrimAPI_MakeBox(gp_Pnt(x,0,0),10,10,10).Shape()
     assert volume(combine('join',box(0),[box(15),box(7)]))==pytest.approx(2500)
+
+
+@pytest.mark.parametrize('offset', [(10,10,0), (10,10,10), (11,0,0)])
+def test_join_edge_point_disconnected_rejected(offset):
+    a = BRepPrimAPI_MakeBox(10,10,10).Shape()
+    b = BRepPrimAPI_MakeBox(gp_Pnt(*offset),10,10,10).Shape()
+    with pytest.raises(OperationError):
+        combine('join',a,[b])
+
+
+@pytest.mark.parametrize('modified', [False, True])
+def test_face_contact_protrusion_history_reload(modified, tmp_path):
+    from hero_cad.booleans import one_solid
+    d = Document(BoxParameters(30,30,10))
+    # Exercise an extruded target as well as a cut base primitive.
+    if not modified:
+        sid = d.add_sketch('XY')
+        r = Rectangle(0,0,30,30); d.add_entity(sid,r)
+        target = d.add_extrusion(sid,r.id,distance=10)
+    else:
+        target = d.features[0].id
+        for x in (5,25):
+            sid = d.add_sketch('XY')
+            c = Circle(x,5,1); d.add_entity(sid,c)
+            target = d.add_extrusion(sid,c.id,distance=10,operation='cut',target_id=target)
+    # Pick the actual current top region using existing semantic face mapping.
+    if modified:
+        from OCP.BRepAdaptor import BRepAdaptor_Surface
+        from OCP.GeomAbs import GeomAbs_Plane
+        from hero_cad.ui.display_geometry import subshapes
+        from OCP.TopAbs import TopAbs_FACE
+        face = next(f for f in subshapes(d.solid_shapes[target],TopAbs_FACE)
+                    if BRepAdaptor_Surface(f).GetType()==GeomAbs_Plane and
+                    abs(BRepAdaptor_Surface(f).Plane().Location().Z()-10)<1e-7 and
+                    abs(BRepAdaptor_Surface(f).Plane().Axis().Direction().Z())>.99)
+        ref = d.face_reference(face)
+    else:
+        ref = FaceReference(target,'end')
+    sid = d.add_face_sketch(ref)
+    frame = d.feature(sid).parameters.frame
+    u,v = frame.to_local((12,12,10))
+    r = Rectangle(u,v,4,4); d.add_entity(sid,r)
+    result = d.add_extrusion(sid,r.id,distance=10,operation='join',target_id=target)
+    assert BRepCheck_Analyzer(one_solid(d.solid_shapes[result])).IsValid()
+    expected = 9160 - (20*pi if modified else 0)
+    assert volume(d.solid_shapes[result]) == pytest.approx(expected)
+    before = d.features
+    d.undo(); assert result not in d.active_body_ids
+    d.redo(); assert d.features == before
+    if modified:
+        d.set_box(BoxParameters(32,30,10))
+    else:
+        f = d.feature(target)
+        d.replace_feature(replace(f,parameters=replace(f.parameters,distance=15)))
+    assert d.statuses[result].valid
+    assert d.feature(sid).parameters.frame.origin[2] == pytest.approx(10 if modified else 15)
+    d.save(tmp_path/'contact.starcad')
+    loaded = Document.load(d.path)
+    assert loaded.features == d.features
+    assert volume(loaded.solid_shapes[result]) == pytest.approx(volume(d.solid_shapes[result]))
+
+
+def test_face_contact_join_chain_any_order():
+    box = lambda x: BRepPrimAPI_MakeBox(gp_Pnt(x,0,0),10,10,10).Shape()
+    assert volume(combine('join',box(0),[box(20),box(10)])) == pytest.approx(3000)
