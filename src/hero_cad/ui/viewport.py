@@ -83,6 +83,16 @@ class Viewport(QVTKRenderWindowInteractor):
         camera.SetPosition(1, -1, 1)
         camera.SetViewUp(0, 0, 1)
         camera.ParallelProjectionOn()
+        # Editing/explicit sketch inspection gets a foreground pass; model
+        # solids and ordinary finished sketches retain their real depth buffer.
+        self.GetRenderWindow().SetNumberOfLayers(2)
+        self.sketch_renderer = vtkRenderer()
+        self.sketch_renderer.SetLayer(1)
+        self.sketch_renderer.SetInteractive(False)
+        self.sketch_renderer.SetPreserveColorBuffer(True)
+        self.sketch_renderer.SetPreserveDepthBuffer(False)
+        self.sketch_renderer.SetActiveCamera(camera)
+        self.GetRenderWindow().AddRenderer(self.sketch_renderer)
         self.Initialize()
         self.sketch = SketchView(self)
         self.dimensions = ConstructionDimensions(self)
@@ -98,6 +108,13 @@ class Viewport(QVTKRenderWindowInteractor):
         actor.GetProperty().SetColor(*color)
         self.renderer.AddActor(actor)
         return mapper, actor
+
+    def sketch_foreground(self, actor, enabled):
+        destination = self.sketch_renderer if enabled else self.renderer
+        if not destination.HasViewProp(actor):
+            self.renderer.RemoveActor(actor)
+            self.sketch_renderer.RemoveActor(actor)
+            destination.AddActor(actor)
 
     def set_shape(self, shape, fit=False):
         # Build display data before replacing current mappings.

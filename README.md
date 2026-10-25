@@ -237,3 +237,13 @@ existing broken or ambiguous attachments are not guessed onto another face.
 Optional current-geometry references use `.starcad` v10; older versions remain
 readable. See [current-face attachment notes](docs/CURRENT_FACE_ATTACHMENTS.md)
 for reproduction, conservative limits and desktop checks.
+
+### Quick extrusion and hidden sketch access (PR #25)
+
+**Select Profile → Extrude → type signed millimetres → Enter.** A compact floating
+panel focuses the distance automatically, previews valid changes, and cancels
+with Escape. Advanced retains Through All; operation editing/Properties remain.
+Active sketches stay clear through reference bodies at their correct coordinates.
+For a hidden finished profile, select its sketch in the browser, then Select
+Profile and click inside. Normal model depth/face selection returns when that
+inspection mode ends. See [quick-input notes](docs/EXTRUSION_QUICK_INPUT.md).

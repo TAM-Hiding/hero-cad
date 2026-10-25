@@ -217,8 +217,8 @@ class MainWindow(QMainWindow):
         self.viewport.faceContextRequested.connect(self.face_context_menu)
         self.profile_action = QAction("Select Profile", self)
         self.profile_action.setCheckable(True)
-        self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Enter its sketch if solids obscure it.")
-        self.profile_action.toggled.connect(self.viewport.profiles.set_mode)
+        self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Select a sketch in the browser to access its profiles through bodies.")
+        self.profile_action.toggled.connect(self.profile_mode_changed)
         self.profile_action.toggled.connect(lambda _: self.update_actions())
         toolbar.addAction(self.profile_action)
         self.sketch_toolbar.addAction(self.profile_action)
@@ -333,6 +333,18 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'profile_action'):
             self.profile_action.setChecked(False)
         self.viewport.sketch.set_tool(name)
+
+    def profile_mode_changed(self, active):
+        key = self.browser_key or ()
+        scope = self.viewport.sketch.active_id
+        if not scope and key and key[0] in ('sketch', 'entity'):
+            scope = key[1]
+        elif not scope and key and key[0] == 'extrude':
+            try:
+                scope = self.document.feature(key[1]).parameters.sketch_id
+            except StopIteration:
+                pass
+        self.viewport.profiles.set_mode(active, sketch_id=scope)
 
     def selected_face_reference(self):
         selection = self.viewport.selection
@@ -466,6 +478,9 @@ class MainWindow(QMainWindow):
         self._shown_values = {n: f.value() for n, f in self.fields.items()}
         self.display_solids(fit=fit)
         self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
+        scope = self.viewport.profiles.scope_id
+        if scope and not any(f.id == scope for f in self.viewport.sketch.features):
+            self.profile_action.setChecked(False)
         self.viewport.sketch.preview_actor.VisibilityOff()
         if self.viewport.sketch.controller.tool:
             self.viewport.sketch.controller.tool.cancel()
@@ -736,6 +751,8 @@ class MainWindow(QMainWindow):
             self.entity_context = ('extrude', key[1])
         self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context and self.entity_context[0] != 'extrude' else None)
         self.show_properties()
+        if self.profile_action.isChecked() and not self.viewport.sketch.active_id:
+            self.profile_mode_changed(True)
         self.update_actions()
 
     def sketch_plane_label(self, feature):
@@ -971,7 +988,7 @@ class MainWindow(QMainWindow):
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         sketch_id,region = selected
-        self.operation_panel.open(source=(sketch_id,region.outer_id,region.hole_ids))
+        self.operation_panel.open(source=(sketch_id,region.outer_id,region.hole_ids), quick=True)
 
     def focus_parameters(self):
         self.show_properties()

@@ -247,3 +247,19 @@ geometry/precision are unchanged. Circular prism source-edge association now
 checks radius as well as center, fixing concentric-wall identities that caused
 both adjacent caps to be excluded after Cut. See docs/CURRENT_FACE_ATTACHMENTS.md
 for exact reproduction, safety boundaries and desktop checks.
+
+## PR #25 — quick extrusion and explicit sketch inspection
+
+OperationPanel remains the sole definition/preview/commit implementation. New
+Extrude opens its compact nonmodal floating presentation with a strict raw text
+field, immediate focus, signed mm parsing and a 180 ms single-shot preview timer.
+Enter validates/previews as needed and commits once; Escape/Cancel stops timers
+and restores display/input state. Existing dock-based edit/combine controls and
+Properties remain; Advanced exposes existing Through All/direction. The raw
+quick-input value reaches ExtrudeParameters without spin-box display rounding.
+A shared-camera foreground renderer displays active sketch/explicitly scoped
+profile inspection using cached existing paths. Body/reference depth, real
+frames, hit-testing and model-view occlusion remain. Browser-scoped Select Profile
+provides intentional access through bodies; unscoped picking stays conservative.
+No parameters, schema, B-rep, reference system or navigation architecture change.
+See docs/EXTRUSION_QUICK_INPUT.md for causes, controls, screenshot and desktop QA.
