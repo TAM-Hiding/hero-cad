@@ -56,7 +56,7 @@ class Document:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids, active = set(), set()
         existing = {f.id for f in self.features} if hasattr(self, 'statuses') else None
-        face_maps, lineages, resolved = {}, {}, []
+        face_maps, lineages, resolved, source_faces = {}, {}, [], {}
         inputs = {f.id: f for f in features}
         for feature in features:
             try:
@@ -99,6 +99,7 @@ class Document:
                     try:
                         if feature.type == 'box':
                             solids[feature.id], face_maps[feature.id] = make_box(**asdict(feature.parameters), with_faces=True)
+                            source_faces[feature.id] = face_maps[feature.id]
                             lineages[feature.id] = primitive_lineage(feature.id, face_maps[feature.id])
                             active.add(feature.id)
                         elif feature.type == 'sketch':
@@ -108,7 +109,8 @@ class Document:
                                 previous_source = inputs[parent.parameters.sketch_id].parameters.frame if parent.type == 'extrude' else None
                                 frame = resolve_attachment(p.attachment, face_maps, definitions,
                                                            previous_frame=p.attached_frame,
-                                                           previous_source_frame=previous_source)
+                                                           previous_source_frame=previous_source,
+                                                           lineages=lineages, source_faces=source_faces)
                                 feature = replace(feature, parameters=replace(p, attached_frame=frame))
                             sketch_shapes[feature.id] = make_sketch(feature.parameters)
                         else:
@@ -124,6 +126,7 @@ class Document:
                                 if p.extent == 'through_all':
                                     p = replace(p, distance=through_distance(source.parameters.frame, solids[p.target_id], p.direction))
                                 result, faces = extrude_region(source.parameters, p, with_faces=True)
+                                source_faces[feature.id] = faces
                                 lineage = primitive_lineage(feature.id, faces)
                                 if p.operation != 'new':
                                     result, lineage = combine(p.operation, solids[p.target_id], [result],
@@ -133,14 +136,14 @@ class Document:
                             lineages[feature.id] = lineage
                             active.difference_update(targets)
                             active.add(feature.id)
-                        statuses[feature.id] = FeatureStatus(True)
+                        statuses[feature.id] = FeatureStatus(True, reference_state='resolved' if feature.type == 'sketch' and feature.parameters.attachment else None)
                     except (OperationError, ProfileError) as error:
                         if existing is not None and feature.id not in existing:
                             raise
                         statuses[feature.id] = FeatureStatus(False, str(error))
                     except AttachmentError as error:
                         # Lost semantic faces remain in history, never substituted.
-                        statuses[feature.id] = FeatureStatus(False, str(error))
+                        statuses[feature.id] = FeatureStatus(False, str(error), error.state.value)
                 known.add(feature.id)
                 definitions[feature.id] = feature
                 resolved.append(feature)
@@ -151,6 +154,7 @@ class Document:
         self.active_body_ids = frozenset(active)
         shape = compound(solids[i] for i in solids if i in active)
         self._regenerated_features, self.face_maps = tuple(resolved), face_maps
+        self.face_lineages, self.source_faces = lineages, source_faces
         return shape, sketch_shapes, statuses, solids
 
     def set_features(self, features):
@@ -181,13 +185,30 @@ class Document:
         self.set_features(self.features + (feature,))
         return feature.id
 
-    def face_reference(self, face):
+    def face_reference(self, face, *, point=None):
         return identify_face(face, self.face_maps, {f.id: f for f in self.features},
-                             active_ids=self.active_body_ids)
+                             active_ids=self.active_body_ids, lineages=self.face_lineages,
+                             source_faces=self.source_faces, point=point)
+
+    def face_descendants(self, source_reference, evaluated_id):
+        """Current faces descended from a semantic construction face at a history stage.
+
+        This is an ancestry query, never a promise that one descendant is the
+        intended attachment. Geometry and traversal order are not identities.
+        """
+        if source_reference.face == 'evaluated':
+            raise ValueError('Descendant query requires a construction face reference')
+        parent = self.feature(source_reference.parent_id)
+        self.feature(evaluated_id)
+        key = (source_reference.face if parent.type == 'box' else
+               (source_reference.face, source_reference.boundary_id, source_reference.segment))
+        token = json.dumps([parent.id, key], separators=(',', ':'))
+        return tuple(face for face,tokens in self.face_lineages.get(evaluated_id, ()) if token in tokens)
 
     def add_face_sketch(self, reference):
         definitions = {f.id: f for f in self.features}
-        frame = resolve_attachment(reference, self.face_maps, definitions)
+        frame = resolve_attachment(reference, self.face_maps, definitions,
+                                   lineages=self.face_lineages, source_faces=self.source_faces)
         feature = Feature('sketch', SketchParameters('FACE', attachment=reference, attached_frame=frame),
                           (reference.parent_id,))
         self.set_features(self.features + (feature,))

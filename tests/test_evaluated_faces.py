@@ -85,11 +85,13 @@ def test_split_cylinder_regions_independent_repeated_sketches_history_and_reload
     assert d.features == before
     d.save(tmp_path / 'split.starcad')
     payload = json.loads(d.path.read_text())
-    assert payload['version'] == 7 and payload['format'] == 'star-cad'
+    assert payload['version'] == 9 and payload['format'] == 'star-cad'
     loaded = Document.load(d.path)
     assert loaded.features == d.features and all(s.valid for s in loaded.statuses.values())
     assert volume(loaded.shape) == pytest.approx(volume(d.shape))
-    assert loaded.face_reference(loaded.face_maps[result][reference_key(refs[0])]) == refs[0]
+    picked = loaded.face_reference(loaded.face_maps[result][reference_key(refs[0])])
+    assert reference_key(picked) == reference_key(refs[0])
+    assert picked.support.origins == refs[0].support.origins
 
 
 def test_two_successive_plate_holes_attach_to_current_result_and_edit_independently(tmp_path):
@@ -142,6 +144,7 @@ def test_every_planar_face_of_supported_boolean_models_accepts_sketch(operation,
     faces = subshapes(d.solid_shapes[result], TopAbs_FACE)
     assert len(d.face_maps[result]) == len(faces)
     refs = [d.face_reference(face) for face in faces]
+    assert all(ref.support is not None for ref in refs)
     for ref in refs:
         sid = d.add_face_sketch(ref)
         coincident(d.feature(sid).parameters.frame, d.face_maps[result][reference_key(ref)])
@@ -191,6 +194,11 @@ def test_identity_does_not_use_face_order_or_geometric_nearest_match(monkeypatch
     ref = d.face_reference(slot_regions(d, result, source)[0])
     sid = d.add_face_sketch(ref)
     payload = serialize(d.features)
+    payload['version'] = 8
+    with pytest.raises(ValueError, match='version 9'):
+        deserialize(payload)
+    for feature in payload['features']:
+        feature['parameters'].get('attachment', {}).pop('support', None)
     payload['version'] = 6
     with pytest.raises(ValueError, match='version 7'):
         deserialize(payload)

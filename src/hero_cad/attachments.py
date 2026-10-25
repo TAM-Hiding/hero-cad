@@ -1,17 +1,38 @@
 """Semantic planar-face naming from feature construction, never face indices."""
 from math import cos, sin, radians, dist
+from dataclasses import dataclass, replace
+from enum import Enum
+from OCP.BRepClass import BRepClass_FaceClassifier
+from OCP.BRepTools import BRepTools
+from OCP.gp import gp_Pnt
 from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Circle
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_IN, TopAbs_ON
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS
-from hero_cad.sketch import PlaneFrame, FaceReference, Rectangle, Circle, Slot, Line
+from hero_cad.sketch import PlaneFrame, FaceReference, FaceSupport, decode_face_origin, Rectangle, Circle, Slot, Line
+
+
+class ResolutionState(str, Enum):
+    RESOLVED = 'resolved'
+    AMBIGUOUS = 'ambiguous'
+    MISSING = 'missing'
+
+
+@dataclass(frozen=True)
+class FaceResolution:
+    state: ResolutionState
+    face: object = None
+    reason: str = ''
+    frame: PlaneFrame | None = None
 
 
 class AttachmentError(ValueError):
-    pass
+    def __init__(self, message, state=ResolutionState.MISSING):
+        self.state = state
+        super().__init__(message)
 
 
 def cross(a, b):
@@ -109,7 +130,13 @@ def reference_key(reference):
     return reference.face, reference.boundary_id, reference.segment
 
 
-def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None):
+def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None,
+                       lineages=None, source_faces=None):
+    if reference.support is not None:
+        resolution = resolve_supported_face(reference, face_maps, definitions, lineages or {}, source_faces or {})
+        if resolution.state != ResolutionState.RESOLVED:
+            raise AttachmentError(resolution.reason, resolution.state)
+        return resolution.frame
     parent = definitions.get(reference.parent_id)
     if parent is None or parent.type not in ('box', 'extrude', 'boolean'):
         raise AttachmentError('Attachment parent must be a solid feature')
@@ -143,7 +170,7 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
     return planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)
 
 
-def identify_face(face, face_maps, definitions, *, active_ids=None):
+def identify_face(face, face_maps, definitions, *, active_ids=None, lineages=None, source_faces=None, point=None):
     # Read the analytic plane first to distinguish unsupported curved faces.
     planar_frame(face)
     matches = []
@@ -158,4 +185,110 @@ def identify_face(face, face_maps, definitions, *, active_ids=None):
                     matches.append(FaceReference(parent_id, *key))
     if len(matches) != 1:
         raise AttachmentError('This face has no reliable semantic reference; attachment is unavailable')
-    return matches[0]
+    reference = matches[0]
+    if reference.face == 'evaluated' and lineages is not None:
+        reference = supported_reference(reference, face, lineages, source_faces, definitions, point=point)
+    return reference
+
+
+def source_frame(token, source_faces, definitions):
+    identifier, key = decode_face_origin(token)
+    reference = (FaceReference(identifier, key) if isinstance(key, str)
+                 else FaceReference(identifier, *key))
+    frame = resolve_attachment(reference, source_faces, definitions)
+    parent = definitions[identifier]
+    if parent.type == 'extrude' and reference.face in ('start', 'end'):
+        # Cap coordinates follow the source plane, independent of sweep sign.
+        # sense in FaceSupport retains the sketch's initial normal direction.
+        source = definitions[parent.parameters.sketch_id].parameters.frame
+        return PlaneFrame('FACE', frame.origin, source.u, source.v)
+    return frame
+
+
+def same_plane(a, b):
+    return (abs(abs(sum(x*y for x,y in zip(a.normal,b.normal)))-1) < 1e-9
+            and abs(sum((a.origin[i]-b.origin[i])*b.normal[i] for i in range(3))) < 1e-7)
+
+
+def point_state(face, point):
+    return BRepClass_FaceClassifier(face, gp_Pnt(*point), 1e-7).State()
+
+
+def interior_point(face, point=None):
+    frame = planar_frame(face)
+    if point is not None:
+        projected = frame.to_world(frame.to_local(point))
+        if point_state(face, projected) == TopAbs_IN:
+            return projected
+        raise AttachmentError('Attachment point must lie strictly inside the selected face')
+    # API callers without a click receive a deterministic interior witness;
+    # no centroid assumption (a face may have a hole through its centroid).
+    u0,u1,v0,v1 = BRepTools.UVBounds_s(face)
+    surface = BRepAdaptor_Surface(face)
+    for a in (.5,.25,.75,.125,.875,.0625,.9375):
+        for b in (.5,.25,.75,.125,.875,.0625,.9375):
+            p = surface.Value(u0+(u1-u0)*a,v0+(v1-v0)*b).Coord()
+            if point_state(face,p) == TopAbs_IN:
+                return p
+    raise AttachmentError('Cannot establish a reliable interior attachment point; select inside the face')
+
+
+def supported_reference(reference, face, lineages, source_faces, definitions, *, point=None):
+    rows = lineages.get(reference.parent_id, ())
+    tokens = next((tokens for candidate,tokens in rows if candidate.IsSame(face)), frozenset())
+    actual = planar_frame(face)
+    for token in sorted(tokens):
+        try:
+            root = source_frame(token, source_faces, definitions)
+        except (ValueError, StopIteration, KeyError):
+            continue  # Curved or unsupported construction ancestors are not planes.
+        if not same_plane(actual, root):
+            continue
+        try:
+            witness = interior_point(face, point)
+        except AttachmentError:
+            if point is None:
+                return reference  # Thin/complex API-only face: exact legacy identity.
+            raise
+        sense = 1 if sum(x*y for x,y in zip(actual.normal, root.normal)) > 0 else -1
+        support = FaceSupport(tuple(sorted(tokens)), token, root.to_local(witness), sense,
+                              sum(other == tokens for _,other in rows))
+        return replace(reference, support=support)
+    # Exact legacy signatures remain available when OCCT did not expose a
+    # supported planar root; no guessed ancestry or world-plane fallback.
+    return reference
+
+
+def resolve_supported_face(reference, face_maps, definitions, lineages, source_faces):
+    support = reference.support
+    missing = lambda reason: FaceResolution(ResolutionState.MISSING, reason=f'Unresolved face on {reference.parent_id}: {reason}')
+    try:
+        root = source_frame(support.root, source_faces, definitions)
+    except (ValueError, KeyError, StopIteration) as error:
+        return missing(f'construction ancestor is missing ({error})')
+    rows = lineages.get(reference.parent_id, ())
+    tokens = frozenset(support.origins)
+    related = [(f,t) for f,t in rows if t == tokens]
+    if len(related) < support.count:
+        return missing('ancestral regions merged or disappeared; automatic reassignment refused')
+    frame = PlaneFrame('FACE', root.origin, root.u, tuple(support.sense*x for x in root.v))
+    candidates = []
+    for face,_ in related:
+        try:
+            plane = planar_frame(face)
+        except AttachmentError:
+            continue
+        if same_plane(plane,frame):
+            candidates.append(face)
+    exact = face_maps.get(reference.parent_id, {}).get(reference_key(reference))
+    if exact is not None and any(exact.IsSame(face) for face in candidates):
+        return FaceResolution(ResolutionState.RESOLVED, exact, frame=frame)
+    witness = root.to_world(support.anchor)
+    inside = [face for face in candidates if point_state(face,witness) == TopAbs_IN]
+    boundary = [face for face in candidates if point_state(face,witness) == TopAbs_ON]
+    if len(inside) == 1 and not boundary:
+        return FaceResolution(ResolutionState.RESOLVED, inside[0], frame=frame)
+    if len(inside) > 1 or boundary:
+        return FaceResolution(ResolutionState.AMBIGUOUS,
+                              reason=f'Ambiguous face on {reference.parent_id}: attachment point has no unique interior descendant')
+    return missing('no descendant contains the source-local attachment point on its supporting plane')

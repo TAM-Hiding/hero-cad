@@ -127,6 +127,7 @@ class Selection:
     kind: str
     index: int
     shape: object
+    point: tuple | None = None
 
 
 def paths_mesh(paths):

@@ -86,3 +86,12 @@ Simple closed Line loops (including concave/dovetail profiles) use the existing 
 ## PR #21 — floating tool island and shared commands
 
 Movable viewport overlay with Compact/Medium/Expanded presets, responsive command columns, collapse and View-menu visibility. QSettings preserves layout across launches outside documents. Existing QAction objects supply shared command behavior/state across island, toolbar, menus and shortcuts. Slot explicitly enters the existing CircleTool slot stages. Dynamic plugins, scripting, new modeling tools and major layout changes remain out of scope. Stop after opening PR #21; do not merge automatically or begin further feature work.
+
+## PR #23 — completed foundation scope
+
+Extend semantic/OCCT face ancestry with persisted source-local attachment
+witnesses, controlled resolved/ambiguous/missing states, descendant queries and
+v9 optional reference metadata. Existing document versions remain supported.
+Conservative merges/unknown ancestry and edge naming remain deferred. No Push/Pull,
+launcher integration or subsequent feature milestone is included. Stop after
+opening PR #23 for review; do not merge automatically.

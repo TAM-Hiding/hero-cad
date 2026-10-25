@@ -217,3 +217,13 @@ optional local millimetre scale labels and optional fading in X-Ray; these
 appearance preferences persist outside the document. See
 [reliability and grid notes](docs/RELIABILITY_GRID.md) for reproduction details,
 limitations and desktop testing instructions.
+
+### Persistent face references (PR #23)
+
+New eligible sketches on Boolean faces retain construction ancestry and a
+source-local attachment point. They can survive face enumeration changes and
+recover a uniquely identified descendant after a split. Ambiguous or missing
+support remains unresolved with retained parameters and suppressed dependents.
+Existing `.starcad` versions remain readable; version 9 stores the optional new
+metadata. See [persistent-reference notes](docs/PERSISTENT_REFERENCES.md) for
+compatibility, limits and desktop testing instructions.

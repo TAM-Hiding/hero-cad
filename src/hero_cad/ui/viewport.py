@@ -361,7 +361,7 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         index = mesh.GetCellData().GetArray(name).GetValue(cell_id)
         shapes = self.faces if self.selection_mode == 'face' else self.edges
-        selected = Selection(self.selection_mode, index, shapes[index])
+        selected = Selection(self.selection_mode, index, shapes[index], tuple(hit[1]))
         if not additive:
             self.selections = [selected]
         elif any(s.kind == selected.kind and s.index == index for s in self.selections):
@@ -383,10 +383,16 @@ class Viewport(QVTKRenderWindowInteractor):
         self.selectionChanged.emit(self.selection)
         self.GetRenderWindow().Render()
 
-    def select_face(self, face):
+    def select_face(self, face, point=None):
         index = next(i for i, f in enumerate(self.faces) if f.IsSame(face))
         if not any(s.kind == 'face' and s.index == index for s in self.selections):
-            self.selections = [Selection('face', index, self.faces[index])]
+            self.selections = [Selection('face', index, self.faces[index], point)]
+        else:
+            selected = next(s for s in self.selections if s.kind == 'face' and s.index == index)
+            # Keep the batch, but make the contextual face the current target.
+            self.selections = [s for s in self.selections if s is not selected]
+            self.selections.append(Selection('face', index, selected.shape,
+                                             point if point is not None else selected.point))
         self.show_selection()
 
     def display_position(self, event):

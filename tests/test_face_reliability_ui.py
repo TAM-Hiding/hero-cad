@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
-from hero_cad.attachments import planar_frame
+from hero_cad.attachments import reference_key, planar_frame
 from hero_cad.document import Document
 from hero_cad.sketch import Circle, FaceReference
 from test_evaluated_faces import screwdriver, slot_regions, center
@@ -92,7 +92,11 @@ def test_current_split_faces_right_click_repeat_reenter_save_and_history(qtbot, 
         d.add_entity(sid, Circle(30, 30, .5))
         w.refresh()
         w.finish_sketch()
-    assert refs[0] == refs[-1] and len(set(refs)) == 3 and len(set(sketches)) == 4
+    # Each click has its own source-local witness; current face identity still
+    # agrees even if pixel rounding changes the point between camera fits.
+    identities = [(ref.parent_id, reference_key(ref)) for ref in refs]
+    assert identities[0] == identities[-1] and len(set(identities)) == 3
+    assert all(ref.support is not None for ref in refs) and len(set(sketches)) == 4
     before = d.features
     w.undo(); w.redo()
     assert d.features == before
