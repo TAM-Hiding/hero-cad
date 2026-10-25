@@ -20,7 +20,8 @@ def test_installed_package_and_console_identity():
     distribution = metadata.distribution('hero-cad')
     assert distribution.version == __version__
     scripts = {e.name:e.value for e in distribution.entry_points if e.group=='console_scripts'}
-    assert scripts == {'hero-cad':'hero_cad.app:main'}
+    assert scripts == {'hero-cad':'hero_cad.app:main',
+                       'hero-cad-install-launcher':'hero_cad.desktop_launcher:main'}
     import ast
     root=Path(__file__).parents[1]
     old_package='star'+'_cad'

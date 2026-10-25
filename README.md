@@ -259,3 +259,25 @@ it temporarily. Visibility saves with the document and follows Undo/Redo.
 Grid majors/minors are two/one physical pixels with numeric-only scale labels;
 exact adaptive distances and snapping are unchanged. See
 [viewport clarity, compatibility and desktop checks](docs/VIEWPORT_CLARITY.md).
+
+### Preferences and Ubuntu launcher
+
+**Settings → Preferences…** organizes Appearance, Grid & Snapping, Viewport,
+Sketching and Interface controls. Values apply immediately, stay synchronized
+with existing quick controls and persist between launches. **Restore Category
+Defaults** affects only that category; model documents/history are unchanged.
+See [preference keys, defaults and review steps](docs/PREFERENCES.md).
+
+After updating the editable installation, install the per-user Applications/dock
+launcher with the approved logo:
+
+```bash
+.venv/bin/python -m pip install --no-deps -e .
+.venv/bin/hero-cad-install-launcher --icon "/path/to/approved-hero-cad.png"
+```
+
+No final approved artwork file is bundled yet; supply the owner's square PNG or
+SVG. No substitute logo is generated. The launcher uses this virtual environment
+without terminal activation or root permissions. Repeat setup after moving or
+rebuilding the environment. Remove it using `hero-cad-install-launcher --uninstall`.
+See [setup, maintenance and desktop checks](docs/DESKTOP_LAUNCHER.md).

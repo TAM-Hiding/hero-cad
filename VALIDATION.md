@@ -789,3 +789,63 @@ The exact original laptop screenshots were not included with the text attachment
 its larger-scale pattern still needs desktop confirmation. Hardware/HiDPI driver
 rasterization is not certified by the Mesa checks. CI results are not claimed here.
 No new modeling operations, persistent-reference changes or launcher work.
+
+## PR #27 — centralized preferences and per-user launcher
+
+Baseline: merged PR #26 main `8300144522e6b6334e492ae9bd20019569b25099`.
+Branch: `centralized-preferences`. Local Ubuntu 24.04.3 x86-64, Python 3.12.14,
+PySide6 6.8.3, OCP 7.9.3.1.1 and VTK 9.6.2; Qt XCB / TCP Xvfb / Mesa software
+OpenGL. Runtime dependencies and document/modeling schemas are unchanged.
+
+Final validation:
+
+- Full suite:
+  `HERO_DISPLAY=220 HERO_DESKTOP_VALIDATOR=/tmp/hero-pr27-tools/usr/bin/desktop-file-validate bash /tmp/hero-pr26-test.sh -m pytest -q`
+  → **563 passed, 147 upstream VTK/NumPy deprecation warnings, no skips**, 201.82 s.
+  The wrapper uses extracted X11 libraries and starts a 1600×1000×24 TCP Xvfb,
+  then invokes `.venv/bin/python` with QT_QPA_PLATFORM=xcb and
+  LIBGL_ALWAYS_SOFTWARE=1, matching the README workflow except socket transport.
+- Final focused preference + launcher checks: **22 passed**, 4.53 s.
+  The launcher smoke's solid-pixel assertion was subsequently narrowed to the
+  center viewport to exclude blue browser highlights; the resulting final
+  launcher subset passed **5 tests**, 1.67 s. The production code is identical.
+- Typed catalogue/defaults, constraints and corrupted saved values; fresh-process
+  persistence; preservation of old QSettings keys; actual dialog initialization;
+  toolbar/menu/island ↔ dialog synchronization; immediate rendering/input updates;
+  category-only reset including island position; restart restoration; unchanged
+  document/history/camera state while changing preferences.
+- Actual GIO desktop-entry parsing/launch with an inactive PATH and no VIRTUAL_ENV,
+  in paths containing spaces, percent, dollar, backtick, double quote and backslash.
+  The stub confirms the exact environment and icon path, not just file contents.
+- The real generated wrapper launches the installed HERO-CAD console entry point
+  under Xvfb without terminal activation. X11 UTF-8 window title and WM_CLASS are
+  inspected; the instance matches StartupWMClass=hero-cad. Native window capture
+  checks nonblank blue solid pixels in the viewport before terminating the smoke.
+- Standard desktop-file-validate 0.27 accepted the generated entry. Repeat setup,
+  copied PNG/SVG references, explicit Qt/library environment preservation, safe
+  removal, legacy icon-size cleanup, missing/nonsquare artwork and unmanaged
+  desktop-entry refusal are covered. All setup uses isolated user/XDG directories.
+- Editable reinstall:
+  `.venv/bin/python -m pip install --no-build-isolation --no-deps -e .` passed with
+  an installed setuptools build backend. Both console entry points are present.
+  `.venv/bin/python -m pip check`, compileall and `git diff --check` passed.
+- Actual Qt dialog captures inspected at docs/screenshots/preferences-grid.png and
+  docs/screenshots/preferences-interface.png. No placeholder/logo art is added.
+- CI retains Ubuntu 22.04/24.04 jobs and adds desktop-file-utils for validation.
+  CI results after publishing are not claimed by this local report.
+
+The initial full run's only failure was the old packaging assertion that exactly
+one console command existed. It now explicitly checks both the original hero-cad
+command and the new hero-cad-install-launcher command; the final full suite passes.
+
+The approved final logo asset is not present in the repository. Launcher setup
+requires the owner's approved square PNG/SVG via --icon, copies it into the XDG
+icon tree, and provides a reserved/documented assets/branding location. It never
+invents or substitutes artwork. GNOME Applications discovery, dock pinning,
+Wayland/XWayland integration and the Ubuntu 22.04 Nvidia laptop were not available
+for local testing and require the documented manual review. No launcher was
+installed into the user's real desktop directories during these checks.
+
+Preference audit/defaults and settings review: [docs/PREFERENCES.md](docs/PREFERENCES.md).
+Launcher setup, diagnostics, updates/rebuilds/moves/removal and Ubuntu checklist:
+[docs/DESKTOP_LAUNCHER.md](docs/DESKTOP_LAUNCHER.md).

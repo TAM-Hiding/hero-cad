@@ -24,6 +24,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         from hero_cad.ui.tool_island import application_settings
         self.preferences = settings if settings is not None else application_settings()
+        from hero_cad.preferences import Preferences
+        self.preference_store = Preferences(self.preferences, self)
+        self.preferences_dialog = None
         self.commands = CommandRegistry(self)
         self.resize(1200, 780)
         self.document = Document()
@@ -159,11 +162,11 @@ class MainWindow(QMainWindow):
         for action, name in ((self.grid_scale_action, 'scale_visible'),
                              (self.grid_fade_action, 'fade_xray')):
             action.setCheckable(True)
-            checked = str(self.preferences.value('grid/v1/'+name, 'false')).lower() == 'true'
+            checked = self.preference_store.get('grid/v1/'+name)
             action.setChecked(checked)
             setattr(guides, name, checked)
             action.toggled.connect(lambda value, key=name: self.grid_preference(key, value))
-        color = self.preferences.value('grid/v1/color', 'Light Grey')
+        color = self.preference_store.get('grid/v1/color')
         guides.color = color if isinstance(color, str) and color in guides.COLORS else 'Light Grey'
         self.grid_color.setCurrentText(guides.color)
         self.grid_color.currentTextChanged.connect(lambda value: self.grid_preference('color', value))
@@ -276,9 +279,7 @@ class MainWindow(QMainWindow):
         contrast_menu = settings_menu.addMenu('High-Contrast Geometry')
         self.contrast_actions = {}
         self.contrast_group = QActionGroup(self)
-        contrast = self.preferences.value('viewport/v1/contrast', 'Auto')
-        if contrast not in ('Off', 'Auto', 'Always'):
-            contrast = 'Auto'
+        contrast = self.preference_store.get('viewport/v1/contrast')
         for mode in ('Off', 'Auto', 'Always'):
             action = contrast_menu.addAction(mode)
             action.setCheckable(True)
@@ -289,7 +290,7 @@ class MainWindow(QMainWindow):
         self.viewport.contrast_mode = contrast
         self.auto_hide_sketches = settings_menu.addAction('Auto-Hide Consumed Sketches')
         self.auto_hide_sketches.setCheckable(True)
-        self.auto_hide_sketches.setChecked(str(self.preferences.value('viewport/v1/auto_hide_sketches', 'true')).lower() == 'true')
+        self.auto_hide_sketches.setChecked(self.preference_store.get('viewport/v1/auto_hide_sketches'))
         self.auto_hide_sketches.toggled.connect(lambda value: self.save_view_preference('auto_hide_sketches', value))
         opacity_row = QWidget()
         opacity_layout = QHBoxLayout(opacity_row)
@@ -299,7 +300,7 @@ class MainWindow(QMainWindow):
         self.dimension_opacity.setValue(100)
         self.dimension_opacity.setFixedWidth(120)
         self.dimension_opacity.setAccessibleName("Dimension popup opacity")
-        self.dimension_opacity.setToolTip("0% hides the dimension popup; session preference")
+        self.dimension_opacity.setToolTip("0% hides the dimension popup; saved application preference")
         self.dimension_opacity_value = QLabel("100%")
         self.dimension_opacity_value.setMinimumWidth(45)
         self.dimension_opacity.valueChanged.connect(self.viewport.dimensions.set_opacity)
@@ -311,25 +312,35 @@ class MainWindow(QMainWindow):
         opacity_action.setDefaultWidget(opacity_row)
         view_menu.addAction(opacity_action)
         self.setup_commands()
-        self.tool_island = ToolIsland(self.viewport, self.commands, settings=self.preferences)
+        self.tool_island = ToolIsland(self.viewport, self.commands, settings=self.preferences, preference_store=self.preference_store)
         self.island_action = view_menu.addAction('Floating Tool Island')
         self.island_action.setCheckable(True)
         self.island_action.setChecked(self.tool_island.requested_visible)
         self.island_action.toggled.connect(self.tool_island.set_user_visible)
         self.refresh(fit=True)
         self.operation_panel = OperationPanel(self)
+        from hero_cad.ui.preference_bindings import bind_preferences
+        bind_preferences(self)
+        settings_menu.addSeparator()
+        self.preferences_action = settings_menu.addAction('Preferences…')
+        self.preferences_action.triggered.connect(self.open_preferences)
+
+    def open_preferences(self):
+        from hero_cad.ui.preferences_dialog import PreferencesDialog
+        if self.preferences_dialog is None:
+            self.preferences_dialog = PreferencesDialog(self.preference_store, self)
+        self.preferences_dialog.show()
+        self.preferences_dialog.raise_()
+        self.preferences_dialog.activateWindow()
 
     def save_view_preference(self, name, value):
-        self.preferences.setValue('viewport/v1/'+name, value)
-        self.preferences.sync()
+        self.preference_store.set('viewport/v1/'+name, value)
 
     def contrast_preference(self, value):
         self.save_view_preference('contrast', value)
-        self.viewport.set_contrast_mode(value)
 
     def grid_preference(self, name, value):
-        self.preferences.setValue('grid/v1/'+name, value)
-        self.preferences.sync()
+        self.preference_store.set('grid/v1/'+name, value)
         self.viewport.sketch.guides.set_option(name, value)
 
     def sync_xray(self, mode):

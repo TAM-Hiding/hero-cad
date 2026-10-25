@@ -44,25 +44,27 @@ class ToolIsland(QFrame):
     PRESETS = {'Compact': QSize(212, 300), 'Medium': QSize(292, 352), 'Expanded': QSize(392, 408)}
     PREFIX = 'tool_island/v1/'
 
-    def __init__(self, viewport, registry, *, settings=None):
+    def __init__(self, viewport, registry, *, settings=None, preference_store=None):
         super().__init__(viewport)
         # Preserve one usable command column and the header at the smallest
         # ordinary window size; larger presets can scroll vertically.
         viewport.setMinimumSize(max(viewport.minimumWidth(), 224), max(viewport.minimumHeight(), 180))
         self.registry = registry
         self.settings = settings if settings is not None else application_settings()
+        from hero_cad.preferences import Preferences
+        self.preference_store = preference_store if preference_store is not None else Preferences(self.settings, self)
         self.context = 'model'
         self.buttons = {}
         self.visible_commands = ()
         self._ready = False
-        self.preset = self.settings.value(self.PREFIX+'size', 'Medium')
+        self.preset = self.preference_store.get(self.PREFIX+'size')
         if not isinstance(self.preset, str) or self.preset not in self.PRESETS:
             self.preset = 'Medium'
         self.collapsed = self.read_bool('collapsed', False)
         self.requested_visible = self.read_bool('visible', True)
         try:
-            self.preferred_position = QPoint(int(self.settings.value(self.PREFIX+'x')),
-                                             int(self.settings.value(self.PREFIX+'y')))
+            self.preferred_position = QPoint(int(self.preference_store.get(self.PREFIX+'x')),
+                                             int(self.preference_store.get(self.PREFIX+'y')))
         except (ValueError, TypeError, OverflowError):
             self.preferred_position = None
         self.setObjectName('toolIsland')
@@ -141,10 +143,7 @@ class ToolIsland(QFrame):
         QTimer.singleShot(0, self.initialize_position)
 
     def read_bool(self, name, default):
-        value = self.settings.value(self.PREFIX+name, default)
-        if isinstance(value, bool):
-            return value
-        return {'true': True, 'false': False}.get(str(value).lower(), default)
+        return self.preference_store.get(self.PREFIX+name)
 
     def mousePressEvent(self, event):
         event.accept()
@@ -252,5 +251,4 @@ class ToolIsland(QFrame):
         if self.preferred_position is not None:
             values.update(x=self.preferred_position.x(), y=self.preferred_position.y())
         for key, value in values.items():
-            self.settings.setValue(self.PREFIX+key, value)
-        self.settings.sync()
+            self.preference_store.set(self.PREFIX+key, value)

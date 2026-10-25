@@ -119,3 +119,11 @@ Always CAD-edge contrast, and persistent auto-hide preference with per-document
 sketch display metadata. Manual browser visibility and temporary edit/explicit
 profile reveal preserve evaluation and ordinary Undo/Redo. Desktop Nvidia review
 remains necessary; no new modeling or reference architecture is introduced.
+
+## PR #27 — settings organization and desktop access
+
+Central typed QSettings catalogue, synchronized categorized Preferences dialog,
+category-only defaults, and a repeatable per-user launcher for the existing venv.
+Approved square logo artwork must be supplied at setup; no replacement art or
+standalone package is introduced. GNOME Applications/dock behavior needs laptop
+review. Modeling, navigation bindings and document schemas remain unchanged.

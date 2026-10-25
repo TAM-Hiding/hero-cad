@@ -30,6 +30,7 @@ class Viewport(QVTKRenderWindowInteractor):
     viewFeedback = Signal(str)
     previousViewAvailable = Signal(bool)
     xrayChanged = Signal(str)
+    displayModeChanged = Signal(str)
     sketchContextRequested = Signal(object, object)
     faceContextRequested = Signal(object, object)
     deleteRequested = Signal()
@@ -238,6 +239,7 @@ class Viewport(QVTKRenderWindowInteractor):
         if mode not in ('Shaded with CAD Edges', 'Shaded', 'CAD Wireframe', 'Mesh Debug'):
             raise ValueError('Unknown display mode')
         self.display_mode = mode
+        self.displayModeChanged.emit(mode)
         self.viewFeedback.emit(f'Display mode: {mode}')
         self.apply_display_mode()
         self.GetRenderWindow().Render()
