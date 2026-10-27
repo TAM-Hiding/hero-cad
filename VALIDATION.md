@@ -905,3 +905,73 @@ this PR. The existing Ubuntu 22.04/24.04 CI workflow remains unchanged.
 The initial environment inherited an unrelated system CadQuery package with an
 incompatible OCP pin. Disabling system-site inheritance and installing the existing
 lock file resolved that environment-only conflict; the final pip check is clean.
+
+
+## Work Order #029 — read-only feature history inspector
+
+Baseline: merged PR #28, `c07a95c845ed0d4139e05c21d95f52897faebea6`.
+Branch: `feature-history-inspector`. See [supported fields and limits](docs/HISTORY_INSPECTOR.md).
+
+- Full suite: `bash /tmp/hero29-run.sh .venv/bin/pytest -q` → **579 passed,
+  147 upstream VTK/NumPy deprecation warnings, no skips**, 330.69 s.
+- Final affected checks after making Edit Parameters reveal the Edit tab:
+  `bash /tmp/hero29-run.sh .venv/bin/pytest tests/test_history_inspection.py tests/test_history_inspector_ui.py tests/test_sketch_editing_ui.py -q`
+  → **26 passed**, five upstream VTK/NumPy warnings, 71.36 s. This includes all
+  nine new inspection tests. The full run preceded that one-line tab-selection
+  addition; these final checks cover it and the existing sketch editing flows.
+- `.venv/bin/python -m pip check`: **No broken requirements found**.
+- Compileall for src and the two new test modules; `git diff --check`: passed.
+
+Local environment: Ubuntu 24.04.3 x86-64 / Python 3.12.14 / PySide6 6.8.3 /
+cadquery-ocp 7.9.3.1.1 / VTK 9.6.2 / pytest 8.3.5, using the existing lockfile.
+Unlike #028, a working XCB/Xvfb/Mesa rendering environment was established.
+The temporary wrapper starts a 1600×1000×24 Xvfb and the tests in the same process
+namespace, waits for its TCP listener, sets DISPLAY=127.0.0.1:221,
+QT_QPA_PLATFORM=xcb and LIBGL_ALWAYS_SOFTWARE=1, and cleans up the server on exit.
+X11 tools/libraries were extracted from Ubuntu packages under /tmp/hero29-tools;
+LD_LIBRARY_PATH and HERO_DESKTOP_VALIDATOR point there. Xkbcomp is available via
+a container-only symlink. No repository dependencies or user's desktop files
+were changed. An initial separate-process X server attempt could not connect;
+running server and tests together resolved it. This is the README full-suite
+workflow with TCP transport in place of unavailable local Unix sockets.
+
+Coverage includes ordered labels and direct relationships; origin and face
+parents; box/sketch/extrusion/Combine parameters; signed precision and Through All
+depth labeling; valid/current versus valid/historical, unresolved and blocked
+states; full error text and last-resolved frames; 1000-feature summaries; actual
+browser selection, existing editing and focus behavior; create/delete/New/Open,
+Undo/Redo, real Save/Open actions and the sketch-visibility fast path. Tests
+forbid Document regeneration during inspection and assert definitions, caches,
+Undo/Redo stacks, dirty/savepoint state remain unchanged. Identical-summary
+refresh preserves scroll. The focus regression explicitly activates its test
+window before asserting desktop keyboard focus.
+
+Inspected a real 1200×780 X11 window capture: the History tab is readable in the
+existing Properties dock, long IDs wrap, Edit remains available, and the solid
+viewport renders normally. Full-suite pixel tests and launcher smoke pass;
+blank output is not counted as a successful render. Ubuntu 22.04/Nvidia and
+Wayland user-machine acceptance remain untested locally. No CI outcome is claimed
+by these local results. No schema, history/evaluation, geometry or viewport
+implementation changes.
+
+### Work order #029 — dependency inspector revisions (2026-10-27)
+
+Added explicit supporting-face, source-profile, Boolean target/tool and sketch-plane
+roles in both parent and dependent lists. UUIDs/profile IDs now occupy a secondary
+Technical identifiers section. No geometry engine or document-schema changes.
+
+- `.venv/bin/pytest tests/test_history_inspection.py -q`: **8 passed**.
+- `/tmp/hero29-run.sh .venv/bin/pytest -q`: **582 passed, 147 upstream
+  VTK/NumPy deprecation warnings, no skips**, 192.91 s. Uses the same XCB/Xvfb/Mesa
+  wrapper/environment described above, rebuilt from the existing dependency lock.
+- `.venv/bin/pip check`, compileall of src and inspector tests, and
+  `git diff --check`: passed.
+
+New coverage checks target/tool roles in both directions and a New Body extrusion
+with a downstream cap sketch/cut converted to Join. The joined feature remains
+valid; the original cap reference is retained and unresolved; the cut is blocked.
+Full diagnostics, ordered relationships, Undo/Redo recovery, save/reopen and actual
+History-tab synchronization are asserted. Automatic reference repair is neither
+required nor performed. Existing read-only, editing, selection, rendering and
+launcher regressions pass in the full run. Physical Nvidia/Wayland acceptance
+remains untested; no new visual screenshot review is claimed for this revision.
