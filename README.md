@@ -291,3 +291,11 @@ coverage, with a staged roadmap for inspection and repair. Undo now restores
 previously accepted unresolved operations after deletion; final model assembly
 failures preserve all published state and report a document error. The existing
 history architecture and file formats are retained.
+
+### Inspect feature history (Work Order #029)
+
+Select a model-browser feature and open **Properties → History** to inspect its
+order, parameters, direct parents/dependents, regeneration status and errors.
+The summary is read-only and updates through normal editing, Undo/Redo and Open.
+**Properties → Edit** retains the existing editing controls. See
+[the inspector guide and limits](docs/HISTORY_INSPECTOR.md).

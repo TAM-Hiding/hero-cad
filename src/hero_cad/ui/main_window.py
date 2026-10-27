@@ -6,7 +6,7 @@ from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
-    QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView,
+    QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView, QTabWidget, QPlainTextEdit,
 )
 from hero_cad import __version__
 from hero_cad.document import BoxParameters, Document
@@ -17,6 +17,7 @@ from hero_cad.ui.viewport import Viewport
 from hero_cad.ui.operation_panel import OperationPanel
 from hero_cad.ui.commands import CommandRegistry
 from hero_cad.ui.tool_island import ToolIsland
+from hero_cad.history_inspection import feature_history_text
 
 
 class MainWindow(QMainWindow):
@@ -80,7 +81,15 @@ class MainWindow(QMainWindow):
         self.edit_operation_button.clicked.connect(self.edit_operation)
         info_layout.addRow(self.edit_operation_button)
         self.property_stack.addWidget(info_panel)
-        self.add_panel("Properties", self.property_stack, Qt.RightDockWidgetArea)
+        self.property_tabs = QTabWidget()
+        self.property_tabs.addTab(self.property_stack, 'Edit')
+        self.history_inspector = QPlainTextEdit()
+        self.history_inspector.setReadOnly(True)
+        self.history_inspector.setAccessibleName('Feature history inspector')
+        self.history_inspector.setPlaceholderText('Select a feature in the model browser to inspect its history.')
+        self.property_tabs.addTab(self.history_inspector, 'History')
+        self.property_tabs.setTabToolTip(1, 'Read-only feature parameters, dependencies and regeneration status')
+        self.add_panel("Properties", self.property_tabs, Qt.RightDockWidgetArea)
         self.browser.currentItemChanged.connect(self.browser_selection)
         self.browser.itemSelectionChanged.connect(self.browser_multi_selection)
         self.browser.itemDoubleClicked.connect(lambda *_: self.edit_sketch())
@@ -451,6 +460,7 @@ class MainWindow(QMainWindow):
                     self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
                     item.setText(1, '●' if not feature.sketch_visible else '○')
                     item.setToolTip(1, 'Click to hide sketch' if not feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
+                    self.update_history_inspector()
                     self.update_actions()
                     self.update_status()
                     self.viewport.GetRenderWindow().Render()
@@ -694,6 +704,7 @@ class MainWindow(QMainWindow):
                 for n, f in self.entity_fields.items()}
 
     def show_properties(self):
+        self.update_history_inspector()
         self.edit_operation_button.setVisible(bool(self.browser_key and self.browser_key[0] in ('extrude','boolean')))
         if self.entity_context:
             while self.entity_form.rowCount():
@@ -743,6 +754,18 @@ class MainWindow(QMainWindow):
                 self.property_info.setText("Select an Origin plane or right-click a supported solid face for New Sketch.")
         else:
             self.property_stack.setCurrentIndex(0)
+
+    def update_history_inspector(self):
+        key = self.browser_key
+        identifier = key[1] if key and key[0] in ('box', 'sketch', 'extrude', 'boolean', 'entity') else None
+        if identifier and any(f.id == identifier for f in self.document.features):
+            text = feature_history_text(self.document, identifier)
+        else:
+            text = ''
+        # Preserve selection/scroll on redundant refreshes; content is never an
+        # editable source of model state and has no textChanged write callback.
+        if text != self.history_inspector.toPlainText():
+            self.history_inspector.setPlainText(text)
 
     def rebuild_browser(self):
         with QSignalBlocker(self.browser):
@@ -1051,6 +1074,7 @@ class MainWindow(QMainWindow):
         self.operation_panel.open(source=(sketch_id,region.outer_id,region.hole_ids), quick=True)
 
     def focus_parameters(self):
+        self.property_tabs.setCurrentIndex(0)
         self.show_properties()
         fields = self.entity_fields if self.entity_context else self.fields
         if fields:
