@@ -9,10 +9,12 @@ and copied but not edited. Long summaries wrap and scroll inside the panel.
 The inspector reports:
 
 - Derived feature label/type, one-based position in the complete ordered history,
-  and the persistent feature UUID. Labels such as “Sketch 2” are generated from
+  and the persistent feature UUID in a secondary Technical identifiers section. Labels such as “Sketch 2” are generated from
   the current order, not stored user-defined names.
 - Direct parents and direct dependents, labeled by type and history position.
-  Canonical origin planes are named explicitly. These are direct relationships,
+  Roles distinguish supporting faces, source profile sketches, Boolean target bodies
+  and Boolean tool bodies. The same roles appear beside dependents, describing how
+  they use the selected feature. Canonical origin planes are named explicitly. These are direct relationships,
   not a transitive dependency tree.
 - Current regeneration status and the full existing error message. **Valid**,
   **Unresolved**, and **Blocked by unresolved dependencies** are derived from the
@@ -36,6 +38,11 @@ unapplied editor values and errors from rejected proposals are not stored featur
 parameters/statuses. Existing selection behavior is preserved: changing browser
 selection may apply valid pending edits or refuse invalid ones, just as before.
 Switching to History does not apply edits or regenerate the model.
+
+Changing an extrusion from **New Body** to **Join** may invalidate downstream
+face references. The inspector continues to show the original supporting face
+and target-body relationships, together with available unresolved/blocked
+diagnostics. It neither substitutes references nor changes regeneration.
 
 ## Implementation and limits
 

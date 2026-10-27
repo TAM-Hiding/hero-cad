@@ -113,3 +113,25 @@ def test_visibility_fast_path_and_scrollable_history(qtbot):
     previous = w.history_inspector.verticalScrollBar().value()
     w.update_history_inspector()
     assert w.history_inspector.verticalScrollBar().value() == previous
+
+
+def test_joined_history_failure_and_recovery_stays_synchronized(qtbot):
+    from test_history_inspection import joined_transition_chain, convert_to_join
+    w = window(qtbot)
+    w.document, box, source, extrusion, attached, cut = joined_transition_chain()
+    w.refresh()
+    w.property_tabs.setCurrentIndex(1)
+    select(w, attached)
+    original = w.history_inspector.toPlainText()
+    convert_to_join(w.document, box, source, extrusion)
+    w.refresh()
+    assert 'Status: Unresolved' in w.history_inspector.toPlainText()
+    assert w.document.statuses[attached].error in w.history_inspector.toPlainText()
+    w.undo()
+    assert w.history_inspector.toPlainText() == original
+    w.redo()
+    select(w, cut)
+    assert 'Status: Blocked by unresolved dependencies' in w.history_inspector.toPlainText()
+    select(w, extrusion)
+    assert '#4 · Sketch 2 — Supporting face · End Face' in w.history_inspector.toPlainText()
+    assert '#5 · Extrusion 2 — Boolean target body · Cut' in w.history_inspector.toPlainText()

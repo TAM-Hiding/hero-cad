@@ -953,3 +953,25 @@ blank output is not counted as a successful render. Ubuntu 22.04/Nvidia and
 Wayland user-machine acceptance remain untested locally. No CI outcome is claimed
 by these local results. No schema, history/evaluation, geometry or viewport
 implementation changes.
+
+### Work order #029 — dependency inspector revisions (2026-10-27)
+
+Added explicit supporting-face, source-profile, Boolean target/tool and sketch-plane
+roles in both parent and dependent lists. UUIDs/profile IDs now occupy a secondary
+Technical identifiers section. No geometry engine or document-schema changes.
+
+- `.venv/bin/pytest tests/test_history_inspection.py -q`: **8 passed**.
+- `/tmp/hero29-run.sh .venv/bin/pytest -q`: **582 passed, 147 upstream
+  VTK/NumPy deprecation warnings, no skips**, 192.91 s. Uses the same XCB/Xvfb/Mesa
+  wrapper/environment described above, rebuilt from the existing dependency lock.
+- `.venv/bin/pip check`, compileall of src and inspector tests, and
+  `git diff --check`: passed.
+
+New coverage checks target/tool roles in both directions and a New Body extrusion
+with a downstream cap sketch/cut converted to Join. The joined feature remains
+valid; the original cap reference is retained and unresolved; the cut is blocked.
+Full diagnostics, ordered relationships, Undo/Redo recovery, save/reopen and actual
+History-tab synchronization are asserted. Automatic reference repair is neither
+required nor performed. Existing read-only, editing, selection, rendering and
+launcher regressions pass in the full run. Physical Nvidia/Wayland acceptance
+remains untested; no new visual screenshot review is claimed for this revision.

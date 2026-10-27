@@ -26,7 +26,7 @@ def test_order_direct_relationships_parameters_and_roles():
     assert 'History position: 1 of 3' in box_text
     assert 'Historical geometry · consumed' in box_text
     assert 'Direct parents:\nNone' in box_text
-    assert 'Direct dependents:\n#2 · Sketch 1\n#3 · Extrusion 1' in box_text
+    assert 'Direct dependents:\n#2 · Sketch 1 — Supporting face · +Z\n#3 · Extrusion 1 — Boolean target body · Cut' in box_text
     text = feature_history_text(doc, sketch)
     assert 'History position: 2 of 3' in text
     assert 'Direct parents:\n#1 · Box 1' in text
@@ -35,7 +35,7 @@ def test_order_direct_relationships_parameters_and_roles():
     assert 'Face: +Z' in text and 'Entities: 1 · 1 Circle' in text
     text = feature_history_text(doc, cut)
     assert 'Status: Valid' in text and 'Current resulting body' in text
-    assert 'Direct parents:\n#2 · Sketch 1\n#1 · Box 1' in text
+    assert 'Direct parents:\n#2 · Sketch 1 — Source profile sketch\n#1 · Box 1 — Boolean target body · Cut' in text
     assert 'Direct dependents:\nNone' in text
     assert 'Extent: Through All' in text and 'Direction: -1' in text
     assert 'not the evaluated Through All depth' in text
@@ -130,3 +130,70 @@ def test_missing_semantic_face_reports_reference_error_and_last_frame():
     assert 'Local frame (last resolved)' in text
     assert doc.statuses[attached].error in text
     assert 'Blocked by' not in text
+
+
+def joined_transition_chain():
+    """A source body with a face sketch/cut, before conversion to Join."""
+    from hero_cad.features import BoxParameters
+    doc = Document(BoxParameters(10, 10, 10))
+    box = doc.features[0].id
+    source = doc.add_sketch('XY')
+    circle = Circle(5, 5, 2)
+    doc.add_entity(source, circle)
+    extrusion = doc.add_extrusion(source, circle.id, distance=15)
+    attached = doc.add_face_sketch(FaceReference(extrusion, 'end'))
+    frame = doc.feature(attached).parameters.frame
+    x, y = frame.to_local((5, 5, 15))
+    hole = Circle(x, y, .5)
+    doc.add_entity(attached, hole)
+    cut = doc.add_extrusion(attached, hole.id, distance=-2,
+                            operation='cut', target_id=extrusion)
+    return doc, box, source, extrusion, attached, cut
+
+
+def convert_to_join(doc, box, source, extrusion):
+    f = doc.feature(extrusion)
+    doc.replace_feature(replace(f, references=(source, box),
+                                parameters=replace(f.parameters, operation='join', target_id=box)))
+
+
+def test_new_body_to_join_reports_downstream_faces_and_cuts_without_repair(tmp_path):
+    doc, box, source, extrusion, attached, cut = joined_transition_chain()
+    assert all(s.valid for s in doc.statuses.values())
+    attachment = doc.feature(attached).parameters.attachment
+    before = feature_history_text(doc, attached)
+    convert_to_join(doc, box, source, extrusion)
+    assert doc.statuses[extrusion].valid
+    text = feature_history_text(doc, extrusion)
+    assert '#2 · Sketch 1 — Source profile sketch' in text
+    assert '#1 · Box 1 — Boolean target body · Join' in text
+    assert '#4 · Sketch 2 — Supporting face · End Face' in text
+    assert '#5 · Extrusion 2 — Boolean target body · Cut' in text
+    assert text.index('Technical identifiers:') > text.index('Stored parameters:')
+    assert f'Feature UUID: {extrusion}' in text
+    assert doc.feature(attached).parameters.attachment == attachment
+    assert not doc.statuses[attached].valid
+    assert 'Status: Unresolved' in feature_history_text(doc, attached)
+    assert doc.statuses[attached].error in feature_history_text(doc, attached)
+    assert 'Status: Blocked by unresolved dependencies' in feature_history_text(doc, cut)
+    assert doc.statuses[cut].error in feature_history_text(doc, cut)
+    failed = [feature_history_text(doc, f.id) for f in doc.features]
+    doc.undo()
+    assert feature_history_text(doc, attached) == before
+    assert all(s.valid for s in doc.statuses.values())
+    doc.redo()
+    assert [feature_history_text(doc, f.id) for f in doc.features] == failed
+    doc.save(tmp_path / 'joined-history.starcad')
+    loaded = Document.load(doc.path)
+    assert [feature_history_text(loaded, f.id) for f in loaded.features] == failed
+    assert loaded.feature(attached).parameters.attachment == attachment
+
+
+def test_combine_reports_target_and_tool_roles_in_both_directions():
+    doc, _, _, result = failed_boolean()
+    p = doc.feature(result).parameters
+    text = feature_history_text(doc, result)
+    assert '#1 · Box 1 — Boolean target body' in text
+    assert '#3 · Extrusion 1 — Boolean tool body' in text
+    assert '#4 · Combine 1 — Boolean target body' in feature_history_text(doc, p.target_id)
+    assert '#4 · Combine 1 — Boolean tool body' in feature_history_text(doc, p.tool_ids[0])

@@ -26,13 +26,31 @@ def feature_history_text(document, identifier):
             return f'{ref[6:]} origin plane'
         return f'Missing reference: {ref}'
 
+    def dependency_role(child, parent_id):
+        p = child.parameters
+        if child.type == 'sketch':
+            if p.attachment and p.attachment.parent_id == parent_id:
+                face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face',
+                        'evaluated': 'Evaluated Planar Face'}.get(p.attachment.face, p.attachment.face)
+                return f'Supporting face · {face}'
+            return 'Sketch plane' if parent_id.startswith('plane:') else 'Sketch dependency'
+        if child.type == 'extrude':
+            if parent_id == p.sketch_id:
+                return 'Source profile sketch'
+            if parent_id == p.target_id:
+                return f'Boolean target body · {p.operation.title()}'
+        if child.type == 'boolean':
+            return 'Boolean target body' if parent_id == p.target_id else 'Boolean tool body'
+        return 'Feature dependency'
+
     status = document.statuses[identifier]
     blocked = [ref for ref in feature.references
                if ref in document.statuses and not document.statuses[ref].valid]
     state = 'Valid' if status.valid else 'Blocked by unresolved dependencies' if blocked else 'Unresolved'
     lines = [labels[identifier], f'Type: {TYPE_LABELS[feature.type]}',
              f'History position: {positions[identifier]} of {len(document.features)}',
-             f'Feature ID: {identifier}', '', f'Status: {state}']
+             '', f'Status: {state}']
+    identifiers = [f'Feature UUID: {identifier}']
     if feature.type != 'sketch':
         role = ('Current resulting body' if identifier in document.active_body_ids else
                 'Historical geometry · consumed by a later operation') if status.valid else 'No evaluated output'
@@ -48,12 +66,12 @@ def feature_history_text(document, identifier):
         lines.extend(['', 'Regeneration error:', status.error])
 
     lines.extend(['', 'Direct parents:'])
-    lines.extend(reference_label(ref) for ref in feature.references)
+    lines.extend(f'{reference_label(ref)} — {dependency_role(feature, ref)}' for ref in feature.references)
     if not feature.references:
         lines.append('None')
     lines.extend(['', 'Direct dependents:'])
     dependents = [f.id for f in document.features if identifier in f.references]
-    lines.extend(reference_label(ref) for ref in dependents)
+    lines.extend(f'{reference_label(ref)} — {dependency_role(definitions[ref], identifier)}' for ref in dependents)
     if not dependents:
         lines.append('None')
 
@@ -71,9 +89,9 @@ def feature_history_text(document, identifier):
             strategy = 'Checked geometry snapshot' if ref.snapshot else 'Source ancestry and witness' if ref.support else 'Semantic / exact face reference'
             lines.extend([f'Attachment: {strategy}', f'Face: {ref.face}'])
             if ref.boundary_id:
-                lines.append(f'Boundary ID: {ref.boundary_id}')
+                identifiers.append(f'Boundary ID: {ref.boundary_id}')
             if ref.segment:
-                lines.append(f'Face segment / signature: {ref.segment}')
+                identifiers.append(f'Face segment / signature: {ref.segment}')
         lines.append('Local frame' + (' (last resolved)' if not status.valid and p.attachment else '') + ':')
         lines.extend([f'Origin: ({vector(p.frame.origin)}) mm', f'U direction: ({vector(p.frame.u)})',
                       f'V direction: ({vector(p.frame.v)})'])
@@ -91,11 +109,13 @@ def feature_history_text(document, identifier):
             lines.append(f'Signed distance: {number(p.distance)} mm')
         if p.target_id:
             lines.append(f'Target: {reference_label(p.target_id)}')
-        lines.extend([f'Outer boundary ID: {p.outer_id}', f'Hole boundary IDs ({len(p.hole_ids)}):'])
-        lines.extend(p.hole_ids or ('None',))
-        lines.append(f'Line member IDs ({len(p.line_ids)}):')
-        lines.extend(p.line_ids or ('None',))
+        lines.append(f'Source profile: 1 outer boundary, {len(p.hole_ids)} hole boundaries, {len(p.line_ids)} line members')
+        identifiers.extend([f'Outer boundary ID: {p.outer_id}', f'Hole boundary IDs ({len(p.hole_ids)}):'])
+        identifiers.extend(p.hole_ids or ('None',))
+        identifiers.append(f'Line member IDs ({len(p.line_ids)}):')
+        identifiers.extend(p.line_ids or ('None',))
     elif feature.type == 'boolean':
         lines.extend([f'Operation: {p.operation.title()}', f'Target: {reference_label(p.target_id)}', 'Tools:'])
         lines.extend(reference_label(ref) for ref in p.tool_ids)
+    lines.extend(['', 'Technical identifiers:', *identifiers])
     return '\n'.join(lines)
