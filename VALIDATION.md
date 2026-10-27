@@ -849,3 +849,59 @@ installed into the user's real desktop directories during these checks.
 Preference audit/defaults and settings review: [docs/PREFERENCES.md](docs/PREFERENCES.md).
 Launcher setup, diagnostics, updates/rebuilds/moves/removal and Ubuntu checklist:
 [docs/DESKTOP_LAUNCHER.md](docs/DESKTOP_LAUNCHER.md).
+
+
+## Work Order #028 — parametric history audit and foundation
+
+Baseline: merged PR #27, `e9b13ff9f0dcd24d9f94e49b8b265a293ed87c16`.
+See [the current architecture/capability audit and roadmap](docs/PARAMETRIC_HISTORY_AUDIT.md).
+Production changes are limited to history-restoration semantics and final-compound
+atomicity/error wrapping in `Document`; no UI, kernel algorithm, schema or
+repository dependency changes.
+
+Environment: Ubuntu 24.04.3 x86-64, Python 3.12.14, PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1, VTK 9.6.2, pytest 8.3.5. The final virtual environment
+excludes system site packages and uses the existing `requirements-dev.lock`.
+Editable installation with `--no-deps` succeeded.
+
+Final focused command:
+
+```bash
+QT_QPA_PLATFORM=offscreen .venv/bin/pytest \
+  tests/test_history_foundation.py tests/test_document.py tests/test_sketch.py \
+  tests/test_sketch_editing.py tests/test_extrusion.py tests/test_booleans.py \
+  tests/test_line_profiles.py tests/test_face_attachments.py \
+  tests/test_evaluated_faces.py tests/test_persistent_references.py \
+  tests/test_current_face_references.py -q
+```
+
+**247 passed in 21.26 s, no skips or warnings.** These are model/kernel tests;
+Qt is imported by the shared test fixtures, but no desktop rendering is claimed.
+The required `tests/test_document.py` checks are included.
+
+- New regression file: seven cases. Against the unmodified baseline document
+  implementation, **5 failed, 2 passed**. The failures reproduce deleted failed
+  Boolean/line-extrusion restoration and final-compound errors during edit,
+  Undo and Redo. All seven pass with the corrections.
+- Tests assert retained feature definitions/statuses, missing invalid output,
+  exact cache identity and stack preservation after failed publication, recovery,
+  valid OCCT solids and volume, attachment motion, batch deletion and reopening.
+- Existing suites cover upstream edits, signed caps/side attachments, Boolean
+  chains, missing/forward references, invalid schema data, legacy persistence,
+  ancestry split/merge ambiguity and enumeration-order independence.
+- `.venv/bin/python -m pip check`: **No broken requirements found**.
+- `.venv/bin/python -m compileall -q src tests/test_history_foundation.py` and
+  `git diff --check`: passed.
+
+An earlier exploratory invocation also included `tests/test_sketch_visibility.py`:
+**247 passed, 5 failed**, with all five pixel-render tests producing blank output.
+VTK reported no X server and failed OpenGL initialization under Qt offscreen.
+Xvfb is absent; installing it with apt was blocked by this container's UID/group
+restrictions. No rendering tests were weakened or production graphics code changed.
+The final focused command excludes that unrelated rendering file. A full Xvfb
+suite and physical Ubuntu/Nvidia acceptance have **not** been run locally for
+this PR. The existing Ubuntu 22.04/24.04 CI workflow remains unchanged.
+
+The initial environment inherited an unrelated system CadQuery package with an
+incompatible OCP pin. Disabling system-site inheritance and installing the existing
+lock file resolved that environment-only conflict; the final pip check is clean.

@@ -281,3 +281,13 @@ SVG. No substitute logo is generated. The launcher uses this virtual environment
 without terminal activation or root permissions. Repeat setup after moving or
 rebuilding the environment. Remove it using `hero-cad-install-launcher --uninstall`.
 See [setup, maintenance and desktop checks](docs/DESKTOP_LAUNCHER.md).
+
+
+### Parametric history foundation (Work Order #028)
+
+The [history audit](docs/PARAMETRIC_HISTORY_AUDIT.md) inventories ordered features,
+dependencies, face references, regeneration, Undo/Redo, persistence and browser
+coverage, with a staged roadmap for inspection and repair. Undo now restores
+previously accepted unresolved operations after deletion; final model assembly
+failures preserve all published state and report a document error. The existing
+history architecture and file formats are retained.

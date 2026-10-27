@@ -47,7 +47,7 @@ class Document:
     def feature(self, identifier):
         return next(f for f in self.features if f.id == identifier)
 
-    def _regenerate(self, features):
+    def _regenerate(self, features, *, restoring=False):
         if not 1 <= len(features) <= 1000:
             raise FeatureError('document', 'Expected 1–1000 features')
         known = {'plane:XY', 'plane:XZ', 'plane:YZ'}
@@ -55,7 +55,9 @@ class Document:
         if sum(f.type == 'box' for f in features) != 1:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
         entity_ids, active = set(), set()
-        existing = {f.id for f in self.features} if hasattr(self, 'statuses') else None
+        # Restored snapshots may contain failed features deleted from the current
+        # model. They are accepted history, not newly requested operations.
+        existing = {f.id for f in self.features} if hasattr(self, 'statuses') and not restoring else None
         face_maps, lineages, resolved, source_faces = {}, {}, [], {}
         inputs = {f.id: f for f in features}
         for feature in features:
@@ -151,8 +153,13 @@ class Document:
                 raise FeatureError(feature.id, str(error)) from error
         if entity_ids.intersection(f.id for f in features):
             raise FeatureError('document', 'Entity and feature identifiers must be distinct')
+        # Construct the final display-independent compound before publishing any
+        # candidate cache. A failure must preserve the entire previous model.
+        try:
+            shape = compound(solids[i] for i in solids if i in active)
+        except Exception as error:
+            raise FeatureError('document', str(error)) from error
         self.active_body_ids = frozenset(active)
-        shape = compound(solids[i] for i in solids if i in active)
         self._regenerated_features, self.face_maps = tuple(resolved), face_maps
         self.face_lineages, self.source_faces = lineages, source_faces
         return shape, sketch_shapes, statuses, solids
@@ -303,7 +310,7 @@ class Document:
             return
         features = source[-1]
         try:
-            shape, sketch_shapes, statuses, solids = self._regenerate(features)
+            shape, sketch_shapes, statuses, solids = self._regenerate(features, restoring=True)
         except FeatureError as error:
             self.last_failure = error
             raise

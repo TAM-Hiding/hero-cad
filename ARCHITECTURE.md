@@ -295,3 +295,15 @@ entry point. It requires supplied approved artwork; none is invented/bundled.
 The app declares its desktop-file identity and loads the installed icon. No
 standalone packaging, system-wide installer or geometry/schema change is added.
 See docs/DESKTOP_LAUNCHER.md for startup and maintenance limits.
+
+
+## Work Order #028 — history foundation audit
+
+For the consolidated current behavior (including features added after the early
+milestone sections), see [PARAMETRIC_HISTORY_AUDIT.md](docs/PARAMETRIC_HISTORY_AUDIT.md).
+`Document._restore` explicitly evaluates accepted history snapshots, allowing
+recoverable failures for features absent from the current document. Ordinary new
+operation validation stays unchanged. Final compound construction completes before
+publishing active-body/reference caches; failure becomes a document FeatureError
+and leaves the previous state and stacks intact. No graph, timeline or persistence
+rewrite is introduced.
