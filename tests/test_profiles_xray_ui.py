@@ -90,10 +90,24 @@ def test_xray_menu_toolbar_sketch_transitions_and_history_do_not_reset_mode(qtbo
     assert v.actor.GetProperty().GetOpacity() == (1 if mode == 'Off' else .85)
     assert d.features == before and len(d._undo) == history and not d.dirty
     sid = enter(w)
-    assert v.xray_mode == mode and v.actor.GetProperty().GetOpacity() == (.35 if mode == 'Off' else .85)
+    assert v.xray_mode == mode and v.actor.GetProperty().GetOpacity() == w.preference_store.get('viewport/v1/sketch_opacity') / 100
     assert v.sketch.actor.GetProperty().GetOpacity() == 1
     d.add_entity(sid, Circle(10, 10, 2)); w.refresh()
-    assert v.actor.GetProperty().GetOpacity() == (.35 if mode == 'Off' else .85)
+    assert v.actor.GetProperty().GetOpacity() == w.preference_store.get('viewport/v1/sketch_opacity') / 100
+    # Sketch opacity takes precedence over explicit model X-Ray modes while
+    # editing. The selected mode remains synchronized and resumes on Finish.
+    for opacity in (0, 23, 100):
+        w.preference_store.set('viewport/v1/sketch_opacity', opacity)
+        assert v.actor.GetProperty().GetOpacity() == opacity / 100
+        assert v.xray_mode == mode == w.xray_choice.currentText()
+        assert w.xray_actions[mode].isChecked()
+    w.preference_store.set('viewport/v1/sketch_xray', False)
+    assert v.actor.GetProperty().GetOpacity() == 1
+    assert w.preference_store.get('viewport/v1/sketch_opacity') == 100
+    w.preference_store.set('viewport/v1/sketch_opacity', 23)
+    assert v.actor.GetProperty().GetOpacity() == 1
+    w.preference_store.set('viewport/v1/sketch_xray', True)
+    assert v.actor.GetProperty().GetOpacity() == .23
     w.finish_sketch()
     assert v.xray_mode == mode and v.actor.GetProperty().GetOpacity() == (1 if mode == 'Off' else .85)
     w.undo(); w.redo()

@@ -33,7 +33,7 @@ def test_active_entities_remain_visible_selectable_and_at_exact_plane(qtbot,plan
     assert v.sketch.foreground_actor.GetProperty().GetLineWidth()==1
     assert bool(v.mapper.GetInput().GetNumberOfCells())==body
     if body:
-        assert v.actor.GetProperty().GetOpacity()==.85
+        assert v.actor.GetProperty().GetOpacity()==w.preference_store.get('viewport/v1/sketch_opacity')/100
         v.sketch.foreground_actor.VisibilityOff()
         legacy=capture(v)
         v.sketch.foreground_actor.VisibilityOn()

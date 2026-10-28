@@ -35,6 +35,7 @@ class MainWindow(QMainWindow):
         self.entity_context = None
         self.browser_key = None
         self.viewport = Viewport(self)
+        self.viewport.update_support_face = self.update_sketch_face
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
         self.browser.setColumnCount(2)
@@ -518,6 +519,10 @@ class MainWindow(QMainWindow):
         self.viewport.sketch.update(self.viewport.sketch.features)
         self.viewport.GetRenderWindow().Render()
         self.update_status()
+
+    def update_sketch_face(self):
+        from hero_cad.ui.support_face import update_support_face
+        update_support_face(self)
 
     def display_solids(self, fit=False):
         shapes = [shape for identifier, shape in self.document.solid_shapes.items()
@@ -1155,4 +1160,3 @@ class MainWindow(QMainWindow):
         self.tool_island.save_layout()
         self.viewport.Finalize()
         super().closeEvent(event)
-

@@ -99,6 +99,9 @@ class PreferencesDialog(QDialog):
         self.update_enabled()
 
     def update_enabled(self):
+        opacity = self.controls.get('viewport/v1/sketch_opacity')
+        if opacity:
+            opacity.setEnabled(self.preferences.get('viewport/v1/sketch_xray'))
         control = self.controls.get('grid/v1/manual_spacing')
         if control:
             control.setEnabled(not self.preferences.get('grid/v1/automatic'))
