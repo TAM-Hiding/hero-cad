@@ -39,9 +39,22 @@ text tooltip. Panel size changes re-clamp to the available screen.
 This is a presentation mode of the same OperationPanel, using the same operation,
 target, definition, candidate Document, preview actor and transaction methods.
 There is no second extrusion implementation. Existing **Edit Operation**, Combine
-and feature Properties remain available in their established dock/editor. New
-Body is still the initial creation default; a negative distance never implicitly
-changes the operation to Cut. Missing targets and invalid Boolean results remain
+and feature Properties remain available in their established dock/editor.
+
+## Context-aware defaults (Work Order #030)
+
+New extrusions default to **Join** when the source sketch has a resolved face
+attachment whose explicit owner is an eligible current target body. That owner
+is preselected even when other bodies are available. Origin-plane sketches and
+unavailable/consumed attachment owners default to **New Body**; no target is
+inferred from proximity, history order or successor bodies. The existing hidden
+base-box target exclusion still applies. An unresolved attachment cannot suggest
+Join. Defaults are initialized once per new extrusion, are not remembered as a
+preference, and never override manual operation changes or stored feature edits.
+Attachment does not guarantee contact: the existing preview must validate the
+actual joined result before Apply. Invalid Join keeps its diagnostic and can be
+changed manually; a negative distance never implicitly changes the operation to
+Cut. Missing targets and invalid Boolean results remain
 validation failures. Undo/Redo and save/reopen retain normal feature semantics.
 
 ## Confirmed sketch interaction/display causes

@@ -975,3 +975,39 @@ History-tab synchronization are asserted. Automatic reference repair is neither
 required nor performed. Existing read-only, editing, selection, rendering and
 launcher regressions pass in the full run. Physical Nvidia/Wayland acceptance
 remains untested; no new visual screenshot review is claimed for this revision.
+
+## Work Order #030 — context-aware extrusion defaults
+
+Baseline: `037d181` (merged PR #29). Only new-operation initialization changes:
+a resolved face sketch suggests its eligible current attachment owner as Join.
+Origin planes, unavailable/consumed owners, and unresolved attachments keep New
+Body. Existing preview/Boolean validation, feature editing and history are reused.
+An older recovery test now explicitly chooses New Body for its New Body scenario.
+
+Environment: CPython 3.12, project-pinned PySide6/OCP/VTK and pytest/pytest-qt in
+`.venv`, with shared runtime packages. Xvfb and its X11 helpers were extracted
+locally because system package installation is unavailable. Each GUI test run
+starts Xvfb in the same command, with a 1280x1024x24 screen, TCP localhost display
+(`-ac -nolisten unix -listen tcp`), `QT_QPA_PLATFORM=xcb`,
+`LIBGL_ALWAYS_SOFTWARE=1`, and the extracted X11 library directory on
+`LD_LIBRARY_PATH`. This is the README's software-rendered XCB/Xvfb test setup
+with a local executable/display transport adaptation.
+
+- `.venv/bin/pytest tests/test_extrusion_defaults_ui.py -q` under Xvfb:
+  **11 passed**. Covers both panel presentations, actual valid joined volume,
+  origin/ambiguous targets, a non-first explicit owner, manual New/Join/Cut,
+  stored feature edits, failed Join without commit, hidden/consumed owners,
+  unresolved attachments, Undo/Redo, and accepted operation/target persistence.
+- `.venv/bin/pytest tests/test_document.py -q`: **23 passed**.
+- `pip check` reports the runtime's unrelated preinstalled `cadquery 2.7.0`
+  requires OCP <7.9; HERO-CAD uses direct OCP 7.9.3.1.1 and does not import the
+  CadQuery framework. No project dependency or lockfile was changed.
+
+No physical desktop/Nvidia/Wayland acceptance or new screenshot review is claimed.
+No successor-body inference, geometric target search, or reference repair is added.
+
+- Full `.venv/bin/pytest -q` under the Xvfb setup above: **592 passed,
+  1 skipped in 196.38 s**. The sole skip is the existing desktop-file validator
+  check because `desktop-file-validate` is not installed. Existing extrusion,
+  Boolean, face attachment, history, UI and nonblank-render regressions passed.
+- `git diff --check`: passed.

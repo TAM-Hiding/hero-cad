@@ -122,6 +122,17 @@ class OperationPanel(QDockWidget):
             self.distance.setValue(10)
             self.extent.setCurrentIndex(0)
             self.direction.setCurrentIndex(1)
+            if source:
+                sketch = d.feature(source[0])
+                attachment = sketch.parameters.attachment
+                # Only the explicit, resolved attachment owner is evidence of
+                # intent. Never substitute a historical owner's successor or
+                # infer a target from body order/proximity. Preview still
+                # validates the actual Join before anything can be committed.
+                if (attachment is not None and d.statuses[sketch.id].valid
+                        and attachment.parent_id in eligible):
+                    self.operation.setCurrentIndex(self.operation.findData('join'))
+                    self.target.setCurrentIndex(self.target.findData(attachment.parent_id))
         self.quick_mode = bool(quick and source and not feature)
         with QSignalBlocker(self.quick_distance):
             self.quick_distance.setText(format(self.distance.value(),'.15g'))
