@@ -290,6 +290,7 @@ class Viewport(QVTKRenderWindowInteractor):
     def apply_solid_style(self):
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
+        # Editing owns opacity; explicit model X-Ray resumes after Finish.
         opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (.85 if explicit else 1.)
         self.actor.GetProperty().SetOpacity(opacity)
         self.edge_actor.GetProperty().SetOpacity(opacity)
