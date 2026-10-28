@@ -18,6 +18,7 @@ from hero_cad.ui.operation_panel import OperationPanel
 from hero_cad.ui.commands import CommandRegistry
 from hero_cad.ui.tool_island import ToolIsland
 from hero_cad.history_inspection import feature_history_text
+from hero_cad.ui.feature_icons import feature_icon
 
 
 class MainWindow(QMainWindow):
@@ -808,6 +809,7 @@ class MainWindow(QMainWindow):
                 if not status.valid and 'UNRESOLVED' not in item.text(0):
                     item.setText(0, item.text(0) + ' · UNRESOLVED')
                 item.setToolTip(0, "Valid · " + feature.id if status.valid else status.error)
+                item.setIcon(0, feature_icon(feature))
                 item.setData(0, Qt.UserRole, key)
                 self.browser_items[key] = item
             body.setExpanded(True)
@@ -1153,3 +1155,4 @@ class MainWindow(QMainWindow):
         self.tool_island.save_layout()
         self.viewport.Finalize()
         super().closeEvent(event)
+
