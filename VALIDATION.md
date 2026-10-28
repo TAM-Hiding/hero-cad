@@ -1028,3 +1028,10 @@ See docs/SKETCH_COMMIT_PERFORMANCE.md for reproducible fixtures, measured CPU
 latencies, call-path diagnosis, rejected optimization and remaining limitations.
 Production code is unchanged. Final focused run: 75 passed using
 `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/test_line_profiles.py tests/test_sketch_editing.py tests/test_document.py -q`.
+
+## Work Order 033 — Sketch presentation
+
+- Viewport preferences: Enable Sketch X-Ray (on), Sketch X-Ray Opacity (35%, 0–100), Highlight Active Sketch Face (on). Changes apply immediately and persist via existing Preferences. Disabled X-Ray retains its saved opacity and uses normal solid opacity during editing; explicit model-view X-Ray remains unchanged outside editing.
+- Support overlay resolves the stored reference and extracts triangles from the existing solid display mesh. It is non-pickable and excluded from bounds. A presentation key includes the document, support reference and immutable definitions through its owner; leaf entity commits reuse the overlay without extra tessellation. No geometry, regeneration, serialization or history changes.
+- Limitation: hidden or historical supports without displayed face triangles receive no highlight; no replacement face or reconstructed geometry is invented. Native visual appearance, rendered picking, and grid legibility require desktop validation.
+- Native offscreen UI run aborted in this host's unavailable OpenGL backend. CPU/state validation with QVTK Render and paintEvent disabled: 21 passed (`tests/test_sketch_presentation_ui.py tests/test_preferences_ui.py`). Covers defaults, live opacity, explicit model X-Ray restoration, persistence, controls, support switching/removal, unresolved support, frame preservation and mesh reuse. No GPU-rendering claim. Two render-dependent reference-visibility checks failed with drawing disabled as expected; that is not visual validation. Full suite not run.

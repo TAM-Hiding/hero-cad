@@ -46,6 +46,9 @@ class Viewport(QVTKRenderWindowInteractor):
         self.selection_mode = 'face'
         self.display_mode = 'Shaded with CAD Edges'
         self.xray_mode = 'Off'
+        self.sketch_xray = True
+        self.sketch_opacity = .35
+        self.sketch_face_enabled = True
         self.contrast_mode = 'Auto'
         self.planar_normals = []
         self.solid_visible = True
@@ -82,6 +85,14 @@ class Viewport(QVTKRenderWindowInteractor):
         self.highlight_mapper.SetResolveCoincidentTopologyToPolygonOffset()
         self.highlight_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
         self.highlight_mapper.SetRelativeCoincidentTopologyLineOffsetParameters(0, -2)
+        self.support_mapper, self.support_actor = self.add_actor((230/255, 160/255, 75/255))
+        self.support_actor.PickableOff()
+        self.support_actor.UseBoundsOff()
+        self.support_actor.VisibilityOff()
+        self.support_actor.GetProperty().LightingOff()
+        self.support_actor.GetProperty().SetOpacity(.3)
+        self.support_mapper.SetResolveCoincidentTopologyToPolygonOffset()
+        self.support_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
         camera = self.renderer.GetActiveCamera()
         camera.SetPosition(1, -1, 1)
         camera.SetViewUp(0, 0, 1)
@@ -279,7 +290,7 @@ class Viewport(QVTKRenderWindowInteractor):
     def apply_solid_style(self):
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
-        opacity = .85 if explicit else .35 if editing else 1.
+        opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (.85 if explicit else 1.)
         self.actor.GetProperty().SetOpacity(opacity)
         self.edge_actor.GetProperty().SetOpacity(opacity)
         contrast = self.high_contrast()

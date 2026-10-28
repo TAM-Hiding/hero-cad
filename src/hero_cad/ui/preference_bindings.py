@@ -43,6 +43,17 @@ def bind_preferences(w):
         w.tool_island.preferred_position = QPoint(x, y) if x is not None and y is not None else None
         w.tool_island.apply_geometry()
 
+    def sketch_presentation(_):
+        v = w.viewport
+        v.sketch_xray = store.get('viewport/v1/sketch_xray')
+        v.sketch_opacity = store.get('viewport/v1/sketch_opacity') / 100
+        v.sketch_face_enabled = store.get('viewport/v1/sketch_face')
+        v.apply_solid_style()
+        w.update_sketch_face()
+        v.GetRenderWindow().Render()
+
+    for key in ('viewport/v1/sketch_xray', 'viewport/v1/sketch_opacity', 'viewport/v1/sketch_face'):
+        setters[key] = sketch_presentation
     setters.update({'viewport/v1/contrast': contrast, 'viewport/v1/display_mode': display,
                     'tool_island/v1/size': w.tool_island.set_preset,
                     'tool_island/v1/collapsed': w.tool_island.set_collapsed,

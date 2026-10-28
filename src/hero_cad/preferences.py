@@ -40,6 +40,9 @@ class Preference:
 
 CATEGORIES = ('Appearance', 'Grid & Snapping', 'Viewport', 'Sketching', 'Interface')
 PREFERENCES = {
+    'viewport/v1/sketch_xray': Preference('Viewport', 'Enable Sketch X-Ray', True, bool),
+    'viewport/v1/sketch_opacity': Preference('Viewport', 'Sketch X-Ray Opacity (%)', 35, int),
+    'viewport/v1/sketch_face': Preference('Viewport', 'Highlight Active Sketch Face', True, bool),
     'viewport/v1/contrast': Preference('Appearance', 'High-Contrast Geometry', 'Auto', str, ('Off', 'Auto', 'Always')),
     'grid/v1/grid_visible': Preference('Grid & Snapping', 'Show grid', True, bool),
     'grid/v1/color': Preference('Grid & Snapping', 'Grid color', 'Light Grey', str, ('Light Grey', 'White', 'Orange', 'Purple', 'Celadon')),

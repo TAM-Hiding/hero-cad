@@ -96,6 +96,8 @@ class SketchView:
         if self.feature:
             self.origin_actor.SetPosition(*self.feature.parameters.frame.origin)
         self.guides.update()
+        if hasattr(self.viewport, 'update_support_face'):
+            self.viewport.update_support_face()
         self.viewport.clamp_zoom()
 
     @property
