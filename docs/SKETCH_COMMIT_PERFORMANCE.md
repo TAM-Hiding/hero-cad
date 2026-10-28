@@ -67,3 +67,9 @@ CPU profiling disables Render and cannot establish interactive GPU latency.
 The full suite was not run. Reproduce on the user's real document and desktop
 before selecting a broader optimization. Baseline and final production behavior
 are identical; no before/after speedup is claimed for this PR.
+
+## Work Order 034 follow-up
+
+The coordinated, entity-only leaf-sketch optimization and new measurements are
+documented in [LEAF_SKETCH_COMMIT_PERFORMANCE.md](LEAF_SKETCH_COMMIT_PERFORMANCE.md).
+The rejected mesh-only shortcut above remains rejected.

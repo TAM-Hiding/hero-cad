@@ -1048,3 +1048,46 @@ Updated the five obsolete expectations and extended the existing transition
 test across Off/Celadon/Orange with configured 0/23/100%, disable/re-enable,
 retained values and mode synchronization assertions. No opacity logic changed;
 added a precedence comment at the existing single decision point.
+
+
+## Work Order #034 — coherent leaf-sketch entity commits
+
+Baseline `37f3404` (merged PR #33). A single resolved, unused sketch's entity-only
+edit now evaluates just that sketch and retains the entire evaluated solid state.
+Entity commits/property application reuse display meshes and picking maps only
+when document/solid compound identity and base visibility still match. Changed
+solid definitions, consumed sketches, unresolved histories and Undo/Redo retain
+full regeneration. No schema/dependency/rendering architecture change.
+
+Environment: Ubuntu 24.04 host, Python 3.12.14, PySide6 6.8.3, OCCT 7.9.3.1.1,
+VTK 9.6.2; isolated .venv. `pip check`: no broken requirements.
+
+Commands/results:
+
+- `.venv/bin/pytest tests/test_leaf_sketch_commit.py tests/test_document.py -q`:
+  27 passed initially; final expanded leaf-only run: 5 passed.
+- Full suite: `DISPLAY=127.0.0.1:93 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+  .venv/bin/pytest -q`: **612 passed, 1 skipped**, 199.01 s. The skip is the
+  unavailable desktop-file-utils launcher validator, unrelated to modeling.
+- After the final selection-clearing parity change and additional Boolean
+  persistence/picking assertions, ran `tests/test_leaf_sketch_commit.py`,
+  `tests/test_leaf_sketch_commit_ui.py`, `tests/test_sketch_presentation_ui.py`
+  and `tests/test_viewport.py`: **21 passed**, 10.13 s.
+- This host disallows Unix display sockets; the literal README `xvfb-run` could
+  not connect. Tests used the same software-OpenGL/XCB setup with Xvfb listening
+  on local TCP in the test process's namespace:
+  `Xvfb :93 -listen tcp -nolisten unix -nolisten local -ac -screen 0 1280x1024x24`.
+  Real rendering and native face/edge picks ran; Render was not stubbed in tests.
+- Sequential baseline/current five-sample CPU benchmarks:
+  `QT_QPA_PLATFORM=offscreen PYTHONPATH=<baseline>/src:. .venv/bin/python
+  tools/benchmark_leaf_sketch_commit.py`, then the same with `PYTHONPATH=.:src`.
+  GPU Render disabled only for these measurements. Detailed stage medians and
+  reproduction are in `docs/LEAF_SKETCH_COMMIT_PERFORMANCE.md`.
+  75 features/10 entities: 335.501 -> 5.443 ms;
+  100/10: 431.066 -> 5.778 ms; eight Cuts: 270.442 -> 3.250 ms.
+- `git diff --check`: clean.
+
+Full-suite warnings are existing VTK/NumPy 2.5 array-shape deprecations. No
+strict timing assertions. User test8.starcad was unavailable. Desktop feel on
+that stress model remains a manual check; consumed sketches/history retain
+expensive full regeneration. No private model files were added.
