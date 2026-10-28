@@ -25,7 +25,7 @@ def test_new_body_undo_face_pick_cut_and_repeated_history(qtbot):
     sid = d.add_face_sketch(FaceReference(box,'+Z'))
     c = Circle(10,10,2); d.add_entity(sid,c); w.refresh(fit=True)
     p = w.operation_panel
-    p.open(source=(sid,c.id,())); p.distance.setValue(-5)
+    p.open(source=(sid,c.id,())); choose(p.operation,'new'); p.distance.setValue(-5)
     assert p.preview() and p.commit()
     new = d.features[-1].id
     # Clearing the profile highlight alone used to leave this click router active.
