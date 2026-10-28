@@ -164,6 +164,39 @@ class Document:
         self.face_lineages, self.source_faces = lineages, source_faces
         return shape, sketch_shapes, statuses, solids
 
+    def _leaf_sketch_shapes(self, features):
+        """Evaluate one entity-only leaf edit without replacing any solid state.
+
+        Definitions/references remain authoritative. Anything outside this narrow
+        boundary (including unresolved history) uses ordered regeneration.
+        Return a candidate sketch map; publish nothing until evaluation succeeds.
+        """
+        if len(features) != len(self.features) or not all(s.valid for s in self.statuses.values()):
+            return None
+        changes = [(old, new) for old, new in zip(self.features, features) if old != new]
+        if len(changes) != 1:
+            return None
+        old, new = changes[0]
+        if old.type != 'sketch' or new.type != 'sketch':
+            return None
+        if replace(new, parameters=replace(new.parameters, entities=old.parameters.entities)) != old:
+            return None
+        if any(old.id in f.references for f in features):
+            return None
+        # Match full regeneration's global entity/feature identifier validation.
+        identifiers = {f.id for f in features} | {'plane:XY', 'plane:XZ', 'plane:YZ'}
+        for feature in features:
+            if feature.type == 'sketch':
+                for entity in feature.parameters.entities:
+                    if entity.id in identifiers:
+                        raise FeatureError(feature.id, 'Duplicate entity identifier')
+                    identifiers.add(entity.id)
+        try:
+            shape = make_sketch(new.parameters)
+        except Exception as error:
+            raise FeatureError(new.id, str(error)) from error
+        return {**self.sketch_shapes, new.id: shape}
+
     def set_features(self, features):
         features = tuple(features)
         if features == self.features:
@@ -175,7 +208,12 @@ class Document:
                 shape, sketch_shapes, statuses, solids = self.shape, self.sketch_shapes, self.statuses, self.solid_shapes
                 self._regenerated_features = features
             else:
-                shape, sketch_shapes, statuses, solids = self._regenerate(features)
+                sketch_shapes = self._leaf_sketch_shapes(features)
+                if sketch_shapes is None:
+                    shape, sketch_shapes, statuses, solids = self._regenerate(features)
+                else:
+                    shape, statuses, solids = self.shape, self.statuses, self.solid_shapes
+                    self._regenerated_features = features
         except FeatureError as error:
             self.last_failure = error
             raise

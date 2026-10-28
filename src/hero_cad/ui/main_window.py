@@ -532,8 +532,9 @@ class MainWindow(QMainWindow):
         self.visible_volume = volume(visible)
         self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
         self.viewport.set_shape(visible, fit=fit)
+        self._displayed_solid_state = (self.document, self.document.shape, self.show_base_box.isChecked())
 
-    def refresh(self, fit=False):
+    def refresh(self, fit=False, *, reuse_unchanged_solids=False):
         if hasattr(self, 'operation_panel') and self.operation_panel.active:
             self.operation_panel.cancel()
         self.viewport.dimensions.reset()
@@ -550,7 +551,17 @@ class MainWindow(QMainWindow):
                 field.setToolTip(f"Stored dimension: {getattr(self.document.parameters, name):.15g} mm")
         # Preserve untouched loaded values even if the editor displays fewer decimals.
         self._shown_values = {n: f.value() for n, f in self.fields.items()}
-        self.display_solids(fit=fit)
+        # Entity commits may retain the entire evaluated solid state. Keep its
+        # meshes AND picking maps together, never meshes over regenerated shapes.
+        previous = getattr(self, '_displayed_solid_state', None)
+        unchanged = (previous is not None and previous[0] is self.document
+                     and previous[1] is self.document.shape
+                     and previous[2] == self.show_base_box.isChecked())
+        if (fit or not reuse_unchanged_solids
+                or not unchanged):
+            self.display_solids(fit=fit)
+        else:
+            self.viewport.clear_selection(render=False)
         self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
         scope = self.viewport.profiles.scope_id
         if scope and not any(f.id == scope for f in self.viewport.sketch.features):
@@ -589,7 +600,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             QMessageBox.warning(self, "Cannot update parameters", str(error))
             return False
-        self.refresh()
+        self.refresh(reuse_unchanged_solids=True)
         return True
 
     def cancel_interaction(self, *, history=False):
@@ -951,7 +962,7 @@ class MainWindow(QMainWindow):
             return
         self.entity_context = (identifier, entity.id)
         self.browser_key = ('entity', identifier, entity.id)
-        self.refresh()
+        self.refresh(reuse_unchanged_solids=True)
 
     def entity_picked(self, identifier):
         if identifier is None:
