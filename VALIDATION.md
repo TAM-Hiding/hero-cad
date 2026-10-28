@@ -1021,3 +1021,10 @@ No successor-body inference, geometric target search, or reference repair is add
 - Installed the repository's pinned test/runtime packages without changing dependencies. `python -m pip check` reports an environment-only conflict with preinstalled, unused `cadquery 2.7.0` (requires OCP <7.9); HERO-CAD directly uses its pinned `cadquery-ocp==7.9.3.1.1`.
 - Status presentation remains unchanged: browser labels/tooltips retain existing diagnostics, and the History tab retains its existing unresolved/blocked distinction. No additional warning icons or status tracking were introduced.
 
+
+## Work Order 032 — Sketch commit profiling
+
+See docs/SKETCH_COMMIT_PERFORMANCE.md for reproducible fixtures, measured CPU
+latencies, call-path diagnosis, rejected optimization and remaining limitations.
+Production code is unchanged. Final focused run: 75 passed using
+`QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/test_line_profiles.py tests/test_sketch_editing.py tests/test_document.py -q`.
