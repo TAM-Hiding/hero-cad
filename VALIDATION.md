@@ -1011,3 +1011,13 @@ No successor-body inference, geometric target search, or reference repair is add
   check because `desktop-file-validate` is not installed. Existing extrusion,
   Boolean, face attachment, history, UI and nonblank-render regressions passed.
 - `git diff --check`: passed.
+
+# Work Order #031 — Color-coded feature history
+
+- Added standard Qt icon decorations: Sketch orange `#E6A04B`, extrusion Join cyan `#42B8D5`, Cut red `#D95C5C`, New Body green `#65B879`. Other types/operations retain neutral presentation.
+- A cached 4 × 14 pixel swatch preserves names, hierarchy, selection highlighting, visibility controls, and existing unresolved labels/tooltips. Colors are rebuilt from authoritative feature metadata on every browser refresh. No model or editing code changed.
+- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python -m pytest tests/test_feature_colors_ui.py tests/test_history_inspector_ui.py -q`: **13 passed**. Covers all assignments, unknown fallback, selected icons, actual browser selection/hierarchy/visibility, New Body-to-Join edits, and unresolved/blocked dependency colors; existing history inspection/editing/file-action tests also pass.
+- Environment limitation: offscreen VTK reports unavailable OpenGL shaders. An additional run including `tests/test_boolean_ui.py` aborted during its preview test; no claim of viewport rendering validation. Xvfb is not installed in this container. The full suite was intentionally not run per the work order.
+- Installed the repository's pinned test/runtime packages without changing dependencies. `python -m pip check` reports an environment-only conflict with preinstalled, unused `cadquery 2.7.0` (requires OCP <7.9); HERO-CAD directly uses its pinned `cadquery-ocp==7.9.3.1.1`.
+- Status presentation remains unchanged: browser labels/tooltips retain existing diagnostics, and the History tab retains its existing unresolved/blocked distinction. No additional warning icons or status tracking were introduced.
+
