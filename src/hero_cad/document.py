@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature, FeatureError, FeatureStatus
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, Feature, FeatureError, FeatureStatus
 from hero_cad.geometry import make_box, make_sketch, compound
 from hero_cad.profiles import extrude_region, resolve_region, ProfileError
 from hero_cad.persistence import deserialize, serialize
@@ -12,6 +12,7 @@ from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
 from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
 from hero_cad.face_history import primitive_lineage, evaluated_faces
+from hero_cad.chamfers import edge_reference, resolve_edge, make_chamfer
 
 
 class Document:
@@ -71,7 +72,7 @@ class Document:
                     if p.attachment:
                         if feature.references != (p.attachment.parent_id,):
                             raise ValueError('Face sketch must reference exactly its parent feature')
-                        if definitions[p.attachment.parent_id].type not in ('box', 'extrude', 'boolean'):
+                        if definitions[p.attachment.parent_id].type not in ('box', 'extrude', 'boolean', 'chamfer'):
                             raise ValueError('Attachment parent must be a solid feature')
                     elif 'plane:' + p.plane not in feature.references:
                         raise ValueError('Sketch must reference its origin plane')
@@ -90,12 +91,17 @@ class Document:
                     p = feature.parameters
                     if feature.references != (p.target_id, *p.tool_ids):
                         raise ValueError('Boolean references must match target and tools')
+                if feature.type == 'chamfer' and feature.references != (feature.parameters.target_id,):
+                    raise ValueError('Chamfer must reference exactly its target body')
                 targets = ((feature.parameters.target_id, *feature.parameters.tool_ids) if feature.type == 'boolean'
-                           else (feature.parameters.target_id,) if feature.type == 'extrude' and feature.parameters.target_id else ())
-                if any(definitions[t].type not in ('box', 'extrude', 'boolean') for t in targets):
+                           else (feature.parameters.target_id,) if feature.type in ('extrude', 'chamfer') and feature.parameters.target_id else ())
+                if any(definitions[t].type not in ('box', 'extrude', 'boolean', 'chamfer') for t in targets):
                     raise ValueError('Operation inputs must be earlier solid features')
                 blocked = next((ref for ref in feature.references if ref in statuses and not statuses[ref].valid), None)
                 if blocked:
+                    if (existing is not None and feature.type == 'chamfer'
+                            and (feature.id not in existing or feature != self.feature(feature.id))):
+                        raise OperationError('Cannot commit chamfer: target body is unresolved')
                     statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}')
                 else:
                     try:
@@ -123,6 +129,12 @@ class Document:
                                                           [solids[t] for t in targets[1:]],
                                                           lineages=[lineages[t] for t in targets])
                                 faces = evaluated_faces(lineage)
+                            elif feature.type == 'chamfer':
+                                result, lineage, sources = make_chamfer(feature.parameters, solids[targets[0]],
+                                                                       lineages[targets[0]], feature.id)
+                                source_faces[feature.id] = sources
+                                faces = evaluated_faces(lineage)
+                                faces.update(sources)
                             else:
                                 p = feature.parameters
                                 if p.extent == 'through_all':
@@ -138,9 +150,15 @@ class Document:
                             lineages[feature.id] = lineage
                             active.difference_update(targets)
                             active.add(feature.id)
-                        statuses[feature.id] = FeatureStatus(True, reference_state='resolved' if feature.type == 'sketch' and feature.parameters.attachment else None)
+                        statuses[feature.id] = FeatureStatus(True, reference_state='resolved' if feature.type == 'chamfer' or feature.type == 'sketch' and feature.parameters.attachment else None)
                     except (OperationError, ProfileError) as error:
                         if existing is not None and feature.id not in existing:
+                            raise
+                        # Direct distance edits must not replace a valid model
+                        # with failed output. Upstream invalidation and accepted
+                        # history restoration instead preserve unresolved features.
+                        if (existing is not None and feature.type == 'chamfer'
+                                and feature != self.feature(feature.id)):
                             raise
                         statuses[feature.id] = FeatureStatus(False, str(error))
                     except AttachmentError as error:
@@ -304,6 +322,25 @@ class Document:
     def add_boolean(self, operation, target_id, tool_ids):
         parameters = BooleanParameters(operation, target_id, tuple(tool_ids))
         feature = Feature('boolean', parameters, (target_id, *parameters.tool_ids))
+        self.set_features(self.features + (feature,))
+        return feature.id
+
+    def edge_reference(self, edge):
+        from OCP.TopAbs import TopAbs_EDGE
+        from hero_cad.face_history import subshapes
+        owners = [i for i in self.active_body_ids
+                  if any(edge.IsSame(e) for e in subshapes(self.solid_shapes[i], TopAbs_EDGE))]
+        if len(owners) != 1:
+            raise OperationError('Select one edge belonging to exactly one current solid body')
+        target = owners[0]
+        reference = edge_reference(edge, self.face_lineages[target])
+        resolve_edge(reference, self.solid_shapes[target], self.face_lineages[target])
+        return target, reference
+
+    def add_chamfer(self, target_id, edge, distance=1.0):
+        if target_id not in self.active_body_ids:
+            raise OperationError('Chamfer target must be a current resolved solid body')
+        feature = Feature('chamfer', ChamferParameters(target_id, edge, distance), (target_id,))
         self.set_features(self.features + (feature,))
         return feature.id
 

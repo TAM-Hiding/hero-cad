@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 from hero_cad import __version__
 from hero_cad.document import BoxParameters, Document
-from hero_cad.features import ExtrudeParameters
+from hero_cad.features import ExtrudeParameters, ChamferParameters
 from hero_cad.geometry import volume, compound
 from hero_cad.sketch import PLANES
 from hero_cad.ui.viewport import Viewport
@@ -252,6 +252,10 @@ class MainWindow(QMainWindow):
         self.combine_action = QAction("Combine…", self)
         self.combine_action.triggered.connect(self.combine_selected)
         toolbar.addAction(self.combine_action)
+        self.chamfer_action = QAction('Chamfer…', self)
+        self.chamfer_action.setToolTip('Equal-distance chamfer on one selected straight solid edge')
+        self.chamfer_action.triggered.connect(self.chamfer_selected)
+        toolbar.addAction(self.chamfer_action)
         self.viewport.selectionChanged.connect(lambda _: self.update_actions())
         view_menu = self.menuBar().addMenu("&View")
         toolbar.addWidget(QLabel(" X-Ray: "))
@@ -367,6 +371,7 @@ class MainWindow(QMainWindow):
             ('profile.select', self.profile_action, both),
             ('model.extrude', self.extrude_action, both),
             ('model.combine', self.combine_action, model),
+            ('model.chamfer', self.chamfer_action, model),
             ('sketch.finish', self.finish_sketch_action, sketch),
             ('view.fit', self.fit_action, both),
             ('view.previous', self.previous_view_action, model),
@@ -426,6 +431,8 @@ class MainWindow(QMainWindow):
                              'Use Select Profile and click inside an enclosed material region.')
         self.commands.enable('model.combine', not active and len(self.selected_body_ids()) >= 2,
                              'Finish sketch editing and select at least two current bodies.')
+        edge, edge_reason = self.selected_chamfer_edge() if not active else (None, 'Finish the current sketch first.')
+        self.commands.enable('model.chamfer', edge is not None, edge_reason)
         if not self.viewport.sketch.features and self.profile_action.isChecked():
             self.profile_action.setChecked(False)
         self.commands.enable('profile.select', bool(self.viewport.sketch.features), 'Create a sketch with a closed profile first.')
@@ -590,7 +597,7 @@ class MainWindow(QMainWindow):
             if self.entity_context:
                 entity = self.current_entity()
                 values = self.entity_values()
-                if self.entity_context[0] == 'extrude':
+                if self.entity_context[0] in ('extrude', 'chamfer'):
                     feature = self.document.feature(self.entity_context[1])
                     self.document.replace_feature(replace(feature, parameters=replace(entity, **values)))
                 else:
@@ -709,7 +716,7 @@ class MainWindow(QMainWindow):
 
     def current_entity(self):
         sketch_id, entity_id = self.entity_context
-        if sketch_id == 'extrude':
+        if sketch_id in ('extrude', 'chamfer'):
             return self.document.feature(entity_id).parameters
         return next(e for e in self.document.feature(sketch_id).parameters.entities if e.id == entity_id)
 
@@ -722,16 +729,24 @@ class MainWindow(QMainWindow):
 
     def show_properties(self):
         self.update_history_inspector()
-        self.edit_operation_button.setVisible(bool(self.browser_key and self.browser_key[0] in ('extrude','boolean')))
+        self.edit_operation_button.setVisible(bool(self.browser_key and self.browser_key[0] in ('extrude','boolean','chamfer')))
         if self.entity_context:
             while self.entity_form.rowCount():
                 self.entity_form.removeRow(0)
             self.entity_fields = {}
             entity = self.current_entity()
             extrusion = self.entity_context[0] == 'extrude'
-            self.entity_form.addRow(QLabel(f"Extrusion · {entity.operation} · {entity.extent}" if extrusion else type(entity).__name__ + " · local sketch coordinates"))
+            chamfer = self.entity_context[0] == 'chamfer'
+            solid_operation = extrusion or chamfer
+            self.entity_form.addRow(QLabel('Chamfer · equal distance' if chamfer else f"Extrusion · {entity.operation} · {entity.extent}" if extrusion else type(entity).__name__ + " · local sketch coordinates"))
+            if chamfer:
+                status = self.document.statuses[self.entity_context[1]]
+                info = QLabel('Target: ' + self.body_label(entity.target_id) + '\nEdge endpoints: ' + str(entity.edge.endpoints)
+                              + ('\nResolved' if status.valid else '\n' + status.error))
+                info.setWordWrap(True)
+                self.entity_form.addRow(info)
             for parameter in data_fields(entity):
-                if parameter.name == 'id' or (extrusion and parameter.name != 'distance'):
+                if parameter.name == 'id' or (solid_operation and parameter.name != 'distance'):
                     continue
                 name = parameter.name
                 field = QDoubleSpinBox()
@@ -739,6 +754,8 @@ class MainWindow(QMainWindow):
                 field.setRange(0.000001 if name in ('width', 'height', 'radius', 'distance') else -1000000, 1000000)
                 if extrusion:
                     field.setRange(-100000, 100000)
+                elif chamfer:
+                    field.setRange(0.000001, 100000)
                 field.setSuffix(" °" if name == 'angle' else " mm")
                 field.setValue(getattr(entity, name))
                 field.setToolTip(f"Stored: {getattr(entity, name):.17g}")
@@ -748,7 +765,7 @@ class MainWindow(QMainWindow):
                 self.entity_fields[name] = field
                 self.entity_form.addRow(name.replace('_', ' ').title(), field)
             self.entity_shown = {n: f.value() for n, f in self.entity_fields.items()}
-            self.entity_apply = QPushButton("Apply extrusion distance" if extrusion else "Apply entity parameters")
+            self.entity_apply = QPushButton('Apply chamfer distance' if chamfer else "Apply extrusion distance" if extrusion else "Apply entity parameters")
             self.entity_apply.clicked.connect(self.apply_dimensions)
             self.entity_form.addRow(self.entity_apply)
             if extrusion:
@@ -756,7 +773,7 @@ class MainWindow(QMainWindow):
                 button.clicked.connect(self.edit_operation)
                 self.entity_form.addRow(button)
             self.property_stack.setCurrentIndex(1)
-            self.viewport.sketch.select_entity(None if extrusion else entity.id)
+            self.viewport.sketch.select_entity(None if solid_operation else entity.id)
         elif self.browser_key and self.browser_key[0] != 'box':
             self.property_stack.setCurrentIndex(2)
             if self.browser_key[0] == 'boolean':
@@ -774,7 +791,7 @@ class MainWindow(QMainWindow):
 
     def update_history_inspector(self):
         key = self.browser_key
-        identifier = key[1] if key and key[0] in ('box', 'sketch', 'extrude', 'boolean', 'entity') else None
+        identifier = key[1] if key and key[0] in ('box', 'sketch', 'extrude', 'boolean', 'chamfer', 'entity') else None
         if identifier and any(f.id == identifier for f in self.document.features):
             text = feature_history_text(self.document, identifier)
         else:
@@ -808,6 +825,10 @@ class MainWindow(QMainWindow):
                 elif feature.type == 'boolean':
                     item = QTreeWidgetItem(self.browser, [f"Combine · {feature.parameters.operation}"])
                     key = ('boolean', feature.id)
+                elif feature.type == 'chamfer':
+                    number = len([k for k in self.browser_items if k[0] == 'chamfer']) + 1
+                    item = QTreeWidgetItem(self.browser, [f'Chamfer {number} · {feature.parameters.distance:g} mm'])
+                    key = ('chamfer', feature.id)
                 else:
                     number = len([k for k in self.browser_items if k[0] == 'sketch']) + 1
                     item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {self.sketch_plane_label(feature)}" + (" · UNRESOLVED" if not status.valid else "")])
@@ -820,7 +841,7 @@ class MainWindow(QMainWindow):
                         child.setData(0, Qt.UserRole, child_key)
                         self.browser_items[child_key] = child
                     item.setExpanded(feature.id == self.viewport.sketch.active_id)
-                if feature.type in ('box','extrude','boolean'):
+                if feature.type in ('box','extrude','boolean','chamfer'):
                     item.setText(0,item.text(0)+(' · current body' if feature.id in self.document.active_body_ids else ' · historical'))
                 if not status.valid and 'UNRESOLVED' not in item.text(0):
                     item.setText(0, item.text(0) + ' · UNRESOLVED')
@@ -838,7 +859,7 @@ class MainWindow(QMainWindow):
         key = tuple(key) if key else None
         if key == self.browser_key:
             return
-        if key and key[0] in ('box','extrude','boolean','plane'):
+        if key and key[0] in ('box','extrude','boolean','chamfer','plane'):
             self.viewport.clear_selection(render=False)
         if self.has_pending_edits() and not self.apply_dimensions():
             with QSignalBlocker(self.browser):
@@ -848,9 +869,9 @@ class MainWindow(QMainWindow):
         with QSignalBlocker(self.browser):
             self.browser.setCurrentItem(self.browser_items.get(key), 0, QItemSelectionModel.NoUpdate)
         self.entity_context = (key[1], key[2]) if key and key[0] == 'entity' else None
-        if key and key[0] == 'extrude':
-            self.entity_context = ('extrude', key[1])
-        self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context and self.entity_context[0] != 'extrude' else None)
+        if key and key[0] in ('extrude', 'chamfer'):
+            self.entity_context = (key[0], key[1])
+        self.viewport.sketch.select_entity(self.entity_context[1] if self.entity_context and self.entity_context[0] not in ('extrude', 'chamfer') else None)
         self.show_properties()
         if self.profile_action.isChecked() and not self.viewport.sketch.active_id:
             self.profile_mode_changed(True)
@@ -861,7 +882,7 @@ class MainWindow(QMainWindow):
         if not ref:
             return feature.parameters.plane
         parent = self.document.feature(ref.parent_id)
-        label = 'Box' if parent.type == 'box' else 'Combine' if parent.type == 'boolean' else 'Extrusion ' + str(
+        label = 'Box' if parent.type == 'box' else 'Combine' if parent.type == 'boolean' else self.body_label(parent.id) if parent.type == 'chamfer' else 'Extrusion ' + str(
             [f.id for f in self.document.features if f.type == 'extrude'].index(parent.id)+1)
         face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face', 'evaluated': 'Evaluated Planar Face'}.get(ref.face, ref.face)
         return f'{label} / {face}' + (f' / {ref.boundary_id} / {ref.segment}' if ref.face == 'side' else '')
@@ -1008,11 +1029,11 @@ class MainWindow(QMainWindow):
         keys = self.selected_keys()
         if not keys:
             return
-        if any(k[0] not in ('entity', 'sketch', 'extrude', 'boolean') for k in keys):
+        if any(k[0] not in ('entity', 'sketch', 'extrude', 'boolean', 'chamfer') for k in keys):
             self.statusBar().showMessage('Only sketch entities, unreferenced sketches and extrusions can be deleted', 4000)
             return
         try:
-            self.document.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean')],
+            self.document.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean', 'chamfer')],
                                  entities=[k[1:] for k in keys if k[0] == 'entity'])
         except Exception as error:
             self.statusBar().showMessage(str(error), 5000)
@@ -1027,11 +1048,11 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         if len(self.selected_body_ids()) >= 2:
             menu.addAction(self.combine_action)
-        if key and key[0] in ('extrude','boolean'):
+        if key and key[0] in ('extrude','boolean','chamfer'):
             menu.addAction('Edit Operation…',self.edit_operation)
-        if key and key[0] == 'boolean':
+        if key and key[0] in ('boolean','chamfer'):
             menu.addAction('Delete',self.delete_selected)
-        if key and key[0] in ('entity', 'box', 'extrude'):
+        if key and key[0] in ('entity', 'box', 'extrude', 'chamfer'):
             menu.addAction('Edit Parameters', self.focus_parameters)
         if key and key[0] in ('entity', 'sketch', 'extrude'):
             menu.addAction(self.edit_sketch_action)
@@ -1050,7 +1071,7 @@ class MainWindow(QMainWindow):
         return f'{feature.type.title()} {number} · {identifier[:8]}'
 
     def selected_body_ids(self):
-        result = {k[1] for k in self.selected_keys() if k[0] in ('box','extrude','boolean') and k[1] in self.document.active_body_ids}
+        result = {k[1] for k in self.selected_keys() if k[0] in ('box','extrude','boolean','chamfer') and k[1] in self.document.active_body_ids}
         if self.viewport.selections:
             result = set()
             from OCP.TopAbs import TopAbs_FACE, TopAbs_EDGE
@@ -1072,15 +1093,39 @@ class MainWindow(QMainWindow):
 
     def edit_operation(self):
         key = self.browser_key
-        if not key or key[0] not in ('extrude','boolean'):
+        if not key or key[0] not in ('extrude','boolean','chamfer'):
             return
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         feature = self.document.feature(key[1])
         p = feature.parameters
+        if feature.type == 'chamfer':
+            self.operation_panel.open_chamfer(p, feature=feature)
+            return
         self.operation_panel.open(feature=feature,
                                   source=(p.sketch_id,p.outer_id,p.hole_ids) if feature.type == 'extrude' else None,
                                   bodies=(p.target_id,*p.tool_ids) if feature.type == 'boolean' else ())
+
+    def selected_chamfer_edge(self):
+        selections = self.viewport.selections
+        if len(selections) != 1 or selections[0].kind != 'edge':
+            return None, 'Select exactly one straight edge on a current solid body.'
+        try:
+            return self.document.edge_reference(selections[0].shape), ''
+        except ValueError as error:
+            return None, str(error)
+
+    def chamfer_selected(self):
+        if self.viewport.sketch.active_id:
+            return
+        if self.has_pending_edits() and not self.apply_dimensions():
+            return
+        selected, reason = self.selected_chamfer_edge()
+        if selected is None:
+            self.statusBar().showMessage(reason, 5000)
+            return
+        target, edge = selected
+        self.operation_panel.open_chamfer(ChamferParameters(target, edge))
 
     def extrude_selected(self):
         selected = self.viewport.profiles.selection

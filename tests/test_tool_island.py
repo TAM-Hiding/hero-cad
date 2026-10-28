@@ -52,7 +52,10 @@ def test_initial_island_is_viewport_child_and_commands_explain_disabled_state(qt
     before = w.document.features
     assert not w.commands.execute('sketch.new')
     assert w.document.features == before
-    assert not any('fillet' in key or 'chamfer' in key for key in island.buttons)
+    assert not any('fillet' in key for key in island.buttons)
+    assert island.buttons['model.chamfer'].defaultAction() is w.chamfer_action
+    assert not w.chamfer_action.isEnabled()
+    assert 'Select exactly one straight edge' in w.chamfer_action.toolTip()
 
 
 @pytest.mark.parametrize('preset,columns', [('Compact', 1), ('Medium', 2), ('Expanded', 3)])

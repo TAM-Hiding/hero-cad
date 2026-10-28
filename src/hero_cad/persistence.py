@@ -1,6 +1,7 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
-from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, Feature
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, Feature
+from hero_cad.chamfers import EdgeReference
 from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport, FaceSnapshot
 
 
@@ -12,8 +13,12 @@ def fields(data, expected):
 def serialize(features):
     result, version = [], 3
     for feature in features:
-        if feature.type in ('box', 'extrude', 'boolean'):
+        if feature.type in ('box', 'extrude', 'boolean', 'chamfer'):
             parameters = asdict(feature.parameters)
+            if feature.type == 'chamfer':
+                version = max(version, 12)
+                parameters['edge'] = {'endpoints': [list(p) for p in feature.parameters.edge.endpoints],
+                                      'neighbors': [list(t) for t in feature.parameters.edge.neighbors]}
             if feature.type == 'extrude':
                 version = max(version, 8 if feature.parameters.line_ids else 6 if feature.parameters.operation != 'new' else 4)
                 if feature.parameters.line_ids:
@@ -62,7 +67,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -132,6 +137,8 @@ def deserialize(data):
                     raise ValueError('Evaluated face references require document version 7')
                 if version < 8 and parameters['attachment']['segment'] == 'line':
                     raise ValueError('Line-profile side references require document version 8')
+                if version < 12 and attachment['face'] == 'bevel':
+                    raise ValueError('Chamfer face references require document version 12')
                 value = SketchParameters('FACE', tuple(entities), FaceReference(**attachment), stored)
             else:
                 value = SketchParameters(parameters['plane'], tuple(entities))
@@ -159,6 +166,16 @@ def deserialize(data):
             if not isinstance(parameters['tool_ids'], list):
                 raise ValueError('Boolean tools must be a list')
             value = BooleanParameters(parameters['operation'], parameters['target_id'], tuple(parameters['tool_ids']))
+        elif item['type'] == 'chamfer' and version >= 12:
+            fields(parameters, ('target_id', 'edge', 'distance'))
+            edge = parameters['edge']
+            fields(edge, ('endpoints', 'neighbors'))
+            if any(not isinstance(edge[k], list) or any(not isinstance(v, list) for v in edge[k])
+                   for k in ('endpoints', 'neighbors')):
+                raise ValueError('Invalid persisted chamfer edge')
+            reference = EdgeReference(tuple(tuple(p) for p in edge['endpoints']),
+                                      tuple(tuple(t) for t in edge['neighbors']))
+            value = ChamferParameters(parameters['target_id'], reference, parameters['distance'])
         else:
             raise ValueError('Unsupported feature type')
         result.append(Feature(item['type'], value, tuple(item['references']), item['id'], item.get('sketch_visible', True)))

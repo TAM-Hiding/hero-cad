@@ -144,13 +144,13 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
             raise AttachmentError(resolution.reason, resolution.state)
         return resolution.frame
     parent = definitions.get(reference.parent_id)
-    if parent is None or parent.type not in ('box', 'extrude', 'boolean'):
+    if parent is None or parent.type not in ('box', 'extrude', 'boolean', 'chamfer'):
         raise AttachmentError('Attachment parent must be a solid feature')
     key = reference.face if parent.type == 'box' else reference_key(reference)
     face = face_maps.get(parent.id, {}).get(key)
     if face is None:
         raise AttachmentError(f'Unresolved face {reference.face} / {reference.boundary_id or ""} / {reference.segment or ""} on {parent.id}')
-    if reference.face == 'evaluated':
+    if reference.face == 'evaluated' or (parent.type == 'chamfer' and reference.face == 'bevel'):
         # OCCT's source plane provides a deterministic model-space anchor.
         # No pick point, camera state, or nearest-face fallback is used.
         return planar_frame(face)

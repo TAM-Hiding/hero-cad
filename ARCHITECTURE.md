@@ -307,3 +307,17 @@ operation validation stays unchanged. Final compound construction completes befo
 publishing active-body/reference caches; failure becomes a document FeatureError
 and leaves the previous state and stacks intact. No graph, timeline or persistence
 rewrite is introduced.
+
+## PR #35 — one-edge chamfer features
+
+ChamferParameters joins the existing immutable feature parameter catalogue.
+Ordered Document evaluation resolves the explicit upstream body's straight edge
+using a checked segment/adjacent-ancestry witness, then calls OCCT's native
+chamfer builder. Existing face history propagates through that builder and seeds
+its generated bevel face. No viewport index becomes a persistent edge identity.
+Failed direct edits abort the transaction; unchanged chamfer definitions made
+invalid by upstream edits remain unresolved and recover through normal history.
+The shared OperationPanel previews candidate Documents and commits through
+set_features; browser/Properties/commands remain presentations of those features.
+Minimal v12 persistence stores parameters only. See docs/CHAMFERS.md for the
+reference boundary, tangent-chain refusal, workflow and validation scope.
