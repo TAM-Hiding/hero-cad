@@ -1139,3 +1139,56 @@ large torture-test file was not supplied; eight native cylindrical Cuts and
 subsequent chamfer/face-sketch/operation histories provided the complex fixture.
 No private models were added. No local Ubuntu 22.04/platform claim; CI covers the
 repository's Ubuntu 22.04/24.04 matrix. See docs/CHAMFERS.md for workflow and limits.
+
+## Work Order #036 — operation styling and opening placement
+
+Baseline `51109ef` (main after merged PR #35). Shared scoped orange/cyan-gray
+operation styles and one opening-placement helper cover Chamfer, new/edited
+Extrude and Combine. Advanced forms now float in the existing native dock
+window too. Global/logical placement uses the actual island rect with a 3 px
+gap and above/clamped fallback; small-screen native scroll containment keeps
+controls accessible. Opening focus selects the primary numeric value; Combine
+focuses Operation. No follow connection is installed. Inline dimensions import
+only the matching style; their event/anchor code is unchanged.
+
+Local environment: Ubuntu 24.04, pinned requirements-dev.lock / Python 3.12.14,
+PySide6 6.8.3, OCP 7.9.3.1.1, VTK 9.6.2. Real XCB/software OpenGL, no Render stubs.
+
+- Initial existing Chamfer/quick-extrusion/Boolean/dimension-focus checks:
+  **47 passed**, 34.15 s.
+- New appearance/placement checks: **13 passed**, including Compact/Medium/
+  Expanded, collapsed/moved islands, left alignment/gap, above/right fallback,
+  negative origins, constrained-screen scroll access, initial focus, actual
+  palette properties, unchanged unrelated/island styles, native Qt flags,
+  advanced confirmation and Slot center-distance precision/Tab/Escape.
+- Full suite: `DISPLAY=127.0.0.1:96 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+  .venv/bin/pytest -q`: **656 passed**, 344.39 s, no skips; 148 known VTK/NumPy
+  array-shape deprecation warnings. Focused checks ran concurrently for part of
+  this run; the duration is not a performance benchmark.
+- After the final refinement preserving manual width/size across unchanged form
+  hints, reran appearance + quick-extrusion + Chamfer + Boolean + dimension-focus
+  tests: **60 passed**, 77.18 s. Final appearance-only checks, also covering
+  invalid/valid feedback recovery and manually resized dimensions: **13 passed**,
+  9.07 s. The last run includes the QSize value-copy refinement.
+- Xvfb runs in the same test namespace with local TCP because Unix display sockets
+  are blocked on this host:
+  `Xvfb :96 -listen tcp -nolisten unix -nolisten local -ac -screen 0 1280x1024x24`.
+- `pip check`: no broken requirements. `git diff --check`: clean.
+- Captured and inspected the real native operation and inline editor on XCB.
+  Medium island rect `(626,66,292,352)` opened Chamfer at `(626,421,350,154)`,
+  confirming the 3 logical pixel gap and left alignment. Both surfaces use the
+  shared orange/cyan-gray style; existing tool island and surrounding UI retain
+  their earlier appearance. QA captures are temporary and not user model files.
+
+Test refinements: replaced the legacy 'advanced editing stays docked' assertion
+with the requested floating presentation. New tests compare Qt's native dock
+flags rather than incorrectly assuming QDockWidget never uses FramelessWindowHint;
+no application code sets that flag. Inline focus checks explicitly activate the
+window on the window-manager-free test server, as existing focus tests do.
+
+No document, schema, geometry, history, preferences or dependency code changed.
+Outer corners/native chrome and programmatic placement remain window-manager/
+compositor dependent (including Wayland restrictions); internal corners are
+styled without custom window management. The largest existing island preset is
+named Expanded, not Large; its controls and styles are unchanged. See
+`docs/OPERATION_APPEARANCE.md` for current behavior and limits.
