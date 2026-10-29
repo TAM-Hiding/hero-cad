@@ -2,32 +2,54 @@
 from dataclasses import replace
 from math import isfinite
 import re
-from PySide6.QtCore import Qt, QTimer, QSignalBlocker
-from PySide6.QtGui import QCursor, QShortcut, QKeySequence, QGuiApplication
-from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout
+from PySide6.QtCore import Qt, QTimer, QSignalBlocker, QSize
+from PySide6.QtGui import QShortcut, QKeySequence
+from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
 from hero_cad.document import Document
 from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
 from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
 from hero_cad.ui.display_geometry import tessellate
+from hero_cad.ui.operation_appearance import OPERATION_STYLE, place_operation, fit_operation_size
+
+
+class OperationScrollArea(QScrollArea):
+    """Report the current form hint; scroll only when the screen constrains it."""
+    def sizeHint(self):
+        return self.widget().sizeHint() if self.widget() is not None else super().sizeHint()
 
 
 class OperationPanel(QDockWidget):
     def __init__(self, window):
         super().__init__('Operation preview', window)
         self.window = window
+        self.setObjectName('operationDialog')
+        self.setStyleSheet(OPERATION_STYLE)
         self.active = False
         self.quick_mode = False
         self.chamfer_parameters = None
         self.candidate = None
+        self._form_hint = None
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
         self.preview_timer.setInterval(180)
         self.preview_timer.timeout.connect(self.preview)
+        self.open_timer = QTimer(self)
+        self.open_timer.setSingleShot(True)
+        self.open_timer.timeout.connect(self.finish_opening)
         form = self.form = QFormLayout()
-        widget = QWidget()
+        form.setContentsMargins(10, 8, 10, 8)
+        form.setSpacing(6)
+        widget = self.surface = QWidget()
+        widget.setObjectName('operationSurface')
+        widget.setAttribute(Qt.WA_StyledBackground)
         widget.setLayout(form)
-        self.setWidget(widget)
+        self.scroll = OperationScrollArea()
+        self.scroll.setObjectName('operationScroll')
+        self.scroll.viewport().setObjectName('operationScrollViewport')
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(widget)
+        self.setWidget(self.scroll)
         self.operation, self.target = QComboBox(), QComboBox()
         self.target.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.target.setMinimumContentsLength(16)
@@ -62,6 +84,7 @@ class OperationPanel(QDockWidget):
         form.addRow('Through All direction',self.direction)
         self.preview_button = QPushButton('Preview result')
         self.apply_button = QPushButton('Apply')
+        self.apply_button.setProperty('operationRole', 'primary')
         self.cancel_button = QPushButton('Cancel')
         form.addRow(self.advanced)
         form.addRow(self.feedback)
@@ -143,34 +166,9 @@ class OperationPanel(QDockWidget):
             self.quick_distance.setText(format(self.distance.value(),'.15g'))
         self.advanced.setChecked(False)
         self.active = True
-        self.setFloating(self.quick_mode)
-        self.setWindowModality(Qt.NonModal)
-        self.setWindowTitle('Extrude' if self.quick_mode else 'Operation preview')
-        self.widget().setStyleSheet("""
-            QWidget { background: #242e34; color: #dae5e3; }
-            QLineEdit, QComboBox, QDoubleSpinBox { background: #33434b; color: #dae5e3;
-                border: 1px solid #758b91; padding: 4px; }
-            QPushButton { background: #33434b; border: 1px solid #758b91; padding: 5px; }
-            QPushButton:disabled { color: #7e9094; }
-        """ if self.quick_mode else '')
+        self.setWindowTitle('Extrude' if source else 'Combine')
         self.changed()
-        self.show()
-        self.raise_()
-        if self.quick_mode:
-            self.adjustSize()
-            self.resize(350,self.sizeHint().height())
-            cursor = QCursor.pos()
-            screen = QGuiApplication.screenAt(cursor) or self.window.screen()
-            area = screen.availableGeometry()
-            x = cursor.x()+24
-            y = cursor.y()+24
-            if x+self.width()>area.right():
-                x = cursor.x()-self.width()-24
-            if y+self.height()>area.bottom():
-                y = cursor.y()-self.height()-24
-            self.move(max(area.left(),min(x,area.right()-self.width()+1)),
-                      max(area.top(),min(y,area.bottom()-self.height()+1)))
-            QTimer.singleShot(0,self.focus_distance)
+        self.present()
 
     def open_chamfer(self, parameters, *, feature=None):
         """Use the existing candidate-document preview actor and commit path."""
@@ -186,15 +184,40 @@ class OperationPanel(QDockWidget):
         self.quick_distance.setToolTip('Positive equal distance on the two adjacent faces, in millimeters')
         self.tools_label.setText(self.window.body_label(parameters.target_id))
         self.active = True
-        self.setFloating(True)
-        self.setWindowModality(Qt.NonModal)
         self.setWindowTitle('Chamfer')
         self.invalidate()
+        self.present()
+
+    def requested_size(self):
+        hint = self.sizeHint()
+        hint.setWidth(350 if self.quick_mode else min(520, max(350, hint.width())))
+        return hint
+
+    def present(self):
+        self.setFloating(True)
+        self.setWindowModality(Qt.NonModal)
         self.show()
         self.raise_()
-        self.adjustSize()
-        self.resize(350, self.sizeHint().height())
-        QTimer.singleShot(0, self.focus_distance)
+        place_operation(self, self.window.tool_island, self.requested_size())
+        # Finalize once after Qt has laid out and styled the native window.
+        # No island move/resize signal is connected to this window.
+        self.open_timer.start(0)
+
+    def finish_opening(self):
+        if self.active and self.isVisible() and self.isFloating():
+            self._form_hint = self.requested_size()
+            place_operation(self, self.window.tool_island, self._form_hint)
+            self.focus_distance()
+
+    def resize_visible_form(self):
+        if self.active and self.isVisible() and self.isFloating():
+            hint = self.requested_size()
+            if hint != self._form_hint:
+                self._form_hint = QSize(hint)
+                # Respect a manually resized width; only adapt to changed form
+                # content, not every keystroke/validation signal.
+                hint.setWidth(self.width())
+                fit_operation_size(self, hint, self.screen().availableGeometry())
 
     def changed(self, *_):
         if not self.active:
@@ -271,6 +294,7 @@ class OperationPanel(QDockWidget):
             self.preview_button.setVisible(True)
             self.feedback.setMaximumWidth(320)
             self.feedback.setMaximumHeight(80)
+            self.resize_visible_form()
             return
         quick = self.quick_mode
         advanced = not quick or self.advanced.isChecked()
@@ -287,17 +311,15 @@ class OperationPanel(QDockWidget):
         if hasattr(self,'source'):
             self.quick_distance.setEnabled(bool(self.source) and not (
                 self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'))
-        if quick and self.isVisible():
-            self.adjustSize()
-            area = self.screen().availableGeometry()
-            self.move(max(area.left(),min(self.x(),area.right()-self.width()+1)),
-                      max(area.top(),min(self.y(),area.bottom()-self.height()+1)))
+        self.resize_visible_form()
 
     def focus_distance(self):
-        if self.active and self.quick_mode:
+        if self.active:
             self.activateWindow()
-            self.quick_distance.setFocus(Qt.OtherFocusReason)
-            self.quick_distance.selectAll()
+            field = self.quick_distance if self.quick_mode else self.distance if self.distance.isEnabled() else self.operation
+            field.setFocus(Qt.OtherFocusReason)
+            if hasattr(field, 'selectAll'):
+                field.selectAll()
 
     def input_distance(self):
         if not self.quick_mode or (self.chamfer_parameters is None and self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'):
@@ -436,6 +458,7 @@ class OperationPanel(QDockWidget):
         return True
 
     def cancel(self, *_):
+        self.open_timer.stop()
         self.preview_timer.stop()
         self.actor.VisibilityOff()
         was_active,self.active = self.active,False

@@ -52,7 +52,7 @@ def test_immediate_typing_enter_commit_history_properties_and_reload(qtbot,text,
     w.entity_fields['distance'].setValue(2.5);w.entity_apply.click()
     assert w.document.feature(f.id).parameters.distance==2.5
     w.edit_operation()
-    assert not p.quick_mode and not p.isFloating()
+    assert not p.quick_mode and p.isFloating()
     p.distance.setValue(3.5);assert p.preview() and p.commit()
     assert w.document.feature(f.id).parameters.distance==3.5
 

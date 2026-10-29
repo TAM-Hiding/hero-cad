@@ -1,11 +1,13 @@
 """Small reusable cursor readout/editor; values belong to construction tools only."""
 from PySide6.QtCore import Qt, QEvent, QPoint
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QGraphicsOpacityEffect
+from hero_cad.ui.operation_appearance import INLINE_STYLE
 
 
 class ConstructionDimensions(QWidget):
     def __init__(self, viewport):
         super().__init__(viewport)
+        self.setObjectName('constructionDimensions')
         self.viewport = viewport
         self.names = []
         self.index = 0
@@ -27,9 +29,7 @@ class ConstructionDimensions(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(self.input)
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setStyleSheet('ConstructionDimensions {background: #24303c; border: 1px solid #63778b;}'
-                          'QLabel {color: #e0ebf5;}'
-                          'QLineEdit {color: #e0ebf5; background: #15212c; border: 1px solid #8aacc9; padding: 3px;}')
+        self.setStyleSheet(INLINE_STYLE)
         self.hide()
         self.cursor_position = QPoint(20, 20)
 

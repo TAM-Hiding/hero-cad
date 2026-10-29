@@ -321,3 +321,13 @@ The shared OperationPanel previews candidate Documents and commits through
 set_features; browser/Properties/commands remain presentations of those features.
 Minimal v12 persistence stores parameters only. See docs/CHAMFERS.md for the
 reference boundary, tangent-chain refusal, workflow and validation scope.
+
+## PR #36 — scoped operation presentation
+
+ui/operation_appearance.py owns a small scoped palette and global/logical opening
+placement for the existing floating OperationPanel. Native Qt scroll containment
+handles constrained screens. Opening focus/placement is one-shot, with no island
+follow/docking relationship. ConstructionDimensions imports only matching styles;
+its context anchor and event handling are unchanged. Feature evaluation/history,
+persistence and all unrelated widget styles are untouched. See
+[OPERATION_APPEARANCE.md](docs/OPERATION_APPEARANCE.md) for placement and platform limits.

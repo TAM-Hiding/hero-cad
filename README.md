@@ -256,6 +256,14 @@ For a hidden finished profile, select its sketch in the browser, then Select
 Profile and click inside. Normal model depth/face selection returns when that
 inspection mode ends. See [quick-input notes](docs/EXTRUSION_QUICK_INPUT.md).
 
+### Operation windows
+
+Chamfer, Extrude and Combine open in a shared orange/cyan-gray floating panel
+3 logical pixels below the HERO Tools island, with a screen-boundary fallback.
+The dialog can move independently; inline dimensions keep their existing
+cursor/geometry-relative placement with matching colors. See
+[operation appearance notes](docs/OPERATION_APPEARANCE.md).
+
 ### Viewport clarity and sketch visibility
 
 **Settings → High-Contrast Geometry** defaults to **Auto** for sketch editing and

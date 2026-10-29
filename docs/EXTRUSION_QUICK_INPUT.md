@@ -7,13 +7,17 @@
 3. Choose **Extrude** in the toolbar, context menu or HERO Tools island.
 4. Type a signed distance in millimetres and press **Enter**.
 
-![Actual Qt floating extrusion input](screenshots/extrusion-quick-input.png)
+The screenshot below records PR #25’s earlier appearance. Current operation
+colors/placement are described in [OPERATION_APPEARANCE.md](OPERATION_APPEARANCE.md).
 
-The compact nonmodal panel opens near the cursor, offset to avoid the click point,
-clamped to the current screen's available area. Distance is focused and selected
-so typing replaces the default. It can be moved by its native title bar. Operation
+![Historical PR25 Qt floating extrusion input](screenshots/extrusion-quick-input.png)
+
+The compact nonmodal panel opens beneath the HERO Tools island with a 3 logical
+pixel gap, using above-island/clamped placement when screen space is limited.
+Distance is focused and selected so typing replaces the default. It can be moved by its native title bar. Operation
 and, when needed, target body remain visible. Changing the operation never chooses
-a different target. The palette follows the dark tool island.
+a different target. Its orange/cyan-gray palette distinguishes operations from
+the unchanged dark tool island.
 
 **Enter / Apply** validates the raw text, validates/previews the candidate if
 needed, then commits once and closes. **Escape / Cancel / close** discards the
@@ -34,12 +38,14 @@ when the debounced evaluation actually runs.
 **Advanced** exposes the existing extent/Through All and direction controls and a
 manual Preview button. Through All remains Cut-only, with explicit direction;
 the irrelevant distance field disables. Feedback has bounded height and a full
-text tooltip. Panel size changes re-clamp to the available screen.
+text tooltip. Form growth uses the available screen space or scrolls without
+moving the panel.
 
 This is a presentation mode of the same OperationPanel, using the same operation,
 target, definition, candidate Document, preview actor and transaction methods.
-There is no second extrusion implementation. Existing **Edit Operation**, Combine
-and feature Properties remain available in their established dock/editor.
+There is no second extrusion implementation. **Edit Operation** and Combine
+share the floating operation presentation; feature Properties retains its
+established editor.
 
 ## Context-aware defaults (Work Order #030)
 
