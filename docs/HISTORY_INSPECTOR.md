@@ -66,3 +66,28 @@ distinctions, 1000-feature history formatting, stored precision, actual browser
 selection, existing editors, visibility, Undo/Redo and save/reopen. Inspection
 tests forbid regeneration and assert document/cache/history state is unchanged.
 See [VALIDATION.md](../VALIDATION.md) for results and environment limits.
+
+
+## Regeneration indicators and first-failure navigation
+
+The model browser retains operation-color stripes and adds a warning symbol and
+UNRESOLVED label for direct failures, or a muted blocked symbol and BLOCKED label
+for a failed required dependency. The earliest direct failure is bold. Tooltips
+include the evaluator diagnostic and, for blocked output, the dependency's history
+position, type and UUID. Icons and text distinguish states without relying on color.
+Row height, selection, visibility and context actions are retained; rebuilding
+also preserves existing expansion/collapse state.
+
+`FeatureStatus.blocked_by` is transient evaluation metadata, set only at the
+existing dependency-block branch in ordered regeneration. It is neither serialized
+nor a second status graph. Independent branches continue evaluating and can have
+their own direct failures. History uses this same authoritative status and adds a
+human-readable failed-parent link. Existing parameters, UUIDs and dependency
+roles remain available in the read-only inspector.
+
+**View → Go to First Unresolved Feature** selects and scrolls to the earliest
+direct evaluation failure in ordered history, reveals Properties → History and
+focuses its diagnostic text. If only blocked/unclassified failures are available,
+it chooses the earliest unresolved feature. The action is disabled for valid
+history and respects the existing pending-edit selection guard. Browser and
+History update through ordinary regeneration, file opening and Undo/Redo.

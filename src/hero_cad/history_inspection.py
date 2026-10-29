@@ -6,6 +6,13 @@ from hero_cad.chamfers import edge_description
 TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine', 'chamfer': 'Chamfer'}
 
 
+def first_failure(document):
+    """Ordered direct evaluation failures first; unresolved fallback for callers."""
+    unresolved = [f.id for f in document.features if not document.statuses[f.id].valid]
+    return next((i for i in unresolved if not document.statuses[i].blocked_by),
+                unresolved[0] if unresolved else None)
+
+
 def feature_history_text(document, identifier):
     """Format one selection in linear history/reference time, without regeneration.
 
@@ -47,8 +54,7 @@ def feature_history_text(document, identifier):
         return 'Feature dependency'
 
     status = document.statuses[identifier]
-    blocked = [ref for ref in feature.references
-               if ref in document.statuses and not document.statuses[ref].valid]
+    blocked = status.blocked_by
     state = 'Valid' if status.valid else 'Blocked by unresolved dependencies' if blocked else 'Unresolved'
     lines = [labels[identifier], f'Type: {TYPE_LABELS[feature.type]}',
              f'History position: {positions[identifier]} of {len(document.features)}',
@@ -67,6 +73,8 @@ def feature_history_text(document, identifier):
         lines.append(f'{"Edge" if feature.type == "chamfer" else "Face"} reference: {status.reference_state.title()}')
     if status.error:
         lines.extend(['', 'Regeneration error:', status.error])
+    if blocked:
+        lines.append('Blocked by: ' + reference_label(blocked))
 
     lines.extend(['', 'Direct parents:'])
     lines.extend(f'{reference_label(ref)} — {dependency_role(feature, ref)}' for ref in feature.references)
@@ -124,10 +132,11 @@ def feature_history_text(document, identifier):
         lines.extend([f'Equal distance: {number(p.distance)} mm', f'Target: {reference_label(p.target_id)}',
                       f'Selected edges: {len(p.edges)}',
                       *([edge_description(p.edges[0])] if len(p.edges) == 1 else []),
-                      'Edge identity: checked curve geometry and two adjacent face ancestries; no index fallback'])
+                      'Edge identity: checked curve geometry and two adjacent face ancestries; unique principal Base Model edge fallback; no index fallback'])
         for i,edge in enumerate(p.edges,1):
             identifiers.append(f'Edge {i}: ' + edge_description(edge))
             identifiers.append('Adjacent construction-face ancestry:')
             identifiers.extend(', '.join(tokens) for tokens in edge.neighbors)
     lines.extend(['', 'Technical identifiers:', *identifiers])
     return '\n'.join(lines)
+

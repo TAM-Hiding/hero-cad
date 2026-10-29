@@ -19,8 +19,9 @@ from hero_cad.geometry import volume
 class EdgeReference:
     """Checked line/circle/arc geometry and two adjacent construction ancestries.
 
-    The owning feature UUID is ChamferParameters.target_id. No enumeration index,
-    nearest-edge search or changed-length transport is a persistent identity.
+    The owning feature UUID is ChamferParameters.target_id. No enumeration index
+    or nearest-edge search is used. Geometry remains the original witness; two
+    unmixed principal box faces may resolve a unique moved straight edge.
     """
     endpoints: tuple
     neighbors: tuple
@@ -97,6 +98,11 @@ def canonical_axis(axis):
     return tuple(-x for x in axis) if axis[dominant] < 0 else axis
 
 
+def edge_neighbors(edge, lineage):
+    return tuple(sorted(tuple(sorted(tokens)) for face, tokens in lineage
+                        if any(edge.IsSame(candidate) for candidate in subshapes(face, TopAbs_EDGE))))
+
+
 def edge_reference(edge, lineage):
     edge = TopoDS.Edge_s(edge)
     curve = BRepAdaptor_Curve(edge)
@@ -118,8 +124,7 @@ def edge_reference(edge, lineage):
                         midpoint=None if full else rounded_point(curve.Value((first+last)/2)))
         if full:
             points = ()  # A full circle has no persistent seam/start parameter.
-    adjacent = [tuple(sorted(tokens)) for face, tokens in lineage
-                if any(edge.IsSame(candidate) for candidate in subshapes(face, TopAbs_EDGE))]
+    adjacent = edge_neighbors(edge, lineage)
     if len(adjacent) != 2 or any(not tokens for tokens in adjacent):
         raise OperationError('Chamfer requires a manifold edge with two identified adjacent faces')
     try:
@@ -202,23 +207,57 @@ def tangent_chain(seed, body, lineage):
     return tuple(entries[i][0] for i in sorted(visited))
 
 
+def base_edge_identity(reference):
+    """Only two unmixed principal faces of one box qualify for transport.
+
+    A Boolean/chamfer face union, bevel, extrusion cap or same-axis face pair
+    is not proof of an exterior box edge. No new persistent identity is stored.
+    """
+    if reference.curve_type != 'line' or any(len(tokens) != 1 for tokens in reference.neighbors):
+        return None
+    origins = [decode_face_origin(tokens[0]) for tokens in reference.neighbors]
+    (owner, a), (other, b) = origins
+    if (owner != other or not isinstance(a, str) or not isinstance(b, str)
+            or a[1] == b[1]):
+        return None
+    fixed = ['XYZ'.index(face[1]) for face in (a, b)]
+    if any(reference.endpoints[0][axis] != reference.endpoints[1][axis] for axis in fixed):
+        return None  # Contradictory curve direction, even if ancestry looks eligible.
+    return reference.neighbors
+
+
 def resolve_edges(references, body, lineage):
     # Classify the target once per collection; this is transient query data,
     # not a geometry cache or a different reference-resolution policy.
-    candidates = {}
+    candidates, semantic_candidates = {}, {}
     for raw in subshapes(body, TopAbs_EDGE):
         edge = TopoDS.Edge_s(raw)
         try:
             candidate = edge_reference(edge, lineage)
         except OperationError:
-            continue
-        candidates.setdefault(candidate, []).append(edge)
+            candidate = None
+        neighbors = candidate.neighbors if candidate is not None else edge_neighbors(edge, lineage)
+        semantic_candidates.setdefault(neighbors, []).append((candidate, edge))
+        if candidate is not None:
+            candidates.setdefault(candidate, []).append(edge)
     result = []
     for reference in references:
         matches = candidates.get(reference, ())
+        if not matches and base_edge_identity(reference) is not None:
+            # Search only this explicit target. Count the whole ancestry pair
+            # before filtering curve type: contradictory topology must not turn
+            # into an apparently unique line candidate.
+            semantic = semantic_candidates.get(reference.neighbors, ())
+            if (len(semantic) == 1 and semantic[0][0] is not None
+                    and base_edge_identity(semantic[0][0]) == base_edge_identity(reference)):
+                matches = (semantic[0][1],)
+            elif len(semantic) > 1:
+                raise OperationError('Unresolved chamfer edge: ambiguous semantic Base Model edge; automatic edge substitution refused')
         if len(matches) != 1:
             reason = 'ambiguous' if matches else 'missing or changed'
             raise OperationError(f'Unresolved chamfer edge: {reason}; automatic edge substitution refused')
+        if any(matches[0].IsSame(edge) for edge in result):
+            raise OperationError('Duplicate resolved chamfer edges')
         result.append(matches[0])
     return tuple(result)
 
@@ -272,3 +311,4 @@ def make_chamfer(parameters, body, lineage, identifier):
         raise
     except Exception as error:
         raise OperationError(f'OCCT chamfer failed: {error}') from error
+

@@ -136,6 +136,7 @@ class FeatureStatus:
     valid: bool
     error: str | None = None
     reference_state: str | None = None
+    blocked_by: str | None = None  # Transient authoritative evaluation result.
 
 
 class FeatureError(ValueError):
@@ -143,3 +144,4 @@ class FeatureError(ValueError):
         self.feature_id = feature_id
         self.status = FeatureStatus(False, str(message))
         super().__init__(f'Feature {feature_id}: {message}')
+

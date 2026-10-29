@@ -121,22 +121,20 @@ def test_edge_matching_survives_regeneration_and_conservative_upstream_edits(tmp
     doc.set_box(BoxParameters(width=50))  # Selected bottom edge stays identical.
     assert doc.statuses[cid].valid
     assert volume(doc.shape) == pytest.approx(30000-60)
-    doc.set_box(BoxParameters(width=50, depth=40))  # Segment length changes.
-    assert not doc.statuses[cid].valid
-    assert 'automatic edge substitution refused' in doc.statuses[cid].error
-    assert cid not in doc.solid_shapes and target in doc.active_body_ids
-    doc.save(tmp_path/'unresolved.starcad')
+    doc.set_box(BoxParameters(width=50, depth=40))  # Semantic exterior edge changes length.
+    assert doc.statuses[cid].valid
+    assert volume(doc.shape) == pytest.approx(40000-80)
+    assert doc.feature(cid).parameters.edge == ref  # Never rewrite the witness.
+    doc.save(tmp_path/'semantic.starcad')
     loaded = Document.load(doc.path)
-    assert loaded.features == doc.features and not loaded.statuses[cid].valid
+    assert loaded.features == doc.features and loaded.statuses[cid].valid
     doc.undo()
-    assert doc.statuses[cid].valid and doc.active_body_ids == {cid}
+    assert volume(doc.shape) == pytest.approx(30000-60)
     doc.redo()
-    assert not doc.statuses[cid].valid
-    doc.undo()
-    assert doc.feature(cid).parameters.edge == ref
-    # Candidate enumeration order cannot change resolution.
+    assert volume(doc.shape) == pytest.approx(40000-80)
+    # Candidate enumeration and orientation cannot change resolution.
     edge = resolve_edge(ref, doc.solid_shapes[target], tuple(reversed(doc.face_lineages[target])))
-    assert edge_reference(edge, doc.face_lineages[target]) == ref
+    assert edge_reference(edge, doc.face_lineages[target]).neighbors == ref.neighbors
 
 
 def test_seams_stale_edges_and_ambiguous_ownership_rejected():
@@ -250,7 +248,7 @@ def test_chamfer_can_feed_downstream_cut_and_recover():
     doc.add_entity(sid,c)
     cut = doc.add_extrusion(sid,c.id,distance=20,operation='cut',target_id=cid)
     assert doc.statuses[cut].valid
-    doc.set_box(BoxParameters(depth=40))
+    doc.set_box(BoxParameters(width=.25))  # Too little material for the stored bevel.
     assert not doc.statuses[cid].valid and not doc.statuses[cut].valid
     doc.undo()
     assert doc.statuses[cid].valid and doc.statuses[cut].valid
@@ -285,3 +283,4 @@ def test_schema_rejects_malformed_or_legacy_chamfer():
     with pytest.raises(ValueError):
         deserialize(payload)
     assert serialize(Document().features)['version'] == 3  # Existing format unchanged.
+

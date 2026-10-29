@@ -1,7 +1,7 @@
 from pathlib import Path
 from dataclasses import fields as data_fields, replace
 
-from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent
+from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
@@ -18,7 +18,7 @@ from hero_cad.ui.viewport import Viewport
 from hero_cad.ui.operation_panel import OperationPanel
 from hero_cad.ui.commands import CommandRegistry
 from hero_cad.ui.tool_island import ToolIsland
-from hero_cad.history_inspection import feature_history_text
+from hero_cad.history_inspection import feature_history_text, first_failure
 from hero_cad.ui.feature_icons import feature_icon
 
 
@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
         self.viewport.update_support_face = self.update_sketch_face
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
+        self.browser.setIconSize(QSize(22, 14))
         self.browser.setColumnCount(2)
         self.browser.setHeaderLabels(['Model · mm', 'Visible'])
         self.browser.header().setStretchLastSection(False)
@@ -263,6 +264,8 @@ class MainWindow(QMainWindow):
         self.tangent_chain_action.triggered.connect(self.select_tangent_chain)
         self.viewport.selectionChanged.connect(lambda _: self.update_actions())
         view_menu = self.menuBar().addMenu("&View")
+        self.first_failure_action = view_menu.addAction('Go to First Unresolved Feature')
+        self.first_failure_action.triggered.connect(self.go_to_first_failure)
         toolbar.addWidget(QLabel(" X-Ray: "))
         self.xray_choice = QComboBox()
         self.xray_choice.addItems(['Off', 'Celadon', 'Orange'])
@@ -808,6 +811,11 @@ class MainWindow(QMainWindow):
             self.history_inspector.setPlainText(text)
 
     def rebuild_browser(self):
+        expanded = {key: item.isExpanded() for key, item in getattr(self, 'browser_items', {}).items()}
+        roots = {self.browser.topLevelItem(i).text(0): self.browser.topLevelItem(i).isExpanded()
+                 for i in range(self.browser.topLevelItemCount())}
+        earliest = first_failure(self.document)
+        self.first_failure_action.setEnabled(earliest is not None)
         with QSignalBlocker(self.browser):
             self.browser.clear()
             origin = QTreeWidgetItem(self.browser, ["Origin"])
@@ -837,7 +845,7 @@ class MainWindow(QMainWindow):
                     key = ('chamfer', feature.id)
                 else:
                     number = len([k for k in self.browser_items if k[0] == 'sketch']) + 1
-                    item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {self.sketch_plane_label(feature)}" + (" · UNRESOLVED" if not status.valid else "")])
+                    item = QTreeWidgetItem(self.browser, [f"Sketch {number} · {self.sketch_plane_label(feature)}"])
                     key = ('sketch', feature.id)
                     item.setText(1, '●' if feature.sketch_visible else '○')
                     item.setToolTip(1, 'Click to hide sketch' if feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
@@ -849,16 +857,55 @@ class MainWindow(QMainWindow):
                     item.setExpanded(feature.id == self.viewport.sketch.active_id)
                 if feature.type in ('box','extrude','boolean','chamfer'):
                     item.setText(0,item.text(0)+(' · current body' if feature.id in self.document.active_body_ids else ' · historical'))
-                if not status.valid and 'UNRESOLVED' not in item.text(0):
-                    item.setText(0, item.text(0) + ' · UNRESOLVED')
-                item.setToolTip(0, "Valid · " + feature.id if status.valid else status.error)
-                item.setIcon(0, feature_icon(feature))
+                state = 'valid' if status.valid else 'blocked' if status.blocked_by else 'unresolved'
+                if not status.valid:
+                    item.setText(0, item.text(0) + ' · ' + state.upper())
+                tooltip = 'Valid · ' + feature.id if status.valid else state.title() + ' · ' + (status.error or 'No diagnostic available')
+                if status.blocked_by:
+                    parent = self.document.feature(status.blocked_by)
+                    position = next(i for i, f in enumerate(self.document.features, 1) if f.id == parent.id)
+                    tooltip = f'Blocked by #{position} · {parent.type.title()} ({parent.id})\n' + tooltip
+                item.setToolTip(0, tooltip)
+                item.setIcon(0, feature_icon(feature, state))
+                if feature.id == earliest and state == 'unresolved':
+                    font = item.font(0)
+                    font.setBold(True)
+                    item.setFont(0, font)
                 item.setData(0, Qt.UserRole, key)
                 self.browser_items[key] = item
             body.setExpanded(True)
+            for key, item in self.browser_items.items():
+                if key in expanded:
+                    item.setExpanded(expanded[key])
+            for i in range(self.browser.topLevelItemCount()):
+                item = self.browser.topLevelItem(i)
+                if item.text(0) in roots:
+                    item.setExpanded(roots[item.text(0)])
             if self.browser_key not in self.browser_items:
                 self.browser_key = next(k for k in self.browser_items if k[0] == 'box')
             self.browser.setCurrentItem(self.browser_items[self.browser_key])
+
+    def go_to_first_failure(self):
+        identifier = first_failure(self.document)
+        if identifier is None:
+            return
+        feature = self.document.feature(identifier)
+        key = (feature.type, identifier)
+        item = self.browser_items[key]
+        self.browser.setCurrentItem(item)
+        if self.browser_key != key:  # An invalid pending edit may refuse selection.
+            return
+        item = self.browser_items[key]  # Committing pending edits may rebuild the tree.
+        ancestor = item.parent()
+        while ancestor:
+            ancestor.setExpanded(True)
+            ancestor = ancestor.parent()
+        self.browser.scrollToItem(item)
+        self.property_tabs.setCurrentWidget(self.history_inspector)
+        self.property_tabs.parentWidget().show()
+        self.property_tabs.parentWidget().raise_()
+        self.update_history_inspector()
+        self.history_inspector.setFocus()
 
     def browser_selection(self, item, previous):
         key = item.data(0, Qt.UserRole) if item else None
@@ -1248,3 +1295,4 @@ class MainWindow(QMainWindow):
         self.tool_island.save_layout()
         self.viewport.Finalize()
         super().closeEvent(event)
+

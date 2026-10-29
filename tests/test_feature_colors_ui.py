@@ -10,7 +10,7 @@ from test_sketch_ui import window
 
 
 def color(icon, mode=QIcon.Normal):
-    return icon.pixmap(4, 14, mode).toImage().pixelColor(2, 7).name()
+    return icon.pixmap(22, 14, mode).toImage().pixelColor(2, 7).name()
 
 
 @pytest.mark.parametrize('kind,operation,expected', [
@@ -50,6 +50,7 @@ def test_browser_colors_survive_selection_edits_and_failed_dependencies(qtbot):
     for kind, identifier, expected in (('sketch', attached, '#e6a04b'), ('extrude', cut, '#d95c5c')):
         item = w.browser_items[(kind, identifier)]
         assert not w.document.statuses[identifier].valid
-        assert 'UNRESOLVED' in item.text(0)
-        assert item.toolTip(0) == w.document.statuses[identifier].error
+        assert ('BLOCKED' if w.document.statuses[identifier].blocked_by else 'UNRESOLVED') in item.text(0)
+        assert w.document.statuses[identifier].error in item.toolTip(0)
         assert color(item.icon(0)) == expected
+

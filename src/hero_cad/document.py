@@ -102,7 +102,7 @@ class Document:
                     if (existing is not None and feature.type == 'chamfer'
                             and (feature.id not in existing or feature != self.feature(feature.id))):
                         raise OperationError('Cannot commit chamfer: target body is unresolved')
-                    statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}')
+                    statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}', blocked_by=blocked)
                 else:
                     try:
                         if feature.type == 'box':
@@ -459,3 +459,4 @@ class Document:
         document = cls(features=features)
         document.path = path
         return document
+
