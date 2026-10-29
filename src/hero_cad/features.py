@@ -80,6 +80,22 @@ class BooleanParameters:
 
 
 @dataclass(frozen=True)
+class ChamferParameters:
+    target_id: str
+    edge: object
+    distance: float = 1.0
+
+    def __post_init__(self):
+        from hero_cad.chamfers import EdgeReference
+        valid_id(self.target_id)
+        if type(self.edge) is not EdgeReference:
+            raise ValueError('Expected a persistent straight edge reference')
+        if (type(self.distance) not in (int, float) or not isfinite(self.distance)
+                or not 1e-6 <= self.distance <= 100000):
+            raise ValueError('Chamfer distance must be positive, from 0.000001 to 100000 mm')
+
+
+@dataclass(frozen=True)
 class Feature:
     type: str
     parameters: object
@@ -93,7 +109,8 @@ class Feature:
             raise ValueError('Visibility metadata is a boolean for sketches only')
         if not isinstance(self.type, str):
             raise ValueError('Feature type must be a string')
-        expected = {'box': BoxParameters, 'sketch': SketchParameters, 'extrude': ExtrudeParameters, 'boolean': BooleanParameters}.get(self.type)
+        expected = {'box': BoxParameters, 'sketch': SketchParameters, 'extrude': ExtrudeParameters,
+                    'boolean': BooleanParameters, 'chamfer': ChamferParameters}.get(self.type)
         if expected is None or type(self.parameters) is not expected:
             raise ValueError('Unsupported feature or parameter type')
         if not isinstance(self.references, tuple) or any(not isinstance(r, str) for r in self.references):

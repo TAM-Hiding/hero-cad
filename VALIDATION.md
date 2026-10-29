@@ -1091,3 +1091,51 @@ Full-suite warnings are existing VTK/NumPy 2.5 array-shape deprecations. No
 strict timing assertions. User test8.starcad was unavailable. Desktop feel on
 that stress model remains a manual check; consumed sketches/history retain
 expensive full regeneration. No private model files were added.
+
+## Work Order #035 — native parametric edge chamfers
+
+Baseline `674f1b6` (main after merged PR #34). Added one-edge equal-distance
+ChamferParameters/Feature evaluation using OCCT BRepFilletAPI_MakeChamfer,
+conservative target-scoped segment/adjacent-ancestry references, existing face
+lineage propagation plus native bevel origin, and minimal v12 serialization.
+Toolbar/tool-island action, shared OperationPanel explicit preview, browser,
+Properties distance editing, History, dependent operations and Undo/Redo use the
+existing document infrastructure. No dependencies or viewport renderer changed.
+
+Environment: Ubuntu 24.04 host, Python 3.12.14, pinned requirements-dev.lock,
+PySide6 6.8.3, OCCT/OCP 7.9.3.1.1, VTK 9.6.2. No Render stubs in UI tests.
+
+- Focused geometry/history/document checks: **56 passed** initially.
+- New real UI path checks (including later curved-edge availability assertion):
+  **8 passed**, 5.14 s. These exercise selection, preview/cancel, exact raw entry,
+  commit, browser/Properties/history, edit failures, Undo/Redo, save/reopen,
+  subsequent face/edge picks, and a nonblank shaded framebuffer.
+- Final kernel/document checks, including the explicit bounding-box assertion:
+  `.venv/bin/pytest tests/test_chamfers.py tests/test_document.py -q`:
+  **44 passed**, 3.87 s. Includes positive/excessive values, exact volume/bevel
+  normal, native validity, atomic kernel failure, upstream preservation/loss,
+  recovery, Join/Cut, eight-bore solid, bevel sketch transport, chained separate
+  chamfer features, native tangent-chain refusal and strict schema parsing.
+- Final complete suite:
+  `DISPLAY=127.0.0.1:99 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb
+  .venv/bin/pytest -q`: **643 passed**, 195.72 s, no skips. 148 existing-style
+  VTK/NumPy 2.5 array-shape deprecation warnings (one new framebuffer caller).
+- The host blocks Unix display sockets. As in PR34, the README's software OpenGL
+  XCB suite ran against Xvfb on local TCP within the same command namespace:
+  `Xvfb :99 -listen tcp -nolisten unix -nolisten local -ac -screen 0 1280x1024x24`.
+- `pip check`: no broken requirements. `git diff --check`: clean.
+
+The first full run exposed a test fixture choosing nondeterministically between
+an independent cylinder and box, and a legacy tool-island assertion forbidding
+all chamfer actions. The fixture now explicitly names its owner; the island test
+checks the implemented shared Chamfer action and continued absence of fillets.
+The subsequent full run above passed.
+
+Conservative limits: one straight, manifold, identified edge only; tangent chains
+are rejected rather than expanded. Changed segment geometry or adjacent ancestry
+may become unresolved; no index/nearest-edge repair. Explicit preview and commit
+retain full sequential evaluation, so complex models can remain slow. The user's
+large torture-test file was not supplied; eight native cylindrical Cuts and
+subsequent chamfer/face-sketch/operation histories provided the complex fixture.
+No private models were added. No local Ubuntu 22.04/platform claim; CI covers the
+repository's Ubuntu 22.04/24.04 matrix. See docs/CHAMFERS.md for workflow and limits.

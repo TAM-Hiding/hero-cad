@@ -7,6 +7,7 @@ from PySide6.QtGui import QCursor, QShortcut, QKeySequence, QGuiApplication
 from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout
 from hero_cad.document import Document
 from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
+from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
 from hero_cad.ui.display_geometry import tessellate
 
@@ -17,6 +18,7 @@ class OperationPanel(QDockWidget):
         self.window = window
         self.active = False
         self.quick_mode = False
+        self.chamfer_parameters = None
         self.candidate = None
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
@@ -89,6 +91,9 @@ class OperationPanel(QDockWidget):
 
     def open(self, *, source=None, bodies=(), feature=None, quick=False):
         self.cancel()
+        self.chamfer_parameters = None
+        self.quick_distance.setAccessibleName('Extrusion distance in millimeters')
+        self.quick_distance.setToolTip('Signed millimeters: + follows the sketch normal; − reverses direction')
         self.quick_mode = False
         self.source, self.bodies, self.edit_id = source, tuple(bodies), feature.id if feature else None
         self.active = False
@@ -167,6 +172,30 @@ class OperationPanel(QDockWidget):
                       max(area.top(),min(y,area.bottom()-self.height()+1)))
             QTimer.singleShot(0,self.focus_distance)
 
+    def open_chamfer(self, parameters, *, feature=None):
+        """Use the existing candidate-document preview actor and commit path."""
+        self.cancel()
+        self.chamfer_parameters = parameters
+        self.source, self.bodies = None, (parameters.target_id,)
+        self.edit_id = feature.id if feature else None
+        self.feature_id = feature.id if feature else new_id()
+        self.quick_mode = True
+        with QSignalBlocker(self.quick_distance):
+            self.quick_distance.setText(format(parameters.distance, '.17g'))
+        self.quick_distance.setAccessibleName('Chamfer distance in millimeters')
+        self.quick_distance.setToolTip('Positive equal distance on the two adjacent faces, in millimeters')
+        self.tools_label.setText(self.window.body_label(parameters.target_id))
+        self.active = True
+        self.setFloating(True)
+        self.setWindowModality(Qt.NonModal)
+        self.setWindowTitle('Chamfer')
+        self.invalidate()
+        self.show()
+        self.raise_()
+        self.adjustSize()
+        self.resize(350, self.sizeHint().height())
+        QTimer.singleShot(0, self.focus_distance)
+
     def changed(self, *_):
         if not self.active:
             return
@@ -180,6 +209,24 @@ class OperationPanel(QDockWidget):
 
     def invalidate(self, *_):
         if not self.active:
+            return
+        if self.chamfer_parameters is not None:
+            had_preview = bool(self.actor.GetVisibility())
+            self.preview_timer.stop()
+            self.candidate = None
+            self.actor.VisibilityOff()
+            self.apply_button.setEnabled(False)
+            self.feedback_text('One straight edge · equal distance. Preview or Apply to evaluate.')
+            if had_preview:
+                self.window.display_solids()
+            try:
+                self.input_distance()
+            except ValueError as error:
+                self.feedback_text(str(error))
+            else:
+                self.apply_button.setEnabled(True)
+            self.layout_controls()
+            self.window.viewport.GetRenderWindow().Render()
             return
         self.layout_controls()
         had_preview = bool(self.actor.GetVisibility())
@@ -212,6 +259,19 @@ class OperationPanel(QDockWidget):
             self.layout_controls()
 
     def layout_controls(self):
+        chamfer = self.chamfer_parameters is not None
+        self.form.setRowVisible(self.operation, not chamfer)
+        self.form.labelForField(self.tools_label).setText('Target body' if chamfer else 'Tool bodies')
+        if chamfer:
+            for field in (self.distance, self.advanced, self.extent, self.direction, self.target):
+                self.form.setRowVisible(field, False)
+            self.form.setRowVisible(self.quick_distance, True)
+            self.form.setRowVisible(self.tools_label, True)
+            self.quick_distance.setEnabled(True)
+            self.preview_button.setVisible(True)
+            self.feedback.setMaximumWidth(320)
+            self.feedback.setMaximumHeight(80)
+            return
         quick = self.quick_mode
         advanced = not quick or self.advanced.isChecked()
         self.form.setRowVisible(self.quick_distance,quick)
@@ -240,12 +300,14 @@ class OperationPanel(QDockWidget):
             self.quick_distance.selectAll()
 
     def input_distance(self):
-        if not self.quick_mode or (self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'):
+        if not self.quick_mode or (self.chamfer_parameters is None and self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all'):
             return self.distance.value()
         text = self.quick_distance.text().strip()
         if not re.fullmatch(r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?',text):
             raise ValueError('Enter a signed distance in mm.')
         value = float(text)
+        if self.chamfer_parameters is not None and (not isfinite(value) or not 1e-6 <= value <= 100000):
+            raise ValueError('Chamfer distance must be positive, from 0.000001 to 100000 mm.')
         if not isfinite(value) or not 1e-6 <= abs(value) <= 100000:
             raise ValueError('Distance must be nonzero, from ±0.000001 to ±100000 mm.')
         return value
@@ -284,6 +346,9 @@ class OperationPanel(QDockWidget):
         return self.commit()
 
     def definition(self):
+        if self.chamfer_parameters is not None:
+            p = replace(self.chamfer_parameters, distance=self.input_distance())
+            return Feature('chamfer', p, (p.target_id,), self.feature_id)
         op,target = self.operation.currentData(),self.target.currentData()
         if op != 'new' and target is None:
             raise ValueError('Select an available target body for this operation.')
@@ -363,7 +428,7 @@ class OperationPanel(QDockWidget):
         if w.viewport.sketch.active_id:
             w.viewport.sketch.finish()
         w.profile_action.setChecked(False)
-        w.entity_context = ('extrude',feature.id) if feature.type == 'extrude' else None
+        w.entity_context = (feature.type,feature.id) if feature.type in ('extrude', 'chamfer') else None
         w.browser_key = (feature.type,feature.id)
         w.refresh(fit=True)
         w.activateWindow()

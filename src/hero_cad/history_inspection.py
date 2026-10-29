@@ -2,7 +2,7 @@
 from collections import Counter
 
 
-TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine'}
+TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine', 'chamfer': 'Chamfer'}
 
 
 def feature_history_text(document, identifier):
@@ -41,6 +41,8 @@ def feature_history_text(document, identifier):
                 return f'Boolean target body · {p.operation.title()}'
         if child.type == 'boolean':
             return 'Boolean target body' if parent_id == p.target_id else 'Boolean tool body'
+        if child.type == 'chamfer':
+            return 'Chamfer target body / selected edge'
         return 'Feature dependency'
 
     status = document.statuses[identifier]
@@ -61,7 +63,7 @@ def feature_history_text(document, identifier):
         if not status.valid:
             lines.append('Geometry: No evaluated output')
     if status.reference_state:
-        lines.append(f'Face reference: {status.reference_state.title()}')
+        lines.append(f'{"Edge" if feature.type == "chamfer" else "Face"} reference: {status.reference_state.title()}')
     if status.error:
         lines.extend(['', 'Regeneration error:', status.error])
 
@@ -117,5 +119,12 @@ def feature_history_text(document, identifier):
     elif feature.type == 'boolean':
         lines.extend([f'Operation: {p.operation.title()}', f'Target: {reference_label(p.target_id)}', 'Tools:'])
         lines.extend(reference_label(ref) for ref in p.tool_ids)
+    elif feature.type == 'chamfer':
+        lines.extend([f'Equal distance: {number(p.distance)} mm', f'Target: {reference_label(p.target_id)}',
+                      'Selected straight edge endpoints (model coordinates):',
+                      *(f'({vector(point)}) mm' for point in p.edge.endpoints),
+                      'Edge identity: exact segment and two adjacent face ancestries; no index fallback'])
+        identifiers.append('Adjacent construction-face ancestry:')
+        identifiers.extend(', '.join(tokens) for tokens in p.edge.neighbors)
     lines.extend(['', 'Technical identifiers:', *identifiers])
     return '\n'.join(lines)

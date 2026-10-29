@@ -200,7 +200,7 @@ def decode_face_origin(token):
                     raise ValueError('Invalid curve ancestry')
             else:
                 ref = FaceReference(identifier, face, boundary, segment)
-                if ref.face not in ('start', 'end', 'side'):
+                if ref.face not in ('start', 'end', 'side', 'bevel'):
                     raise ValueError('Ancestry must identify construction geometry')
             key = tuple(key)
         else:
@@ -273,7 +273,7 @@ class FaceReference:
             raise ValueError('Current-face snapshot requires an evaluated reference without source support')
         if self.support is not None and (type(self.support) is not FaceSupport or self.face != 'evaluated'):
             raise ValueError('Ancestry support belongs only to evaluated faces')
-        if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side', 'evaluated'):
+        if self.face not in ('+X', '-X', '+Y', '-Y', '+Z', '-Z', 'start', 'end', 'side', 'bevel', 'evaluated'):
             raise ValueError('Unsupported semantic face')
         if self.face == 'side':
             valid_id(self.boundary_id)

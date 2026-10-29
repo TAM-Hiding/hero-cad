@@ -11,10 +11,12 @@ def feature_icon(feature):
     elif feature.type == 'extrude':
         color = {'join': '#42B8D5', 'cut': '#D95C5C', 'new': '#65B879'}.get(
             feature.parameters.operation)
+    elif feature.type == 'chamfer':
+        color = '#B59BDE'
     return _color_icon(color)
 
 
-@lru_cache(maxsize=5)
+@lru_cache(maxsize=6)
 def _color_icon(color):
     if color is None:
         return QIcon()  # Keep the theme's existing neutral presentation.

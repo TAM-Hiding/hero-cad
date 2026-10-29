@@ -14,6 +14,14 @@ Lightweight, Linux-native parametric mechanical CAD for STR-GZR OS. Fusion-inspi
 
 A Qt desktop app with an Open CASCADE box, editable sketches, model browser and properties panel. All model coordinates are millimetres; the B-rep and stored parameters are authoritative, not the display mesh. The dark blue-gray background, shaded solids and one-pixel boundary lines are retained.
 
+### Edge chamfers
+
+Select one straight edge on a current body, then choose **Chamfer…** in the
+toolbar or tool island. Enter a positive equal distance in mm, Preview/Apply,
+and edit the resulting Chamfer feature in Properties. Creation and edits support
+Undo/Redo and save/reopen. Changed or ambiguous edges become unresolved rather
+than being reassigned. See [CHAMFERS.md](docs/CHAMFERS.md) for scope and limits.
+
 ### Sketch workflow
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
