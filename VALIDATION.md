@@ -1311,3 +1311,67 @@ and refuses ambiguous continuations or more than 256 edges. Curved faces remain
 selectable but cannot host sketches. No per-edge distances, edge reassignment UI,
 fillets, asynchronous evaluation or broader topology naming. No physical desktop
 or Wayland validation is claimed.
+
+
+## Work Order #040 — semantic Base Model edges and regeneration diagnostics (2026-10-28)
+
+Root cause confirmed in `resolve_edges`: exact `EdgeReference` equality included
+endpoints. A box dimension edit moved exterior endpoints even when the two
+principal construction-face ancestries and explicit target body remained valid.
+The fallback now requires two unmixed principal faces of the same box, compatible
+intersection direction, and exactly one candidate in that target. Strict geometry
+matching remains first; ambiguity, foreign/mixed ancestry, unsupported curve
+classes and duplicate resolved edges remain explicit failures. Native OCCT
+construction and transactional result validation are unchanged.
+
+Coverage added: a +Z-attached slot pocket, both four-edge rim chamfers, then all
+twelve exterior edges; X=39/41 and Y=29/31 with validity, bounds, mass properties,
+UUID/reference preservation, Undo/Redo and save/reopen. Separate box tests cover
+Z=19/21. Real split-edge ambiguity preserves feature definitions and blocks a
+dependent cut. Additional tests cover 1/4/12 selections, changed curve class,
+incomplete/contradictory/foreign ancestry, disappearing edges, orientation,
+duplicate resolution, independent failed and valid branches, browser status,
+History text, first-failure navigation and status updates through Undo/Redo.
+Existing straight/circular/arc, tangent-chain, invalid-distance, injected kernel
+failure, reference, persistence and UI suites were exercised.
+
+Environment and commands:
+
+- The preinstalled runtime had OCCT binding 7.8.1.1.post1 and VTK 9.3.1. Its
+  focused geometry/reference/history selection passed 179 tests. An exploratory
+  full run with those older versions later segfaulted in existing grid UI code;
+  this is not treated as a supported-version full-suite result.
+- A separate `.venv-pinned` used the project pins: cadquery-ocp and its proxy
+  7.9.3.1.1, VTK 9.6.2, PySide6 6.8.3, pytest 8.3.5 and pytest-qt 4.4.0. No
+  project dependency or lockfile was changed.
+- Xvfb was started with `-screen 0 1280x1024x24 -ac -nolisten unix -listen tcp`
+  on an available local display because this host restricts Unix display sockets.
+  `LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb PYTHONPATH=src
+  .venv-pinned/bin/python -m pytest -q` completed with **748 passed, 7 failed,
+  1 skipped**. All seven failures were local source/environment setup issues:
+  the new environment lacked the console entry point before editable install,
+  and source retrieval added a trailing newline to six checksum-protected legacy
+  fixtures. The fixtures in the remote repository were never modified.
+- After `.venv-pinned/bin/python -m pip install --no-deps -e .`, the actual
+  launcher test passed (`tests/test_desktop_launcher.py::
+  test_real_launcher_opens_installed_app_without_activation`: **1 passed**).
+  After restoring the six original fixture byte streams and verifying their
+  manifest checksums, `tests/test_rebranding.py::
+  test_pre_rename_documents_regenerate_save_and_history` passed (**6 passed**).
+  Thus **755 distinct tests passed across the full run and corrected-setup
+  reruns**, with one standard desktop-file validator check skipped because
+  desktop-file-utils is unavailable locally. No product changes or weakened
+  fixture checks were needed for these reruns.
+- Real Qt diagnostics/navigation tests and preserved feature-color checks passed
+  in the pinned full run. A native window capture was also inspected for compact
+  warning/blocked symbols, original feature stripes and History diagnostics.
+- `git diff --check` passed. GitHub Actions runs the unchanged full pinned suite
+  on Ubuntu 22.04 and 24.04; consult PR #40 checks for the current remote result.
+
+Known scope: only unique straight edges derived from two principal Base Model
+faces receive semantic transport. Arbitrary generated edges, circles/arcs, bevel
+faces and moved slot rims retain strict matching. In particular, changing Z in
+the slot-pocket fixture moves its rim edges and deliberately leaves that earlier
+rim chamfer unresolved, while its downstream exterior chamfer is blocked.
+Successful reference resolution still cannot make an oversized native chamfer
+geometrically valid. No schema migration or automatic witness rewriting occurs.
