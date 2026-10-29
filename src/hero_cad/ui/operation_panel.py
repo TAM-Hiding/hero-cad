@@ -239,7 +239,7 @@ class OperationPanel(QDockWidget):
             self.candidate = None
             self.actor.VisibilityOff()
             self.apply_button.setEnabled(False)
-            self.feedback_text('One straight edge · equal distance. Preview or Apply to evaluate.')
+            self.feedback_text('One straight, circular or arc edge · equal distance. Preview or Apply to evaluate.')
             if had_preview:
                 self.window.display_solids()
             try:

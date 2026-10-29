@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView, QTabWidget, QPlainTextEdit,
 )
 from hero_cad import __version__
+from hero_cad.chamfers import edge_description
 from hero_cad.document import BoxParameters, Document
 from hero_cad.features import ExtrudeParameters, ChamferParameters
 from hero_cad.geometry import volume, compound
@@ -253,7 +254,7 @@ class MainWindow(QMainWindow):
         self.combine_action.triggered.connect(self.combine_selected)
         toolbar.addAction(self.combine_action)
         self.chamfer_action = QAction('Chamfer…', self)
-        self.chamfer_action.setToolTip('Equal-distance chamfer on one selected straight solid edge')
+        self.chamfer_action.setToolTip('Equal-distance chamfer on one selected straight, circular or arc solid edge')
         self.chamfer_action.triggered.connect(self.chamfer_selected)
         toolbar.addAction(self.chamfer_action)
         self.viewport.selectionChanged.connect(lambda _: self.update_actions())
@@ -741,7 +742,7 @@ class MainWindow(QMainWindow):
             self.entity_form.addRow(QLabel('Chamfer · equal distance' if chamfer else f"Extrusion · {entity.operation} · {entity.extent}" if extrusion else type(entity).__name__ + " · local sketch coordinates"))
             if chamfer:
                 status = self.document.statuses[self.entity_context[1]]
-                info = QLabel('Target: ' + self.body_label(entity.target_id) + '\nEdge endpoints: ' + str(entity.edge.endpoints)
+                info = QLabel('Target: ' + self.body_label(entity.target_id) + '\n' + edge_description(entity.edge)
                               + ('\nResolved' if status.valid else '\n' + status.error))
                 info.setWordWrap(True)
                 self.entity_form.addRow(info)
@@ -1109,7 +1110,7 @@ class MainWindow(QMainWindow):
     def selected_chamfer_edge(self):
         selections = self.viewport.selections
         if len(selections) != 1 or selections[0].kind != 'edge':
-            return None, 'Select exactly one straight edge on a current solid body.'
+            return None, 'Select exactly one straight, circular or arc edge on a current solid body.'
         try:
             return self.document.edge_reference(selections[0].shape), ''
         except ValueError as error:

@@ -16,7 +16,8 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 
 ### Edge chamfers
 
-Select one straight edge on a current body, then choose **Chamfer…** in the
+Select one straight, circular or eligible circular-arc edge on a current body,
+then choose **Chamfer…** in the
 toolbar or tool island. Enter a positive equal distance in mm, Preview/Apply,
 and edit the resulting Chamfer feature in Properties. Creation and edits support
 Undo/Redo and save/reopen. Changed or ambiguous edges become unresolved rather

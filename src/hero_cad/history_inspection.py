@@ -1,5 +1,6 @@
 """Read-only presentation of authoritative document history; no evaluation/cache."""
 from collections import Counter
+from hero_cad.chamfers import edge_description
 
 
 TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine', 'chamfer': 'Chamfer'}
@@ -121,9 +122,8 @@ def feature_history_text(document, identifier):
         lines.extend(reference_label(ref) for ref in p.tool_ids)
     elif feature.type == 'chamfer':
         lines.extend([f'Equal distance: {number(p.distance)} mm', f'Target: {reference_label(p.target_id)}',
-                      'Selected straight edge endpoints (model coordinates):',
-                      *(f'({vector(point)}) mm' for point in p.edge.endpoints),
-                      'Edge identity: exact segment and two adjacent face ancestries; no index fallback'])
+                      edge_description(p.edge),
+                      'Edge identity: checked curve geometry and two adjacent face ancestries; no index fallback'])
         identifiers.append('Adjacent construction-face ancestry:')
         identifiers.extend(', '.join(tokens) for tokens in p.edge.neighbors)
     lines.extend(['', 'Technical identifiers:', *identifiers])

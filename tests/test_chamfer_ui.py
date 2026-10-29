@@ -143,7 +143,7 @@ def test_failed_preview_and_property_edit_preserve_valid_model(qtbot,monkeypatch
     panel.cancel()
 
 
-def test_chamfer_disabled_for_faces_multiselection_curves_and_sketch_edit(qtbot):
+def test_chamfer_disabled_for_faces_multiselection_and_sketch_edit(qtbot):
     w = window(qtbot)
     select_edge(w)
     w.viewport.set_selection_mode('face')
@@ -169,5 +169,75 @@ def test_chamfer_disabled_for_faces_multiselection_curves_and_sketch_edit(qtbot)
     w.viewport.set_selection_mode('edge')
     w.viewport.pick_at(*project(w.viewport,(15,10,10)))
     assert w.viewport.selection.kind == 'edge'
-    assert not w.chamfer_action.isEnabled()
-    assert 'curved' in w.chamfer_action.toolTip()
+    assert w.chamfer_action.isEnabled()
+    assert w.document.edge_reference(w.viewport.selection.shape)[1].curve_type == 'circle'
+
+
+@pytest.mark.parametrize('kind,z,point', [
+    ('hole',20,(20,15,20)), ('boss',30,(20,15,30)), ('arc',30,(10,15,30)),
+])
+def test_curved_chamfer_pick_preview_cancel_apply_properties_and_bevel_selection(qtbot,tmp_path,kind,z,point):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QPalette
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cone
+    from test_circular_chamfers import model
+    from hero_cad.ui.operation_appearance import OPERATION_STYLE, INPUT
+    w=window(qtbot)
+    w.document=model(kind)[0]
+    doc=w.document
+    w.refresh()
+    w.tool_island.set_collapsed(True)
+    w.tool_island.place(QPoint(40,12))
+    v=w.viewport
+    v.orient('Top')
+    v.set_selection_mode('edge')
+    v.pick_at(*project(v,point))
+    assert v.selection.kind=='edge' and w.chamfer_action.isEnabled()
+    target,reference=doc.edge_reference(v.selection.shape)
+    assert reference.curve_type==('arc' if kind=='arc' else 'circle')
+    before=doc.features
+    original_volume=volume(doc.solid_shapes[target])
+    w.chamfer_action.trigger()
+    p=w.operation_panel
+    qtbot.waitUntil(lambda:not p.open_timer.isActive())
+    assert p.styleSheet()==OPERATION_STYLE
+    assert p.quick_distance.palette().color(QPalette.Base).name().upper()==INPUT.upper()
+    anchor=w.tool_island.mapToGlobal(QPoint())
+    assert p.frameGeometry().left()==anchor.x()
+    assert p.frameGeometry().top()==anchor.y()+w.tool_island.height()+3
+    p.quick_distance.setText('.5')
+    assert p.preview() and p.actor.GetVisibility()
+    assert volume(p.candidate.solid_shapes[p.feature_id]) < original_volume
+    assert doc.features==before
+    p.cancel()
+    assert doc.features==before and not p.actor.GetVisibility()
+    v.set_selection_mode('edge')
+    v.pick_at(*project(v,point))
+    assert w.chamfer_action.isEnabled()
+    w.chamfer_action.trigger()
+    p.quick_distance.setText('.5')
+    assert p.apply_input()
+    cid=doc.features[-1].id
+    assert doc.feature(cid).type=='chamfer'
+    assert w.entity_context==('chamfer',cid)
+    assert ('Circular arc:' if kind=='arc' else 'Circle:') in w.history_inspector.toPlainText()
+    w.entity_fields['distance'].setValue(1)
+    assert w.apply_dimensions()
+    assert doc.feature(cid).id==cid and doc.feature(cid).parameters.distance==1
+    w.undo()
+    assert doc.feature(cid).parameters.distance==.5
+    w.redo()
+    assert doc.feature(cid).parameters.distance==1
+    doc.save(tmp_path/f'ui-{kind}.starcad')
+    loaded=Document.load(doc.path)
+    assert loaded.features==doc.features and loaded.statuses[cid].valid
+    # Pick the conical bevel through the normal tessellation-to-OCCT face map.
+    v.orient('Top')
+    v.set_selection_mode('face')
+    bevel_point=(20.5,15,19.5) if kind=='hole' else (19.5,15,29.5) if kind=='boss' else (10.5,15,29.5)
+    v.pick_at(*project(v,bevel_point))
+    assert v.selection.kind=='face'
+    assert BRepAdaptor_Surface(v.selection.shape).GetType()==GeomAbs_Cone
+    with pytest.raises(ValueError,match='planar'):
+        doc.face_reference(v.selection.shape)

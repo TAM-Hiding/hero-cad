@@ -1211,3 +1211,46 @@ the final full XCB/software-OpenGL run after retaining native subcontrols passed
 validator. Existing 148 VTK/NumPy warnings remain. Test command:
 `DISPLAY=127.0.0.1:92 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`
 with local TCP Xvfb as documented above. `pip check` and `git diff --check` clean.
+
+## PR #38 — circular and arc-edge chamfers
+
+Based on main after merged #37 (`0b8f462`). The existing Chamfer feature now
+recognizes analytic circles and partial circular arcs alongside lines. Full-circle
+witnesses omit seam/parameter origins; arc witnesses add sorted endpoints and a
+trim midpoint. Canonical center/radius/unsigned axis and adjacent construction
+ancestry resolve uniquely in the explicit target body. Straight-only documents
+retain v12; only curved edge records require v13. No dependency, regeneration,
+preview scheduling or operation-appearance changes.
+
+Validation on pinned Python 3.12/OCP 7.9.3/Qt 6.8.3 with real native OCCT and
+VTK/Qt rendering (XCB, TCP Xvfb, software OpenGL):
+
+- Focused geometry/document/chamfer UI/appearance/tool-island run: **121 passed**,
+  1 existing warning, 22.01 s. Additional tilted native reference cases then
+  passed in the geometry suite (**38 passed**, 3.38 s).
+- Final full suite, including the final topological-closure check for full circles:
+  **697 passed**, 148 existing VTK/NumPy deprecation warnings, **203.31 s**.
+  Command: `DISPLAY=127.0.0.1:94 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`,
+  using `Xvfb :94 -listen tcp -nolisten unix -nolisten local -ac -screen 0 1280x1024x24`
+  in the same command environment. desktop-file-utils was available; no skips.
+- `pip check`: no broken requirements. `git diff --check`: clean.
+
+New native cases check both hole rims, a joined boss rim, and an independent
+semicircular boss rim against exact removed volumes, bounds, kernel validity and
+conical bevel surfaces. Tests cover stable UUID/edit/history, Undo/Redo, save/load,
+unchanged upstream geometry, changed radius/center/arc endpoints and recovery,
+minor/major arc and full-circle orientation/axis/parameterization invariance in
+axis-aligned and tilted planes, complementary semicircles, similar rims, explicit
+body/ancestry scoping, ambiguous/missing references, malformed schema data,
+unsupported ellipses/B-splines and atomic native failures. Face ancestry and
+planar-face sketch/downstream Cut remain valid. UI tests exercise actual curved
+edge picks, action enablement, Preview/Cancel/Apply, Properties edits, Undo/Redo,
+save/reopen and conical-face picking; palette and below-island positioning checks
+continue passing. Existing straight-edge and legacy persistence cases remain.
+
+Known limitation: the standard obround slot opening requires tangent-neighbor
+participation in OCCT. Its arc is recognized, but the operation refuses the chain
+before Build and preserves document/native state and history. Independent partial
+arcs can succeed; no multi-edge fallback is introduced. Curved faces remain
+selectable but cannot host sketches. Other arc endpoint configurations or large
+distances can fail native construction. No physical desktop/Wayland claim is made.

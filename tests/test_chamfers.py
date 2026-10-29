@@ -139,7 +139,7 @@ def test_edge_matching_survives_regeneration_and_conservative_upstream_edits(tmp
     assert edge_reference(edge, doc.face_lineages[target]) == ref
 
 
-def test_curves_stale_edges_and_ambiguous_ownership_rejected():
+def test_seams_stale_edges_and_ambiguous_ownership_rejected():
     doc = Document()
     sid = doc.add_sketch('XY')
     circle = Circle(10,10,5)
@@ -152,7 +152,7 @@ def test_curves_stale_edges_and_ambiguous_ownership_rejected():
             doc.edge_reference(edge)
         except ValueError as error:
             errors.append(str(error))
-    assert any('curved' in message for message in errors)
+    assert any('manifold' in message for message in errors)
     old = subshapes(doc.solid_shapes[doc.features[0].id], TopAbs_EDGE)[0]
     doc.set_box(BoxParameters(width=50))
     with pytest.raises(ValueError, match='exactly one current'):
