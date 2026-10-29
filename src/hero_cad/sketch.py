@@ -283,6 +283,10 @@ class FaceReference:
             if (self.boundary_id is not None or not isinstance(self.segment, str)
                     or len(self.segment) != 64 or any(c not in '0123456789abcdef' for c in self.segment)):
                 raise ValueError('Invalid evaluated face identity')
+        elif self.face == 'bevel' and self.segment is not None:
+            if (self.boundary_id is not None or not isinstance(self.segment, str)
+                    or len(self.segment) != 64 or any(c not in '0123456789abcdef' for c in self.segment)):
+                raise ValueError('Invalid chamfer bevel identity')
         elif self.boundary_id is not None or self.segment is not None:
             raise ValueError('Only side faces have boundary segments')
 

@@ -1,6 +1,8 @@
-"""Single-edge native chamfers and conservative, body-scoped edge witnesses."""
+"""Explicit-edge native chamfers and conservative, body-scoped edge witnesses."""
 from dataclasses import dataclass
-from math import dist, pi
+from math import dist, pi, cos
+from hashlib import sha256
+import json
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRep import BRep_Tool
 from OCP.BRepFilletAPI import BRepFilletAPI_MakeChamfer
@@ -135,41 +137,130 @@ def edge_description(reference):
     return text
 
 
-def resolve_edge(reference, body, lineage):
-    matches = []
+def edge_sort_key(reference):
+    def point(values):
+        return tuple(0.0 if x == 0 else x for x in values) if values else ()
+    return (reference.curve_type, point(reference.center), reference.radius or 0.,
+            point(reference.axis), tuple(point(p) for p in reference.endpoints),
+            point(reference.midpoint), reference.neighbors)
+
+
+def bevel_segment(reference):
+    return sha256(json.dumps(edge_sort_key(reference), separators=(',', ':')).encode()).hexdigest()
+
+
+TANGENT_ANGLE = 1e-5  # radians; ~0.00057 degrees, safely above numerical noise.
+CHAIN_ENDPOINT_TOLERANCE = 1e-7  # Existing kernel/profile tolerance, in mm.
+
+
+def tangent_chain(seed, body, lineage):
+    """Transient analytic endpoint traversal; never runs a modeling builder.
+
+    Tangents point away from each endpoint, so continuation requires opposite
+    directions. Compute choices before visiting; a loop cannot hide a branch.
+    """
+    entries = []
+    for raw in subshapes(body, TopAbs_EDGE):
+        edge = TopoDS.Edge_s(raw)
+        try:
+            edge_reference(edge, lineage)
+            curve = BRepAdaptor_Curve(edge)
+            ends = []
+            for parameter, sense in ((curve.FirstParameter(), 1), (curve.LastParameter(), -1)):
+                tangent = curve.DN(parameter, 1)
+                if tangent.Magnitude() < 1e-12:
+                    raise OperationError('Undefined endpoint tangent')
+                tangent.Normalize()
+                ends.append((tuple(curve.Value(parameter).Coord()),
+                             tuple(sense*x for x in tangent.Coord())))
+            entries.append((edge, ends))
+        except (ValueError, RuntimeError):
+            continue  # Unsupported curves/non-manifold edges are boundaries.
+    initial = [i for i,(edge,_) in enumerate(entries) if edge.IsSame(seed)]
+    if len(initial) != 1:
+        raise OperationError('Select one eligible current edge to expand its tangent chain')
+    visited, pending = set(), initial[:]
+    while pending:
+        i = pending.pop()
+        if i in visited:
+            continue
+        visited.add(i)
+        if len(visited) > 256:
+            raise OperationError('Tangent chain exceeds the 256-edge chamfer limit')
+        for point, tangent in entries[i][1]:
+            choices = set()
+            for j,(_,ends) in enumerate(entries):
+                if i == j:
+                    continue
+                if any(dist(point,p) <= CHAIN_ENDPOINT_TOLERANCE
+                       and sum(a*b for a,b in zip(tangent,t)) <= -cos(TANGENT_ANGLE)
+                       for p,t in ends):
+                    choices.add(j)
+            if len(choices) > 1:
+                raise OperationError('Ambiguous tangent-chain junction; selection unchanged. Select edges manually.')
+            pending.extend(choices - visited)
+    return tuple(entries[i][0] for i in sorted(visited))
+
+
+def resolve_edges(references, body, lineage):
+    # Classify the target once per collection; this is transient query data,
+    # not a geometry cache or a different reference-resolution policy.
+    candidates = {}
     for raw in subshapes(body, TopAbs_EDGE):
         edge = TopoDS.Edge_s(raw)
         try:
             candidate = edge_reference(edge, lineage)
         except OperationError:
             continue
-        if candidate == reference:
-            matches.append(edge)
-    if len(matches) != 1:
-        reason = 'ambiguous' if matches else 'missing or changed'
-        raise OperationError(f'Unresolved chamfer edge: {reason}; automatic edge substitution refused')
-    return matches[0]
+        candidates.setdefault(candidate, []).append(edge)
+    result = []
+    for reference in references:
+        matches = candidates.get(reference, ())
+        if len(matches) != 1:
+            reason = 'ambiguous' if matches else 'missing or changed'
+            raise OperationError(f'Unresolved chamfer edge: {reason}; automatic edge substitution refused')
+        result.append(matches[0])
+    return tuple(result)
+
+
+def resolve_edge(reference, body, lineage):
+    return resolve_edges((reference,), body, lineage)[0]
 
 
 def make_chamfer(parameters, body, lineage, identifier):
     """Build on candidate geometry; return validated solid and existing lineage."""
-    edge = resolve_edge(parameters.edge, body, lineage)
+    edges = resolve_edges(parameters.edges, body, lineage)
+    if any(a.IsSame(b) for i,a in enumerate(edges) for b in edges[i+1:]):
+        raise OperationError('Duplicate resolved chamfer edges')
     try:
         one_solid(body)
         builder = BRepFilletAPI_MakeChamfer(body)
-        builder.Add(parameters.distance, edge)
-        # OCCT automatically propagates tangent contours. PR35 promises exactly
-        # one edge, so reject such a contour rather than chamfer extra edges.
-        if builder.NbContours() != 1 or builder.NbEdges(1) != 1:
-            raise OperationError('OCCT requires tangent-connected edges; automatic edge-chain propagation is not supported')
+        for edge in edges:
+            if builder.Contour(edge) == 0:
+                builder.Add(parameters.distance, edge)
+        covered = [builder.Edge(i,j) for i in range(1,builder.NbContours()+1)
+                   for j in range(1,builder.NbEdges(i)+1)]
+        if any(not any(edge.IsSame(selected) for selected in edges) for edge in covered):
+            raise OperationError('OCCT requires additional tangent-connected edges; edge-chain propagation requires explicit selection. Use Select Tangent Chain or select the full contour manually.')
+        if (not covered or any(not any(edge.IsSame(item) for item in covered) for edge in edges)):
+            raise OperationError('OCCT could not include every selected chamfer edge; no partial chamfer applied')
         builder.Build()
         if not builder.IsDone() or builder.Shape().IsNull():
             raise OperationError('OCCT could not build this chamfer; reduce the distance or choose another eligible edge')
         result = one_solid(builder.Shape())
         if abs(volume(result)-volume(body)) <= max(1e-15, volume(body)*1e-12):
             raise OperationError('Chamfer did not remove or add measurable material; choose another edge or distance')
-        generated = [TopoDS.Face_s(f) for f in builder.Generated(edge) if f.ShapeType() == TopAbs_FACE]
-        sources = {('bevel', None, None): generated[0]} if len(generated) == 1 else {}
+        sources = {}
+        generated = [(reference, [TopoDS.Face_s(f) for f in builder.Generated(edge)
+                                  if f.ShapeType() == TopAbs_FACE])
+                     for reference,edge in zip(parameters.edges,edges)]
+        for reference, faces in generated:
+            # Publish only unique native generated faces. Multi-edge roots use
+            # the persistent input witness, never an OCCT enumeration index.
+            if len(faces) == 1 and not any(faces[0].IsSame(other) for ref,others in generated
+                                          if ref != reference for other in others):
+                segment = None if len(edges) == 1 else bevel_segment(reference)
+                sources[('bevel', None, segment)] = faces[0]
         ancestry = propagate(builder, result, lineage)
         # Seed only the native builder's generated bevel face. Existing faces
         # retain Modified/Generated ancestry through the established path.

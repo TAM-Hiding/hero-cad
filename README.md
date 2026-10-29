@@ -16,12 +16,15 @@ A Qt desktop app with an Open CASCADE box, editable sketches, model browser and 
 
 ### Edge chamfers
 
-Select one straight, circular or eligible circular-arc edge on a current body,
-then choose **Chamfer…** in the
-toolbar or tool island. Enter a positive equal distance in mm, Preview/Apply,
-and edit the resulting Chamfer feature in Properties. Creation and edits support
-Undo/Redo and save/reopen. Changed or ambiguous edges become unresolved rather
-than being reassigned. See [CHAMFERS.md](docs/CHAMFERS.md) for scope and limits.
+Select one or more straight, circular or eligible circular-arc edges on a
+single current body (Shift-click adds/removes), then choose **Chamfer…**. For a
+continuous rim, right-click one edge in **Select edges** mode and choose
+**Select Tangent Chain**, review the highlighted edges, then Chamfer. A complete
+obround slot rim is supported. Enter a shared positive distance in mm,
+Preview/Apply, and edit the resulting single Chamfer feature in Properties.
+Creation and edits support Undo/Redo and save/reopen. Missing or ambiguous edges
+make the whole feature unresolved. Unselected OCCT contour edges are refused;
+there is no hidden propagation. See [CHAMFERS.md](docs/CHAMFERS.md) for scope.
 
 ### Sketch workflow
 

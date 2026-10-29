@@ -122,9 +122,12 @@ def feature_history_text(document, identifier):
         lines.extend(reference_label(ref) for ref in p.tool_ids)
     elif feature.type == 'chamfer':
         lines.extend([f'Equal distance: {number(p.distance)} mm', f'Target: {reference_label(p.target_id)}',
-                      edge_description(p.edge),
+                      f'Selected edges: {len(p.edges)}',
+                      *([edge_description(p.edges[0])] if len(p.edges) == 1 else []),
                       'Edge identity: checked curve geometry and two adjacent face ancestries; no index fallback'])
-        identifiers.append('Adjacent construction-face ancestry:')
-        identifiers.extend(', '.join(tokens) for tokens in p.edge.neighbors)
+        for i,edge in enumerate(p.edges,1):
+            identifiers.append(f'Edge {i}: ' + edge_description(edge))
+            identifiers.append('Adjacent construction-face ancestry:')
+            identifiers.extend(', '.join(tokens) for tokens in edge.neighbors)
     lines.extend(['', 'Technical identifiers:', *identifiers])
     return '\n'.join(lines)

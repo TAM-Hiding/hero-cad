@@ -182,7 +182,7 @@ class OperationPanel(QDockWidget):
             self.quick_distance.setText(format(parameters.distance, '.17g'))
         self.quick_distance.setAccessibleName('Chamfer distance in millimeters')
         self.quick_distance.setToolTip('Positive equal distance on the two adjacent faces, in millimeters')
-        self.tools_label.setText(self.window.body_label(parameters.target_id))
+        self.tools_label.setText(self.window.body_label(parameters.target_id) + f'\nSelected edges: {len(parameters.edges)}')
         self.active = True
         self.setWindowTitle('Chamfer')
         self.invalidate()
@@ -239,7 +239,7 @@ class OperationPanel(QDockWidget):
             self.candidate = None
             self.actor.VisibilityOff()
             self.apply_button.setEnabled(False)
-            self.feedback_text('One straight, circular or arc edge · equal distance. Preview or Apply to evaluate.')
+            self.feedback_text('Shared equal distance. Preview or Apply to evaluate all selected edges.')
             if had_preview:
                 self.window.display_solids()
             try:

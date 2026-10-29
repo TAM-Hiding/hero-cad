@@ -1,11 +1,15 @@
-# Parametric edge chamfers — Work Orders 035 and 038
+# Parametric edge chamfers — Work Orders 035, 038 and 039
 
 ## Workflow
 
-1. Finish sketch editing. Choose **Select edges** and select one straight, circular
-   or circular-arc edge belonging to one current solid body. Use Shift-click to deselect extra edges
-   if needed. Chamfer is unavailable for a face, an ellipse/freeform edge,
-   multi-selection, stale/ambiguous ownership, or a sketch currently being edited.
+1. Finish sketch editing. Choose **Select edges** and select one or more
+   straight, circular or circular-arc edges on one current solid. Shift-click
+   adds/removes edges. Every selected edge is highlighted. Cross-body, mixed
+   face/edge, stale, unsupported or ambiguous selections disable Chamfer with
+   an explanation. No unsupported member is silently dropped.
+   Alternatively, right-click one edge and choose **Select Tangent Chain**.
+   Review the highlighted chain, orbit normally, Shift-click to adjust, or clear
+   the selection before continuing. The action changes selection only.
 2. Choose **Chamfer…** in the existing toolbar or floating tool island.
 3. Enter a positive distance in millimetres (default 1 mm). The field preserves
    raw numeric precision, including scientific notation. Supported parameter
@@ -21,8 +25,11 @@
    distinguishes chamfers; the entry shows current/historical/unresolved status.
 6. Select the feature to edit its distance in **Properties → Edit**, or use its
    **Edit Operation…** context action to reopen the same preview panel. Apply
-   keeps the feature UUID. **History** shows the target, checked edge geometry,
-   adjacent face ancestry, direct dependencies and regeneration diagnostics.
+   keeps the feature UUID and complete edge collection. Properties shows target,
+   selected-edge count and status; the shared distance is the only editable
+   chamfer parameter. **History** shows the count, distance and dependencies,
+   with individual curve witnesses/ancestry in its technical-details section.
+   Edge reassignment and per-edge distances are not provided.
 
 Chamfers consume their explicit target body and produce a new current body,
 using the same ordered history and transaction model as extrusions/Booleans.
@@ -33,21 +40,29 @@ face sketches, or separate one-edge chamfer features.
 
 ## Native evaluation
 
-`chamfers.py` invokes `BRepFilletAPI_MakeChamfer.Add(distance, edge)` and Build.
+`chamfers.py` uses one `BRepFilletAPI_MakeChamfer` for the whole collection.
+It calls `Add(distance, edge)` only for edges not already in an added contour,
+then Build once. It never stacks independent chamfers on intermediate solids.
 This is an equal-distance chamfer on the two adjacent faces, nominally 45° at a
 right-angle corner; it is not a general distance-and-angle tool. No manually
 constructed cutting solid is used. An eligible curve type alone does not
 guarantee that a particular distance can be chamfered successfully.
 
-OCCT builds tangent contours automatically. The implementation checks for exactly
-one contour containing exactly one edge, rejecting automatic chain propagation
-before Build. The result must be one kernel-valid, connected, positive-volume
+OCCT builds tangent contours automatically. Before Build, every edge in every
+native contour must belong to the explicit selected set, and every selected edge
+must be covered. Extra edges produce a diagnostic asking for Select Tangent Chain
+or explicit full-contour selection. Missing/duplicate resolved edges are rejected;
+there is no partial operation. Multiple contours and closed contours are supported. The result must be one kernel-valid, connected, positive-volume
 solid with a measurable material change. Native exceptions and invalid/excessive
 results become useful operation diagnostics.
 
 Existing OCCT Modified/Generated/IsDeleted face ancestry is propagated through
 the chamfer builder. Its uniquely generated bevel face receives a construction
-origin scoped to the chamfer UUID. This is a small extension of the existing
+origin scoped to the chamfer UUID. For a multi-edge feature, a unique generated
+face is keyed by a digest of its persistent input edge witness, not a native face
+or edge number. Single-edge bevel keys stay unchanged. If several inputs generate
+the same face or one input generates several faces, no unique bevel root is
+invented; existing conservative attachment rules apply. This is a small extension of the existing
 face lineage system, allowing planar support-face sketches and later edge
 selection without replacing the topology architecture. When OCCT does not expose
 a unique supported face, existing conservative face-resolution rules still apply.
@@ -73,9 +88,12 @@ numbers are temporary. The feature therefore stores a narrow checked witness:
   therefore preserve the witness.
 - The two adjacent faces' sorted construction ancestry tokens.
 
-Creation verifies actual current-body ownership and a unique witness match.
-Regeneration scans only the specified upstream body and requires exactly one
-matching curve geometry with the same adjacent ancestry. Traversal order and
+The immutable ChamferParameters collection contains 1–256 distinct witnesses,
+canonically sorted by checked geometry and ancestry. Viewport click order does not
+determine persistent identity or native construction order. Creation verifies
+actual current-body ownership for every member and a unique witness match.
+Regeneration classifies the specified upstream body's edges once for the entire
+collection and requires exactly one matching geometry/ancestry per witness. Traversal order and
 display meshes never determine persistence. Missing/changed geometry and ambiguity never
 fall back to a nearest edge, an index, or another body's corresponding edge.
 
@@ -89,30 +107,53 @@ reassignment and general persistent topological naming are deferred.
 Direct failed creation/distance edits abort before publishing candidate native
 state or appending history. Upstream edits that invalidate an unchanged chamfer
 retain its definition and suppress its output/dependents with diagnostics.
-Undoing that upstream edit restores valid output. No stale chamfer solid is used.
+If any member becomes unresolved, the entire Chamfer output and its dependents
+are suppressed; the stored collection is never reduced. Undoing the invalidating
+upstream edit restores valid output. No stale chamfer solid is used.
 
 ## Persistence and scope
 
-Straight-only chamfer documents retain their exact **v12** record layout and
-minimum version. A circular/arc chamfer raises the document to **v13**, adding only
-`curve_type`, `center`, `radius`, `axis` and `midpoint` inside the existing `edge`
-record. Full circles have empty endpoints and a null midpoint; arcs have two
-sorted endpoints and an on-circle midpoint. `target_id`, `distance`, UUIDs and
-feature dependencies are unchanged. No native B-rep, viewport index or mesh is
-serialized. Strict parsing checks field sets, finite coordinates/radius, unit
-canonical axes, on-circle arc points, ancestry and distances. Versions 1–12
-remain readable; documents without curved chamfers keep their previous minimum
-version. Applications supporting only v12 cannot open v13 documents.
+Single-edge straight documents retain their **v12** layout; single-edge
+circle/arc documents retain **v13**. Multi-edge features use **v14**, replacing the
+single `edge` field with an `edges` array (2–256 entries) of the same checked
+reference records. UUIDs, target dependency and shared distance are unchanged.
+V14 also permits a checked 64-character bevel segment digest for multi-edge
+construction-face ancestry/attachments. Legacy single-edge bevel roots are
+unchanged. No native object, viewport index, selection, chain option or mesh is
+serialized. Tangent expansion is an explicit selection step, not a regeneration
+instruction to discover new edges later.
 
-One straight, circular or circular-arc edge and equal distance per feature only.
-Ellipses, B-splines/freeform curves, face-wide selection, multiple-edge operations,
-unequal distances, angle entry, tangent chains, variable chamfers and fillets are
-deferred. A seam/non-manifold edge or an edge without two identified adjacent
-faces is unavailable. Complex/tiny
-chamfers can still fail native construction. No automatic reference repair,
-background evaluation, new dependencies, new caching or general incremental
-regeneration is introduced. Preview and commit retain the established sequential
-regeneration behavior; large connected solids can remain expensive.
+Versions 1–13 remain readable. Saving documents without multi-edge features keeps
+their previous minimum schema. Strict parsing rejects empty/oversized/duplicate
+collections, malformed members, mixed legacy/collection keys and unsupported
+versions. Curved reference validation from #38 still applies. Applications that
+support only v13 cannot open v14 documents.
+
+Shared equal distance only. Ellipses, B-splines/freeform curves, face-wide
+selection, unequal/per-edge distances, angle entry, variable chamfers and fillets
+remain deferred. Seam/non-manifold edges and edges without two identified
+adjacent faces are unavailable. Complex/tiny chamfers or incompatible edge sets
+can still fail native construction. No automatic repair, new dependencies,
+background evaluation, geometry cache or incremental regeneration is introduced.
+Preview and commit retain sequential regeneration; large solids can remain costly.
+
+## Explicit tangent-chain selection
+
+The context action starts with exactly one eligible current edge. It walks
+analytic endpoint tangents of eligible lines/circles/arcs in that body. Endpoints
+must coincide within **1e-7 mm**, matching the existing kernel/profile tolerance;
+outgoing tangents must be opposite within **1e-5 radians** (about 0.00057 degrees).
+This accepts numerical noise without treating ordinary sharp corners as tangent.
+No new preference or construction evaluation is involved.
+
+Non-tangent corners, unsupported/non-manifold edges, disconnected geometry and
+other bodies bound expansion. At multiple eligible tangent continuations, the
+whole expansion is refused with a diagnostic and the original selection remains.
+Choices are checked before the visited set, so traversal order/closed loops cannot
+hide a branch. A visited set terminates closed loops; more than 256 edges is
+refused. Edge orientation reversals do not change outgoing geometric tangents.
+The existing selection list and combined highlight mesh display the result;
+orbit, Shift toggles and clearing retain their established behavior.
 
 ## Circular and partial-arc behavior
 
@@ -128,16 +169,15 @@ chamfered, edited and reopened with its original feature UUID. Arc references al
 recognize minor/major arcs and are insensitive to traversal direction. Native
 construction can still fail at an arc's end connections or at excessive distances.
 
-**Rounded-slot ends:** their semicircular references are recognized, but the
-standard obround opening in the regression fixture requires OCCT to include the
-tangent straight edges. Preview/Apply reports that automatic edge-chain
-propagation is unsupported and leaves the document/history intact. The slot
-perimeter is not chamfered as a fallback. Multi-edge support remains deferred.
+**Obround slots and pockets:** Select Tangent Chain on one opening edge selects
+the two straight and two semicircular edges of the closed perimeter. Selecting
+all four manually works too. Native through-slot and blind-pocket opening
+chamfers are verified as one operation, with editable distance and save/reopen.
+Selecting only one, two or three edges of the required contour is refused.
 
-Only geometric classification/description and the minimal persistence extension
-change in the existing UI path. Explicit preview, Properties editing, sequential
-regeneration, Undo/Redo, orange surfaces, warm charcoal controls, ivory text,
-rounded corners and placement below HERO Tools remain as before.
+Explicit preview, orange surfaces, warm charcoal controls, ivory text, rounded
+corners and placement below HERO Tools remain as before. The dialog adds a concise
+selected-edge count beside the target; there is no redesign.
 
 ## Validation
 
@@ -162,3 +202,16 @@ legacy v12 compatibility, native failure atomicity, slot-chain refusal, upstream
 invalidation/recovery and downstream planar-face sketch/Cut. The UI suite includes
 real circular/arc edge picks, preview/cancel/apply, Properties, Undo/Redo,
 save/reopen, conical-face picking and retained dialog colors/position.
+
+`tests/test_multi_chamfers.py` adds native block/mixed/slot/pocket collections,
+exact volumes/bounds, single-builder evaluation, native contour coverage, shared
+edits, failure atomicity, v14/legacy persistence, upstream recovery and generated
+bevel attachments/downstream operations. Analytic traversal tests cover closed
+slots, open chains, sharp corners, orientation, endpoint/angular tolerances,
+unsupported boundaries, ambiguity and disconnected geometry. Branching is tested
+with real native open edge/face graphs, not published nonmanifold solids.
+
+`tests/test_multi_chamfer_ui.py` adds real right-click chain action, highlights,
+Shift addition/removal, preserved manual batches, cross-body rejection,
+preview/cancel/failure/apply, shared Properties edits, Undo/Redo, save/reopen,
+bevel/outer-face picks and retained operation appearance/position/focus.
