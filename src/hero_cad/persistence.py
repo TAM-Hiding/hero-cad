@@ -17,8 +17,14 @@ def serialize(features):
             parameters = asdict(feature.parameters)
             if feature.type == 'chamfer':
                 version = max(version, 12)
-                parameters['edge'] = {'endpoints': [list(p) for p in feature.parameters.edge.endpoints],
-                                      'neighbors': [list(t) for t in feature.parameters.edge.neighbors]}
+                edge = feature.parameters.edge
+                parameters['edge'] = {'endpoints': [list(p) for p in edge.endpoints],
+                                      'neighbors': [list(t) for t in edge.neighbors]}
+                if edge.curve_type != 'line':
+                    version = max(version, 13)
+                    parameters['edge'].update(curve_type=edge.curve_type, center=list(edge.center),
+                                              radius=edge.radius, axis=list(edge.axis),
+                                              midpoint=list(edge.midpoint) if edge.midpoint is not None else None)
             if feature.type == 'extrude':
                 version = max(version, 8 if feature.parameters.line_ids else 6 if feature.parameters.operation != 'new' else 4)
                 if feature.parameters.line_ids:
@@ -67,7 +73,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -169,12 +175,23 @@ def deserialize(data):
         elif item['type'] == 'chamfer' and version >= 12:
             fields(parameters, ('target_id', 'edge', 'distance'))
             edge = parameters['edge']
-            fields(edge, ('endpoints', 'neighbors'))
+            curved = isinstance(edge, dict) and 'curve_type' in edge
+            extra = ('curve_type', 'center', 'radius', 'axis', 'midpoint') if curved and version >= 13 else ()
+            fields(edge, ('endpoints', 'neighbors', *extra))
+            geometry = {}
+            if curved:
+                if (edge['curve_type'] not in ('circle', 'arc')
+                        or any(not isinstance(edge[k], list) for k in ('center', 'axis'))
+                        or (edge['midpoint'] is not None and not isinstance(edge['midpoint'], list))):
+                    raise ValueError('Invalid persisted circular chamfer geometry')
+                geometry = dict(curve_type=edge['curve_type'], center=tuple(edge['center']),
+                                radius=edge['radius'], axis=tuple(edge['axis']),
+                                midpoint=tuple(edge['midpoint']) if edge['midpoint'] is not None else None)
             if any(not isinstance(edge[k], list) or any(not isinstance(v, list) for v in edge[k])
                    for k in ('endpoints', 'neighbors')):
                 raise ValueError('Invalid persisted chamfer edge')
             reference = EdgeReference(tuple(tuple(p) for p in edge['endpoints']),
-                                      tuple(tuple(t) for t in edge['neighbors']))
+                                      tuple(tuple(t) for t in edge['neighbors']), **geometry)
             value = ChamferParameters(parameters['target_id'], reference, parameters['distance'])
         else:
             raise ValueError('Unsupported feature type')

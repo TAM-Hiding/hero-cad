@@ -331,3 +331,17 @@ follow/docking relationship. ConstructionDimensions imports only matching styles
 its context anchor and event handling are unchanged. Feature evaluation/history,
 persistence and all unrelated widget styles are untouched. See
 [OPERATION_APPEARANCE.md](docs/OPERATION_APPEARANCE.md) for placement and platform limits.
+
+
+## PR #38 — circular and arc-edge chamfers
+
+The same EdgeReference/ChamferParameters and native single-edge builder now accept
+analytic lines, circles and circular arcs classified by BRepAdaptor_Curve. Full
+circles store center/radius/unsigned axis without a seam; arcs add sorted endpoints
+and a geometric midpoint to distinguish complementary trims. Both require the
+same adjacent construction ancestry and unique match in the explicit target body.
+No nearest-edge fallback, new topology naming, caching or scheduling is added.
+V13 extends only curved edge records; straight-only chamfers retain v12. Existing
+sequential transactions, unresolved recovery, face lineage and operation styling
+are preserved. Rounded-slot tangent contours remain rejected; independent partial
+arcs can succeed. See docs/CHAMFERS.md for exact scope and tests.

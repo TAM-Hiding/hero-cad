@@ -89,7 +89,7 @@ class ChamferParameters:
         from hero_cad.chamfers import EdgeReference
         valid_id(self.target_id)
         if type(self.edge) is not EdgeReference:
-            raise ValueError('Expected a persistent straight edge reference')
+            raise ValueError('Expected a persistent edge reference')
         if (type(self.distance) not in (int, float) or not isfinite(self.distance)
                 or not 1e-6 <= self.distance <= 100000):
             raise ValueError('Chamfer distance must be positive, from 0.000001 to 100000 mm')
