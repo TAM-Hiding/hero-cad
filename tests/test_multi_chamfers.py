@@ -141,11 +141,11 @@ def test_cross_body_duplicate_stale_and_unsupported_manual_selection_rejected():
     with pytest.raises(OperationError,match='current solid'):doc.edge_references((edge,))
 
 
-def test_one_missing_reference_suppresses_entire_feature_and_downstream():
+def test_geometry_failure_suppresses_entire_feature_and_downstream():
     doc=Document();target,refs=box_top(doc);cid=doc.add_chamfer(target,refs,.5)
     sid=doc.add_sketch('XY');circle=Circle(15,15,2);doc.add_entity(sid,circle)
     cut=doc.add_extrusion(sid,circle.id,distance=20,operation='cut',target_id=cid)
-    doc.set_box(BoxParameters(width=45))
+    doc.set_box(BoxParameters(height=.25))  # References resolve, but the bevel cannot fit.
     assert not doc.statuses[cid].valid and not doc.statuses[cut].valid
     assert cid not in doc.solid_shapes and cut not in doc.solid_shapes
     assert len(doc.feature(cid).parameters.edges)==4
@@ -303,3 +303,4 @@ def test_native_builder_omitting_one_requested_edge_cannot_publish_partial_resul
     monkeypatch.setattr(module,'BRepFilletAPI_MakeChamfer',OmittingBuilder)
     with pytest.raises(FeatureError,match='every selected'):doc.add_chamfer(target,refs,.5)
     assert all(a is b for a,b in zip(state(doc),previous)) and not doc.can_undo
+

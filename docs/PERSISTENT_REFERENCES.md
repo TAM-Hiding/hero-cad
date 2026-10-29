@@ -161,3 +161,37 @@ Boundary ambiguity, reversed enumeration and malformed metadata are also covered
 by automated tests; an exact boundary click need not be reproduced by eye.
 Local environment and test results are recorded in VALIDATION.md. Physical
 Ubuntu 22.04/laptop acceptance remains for the reviewer.
+
+
+## Semantic Base Model edges (Work Order #040)
+
+The straight-edge resolver first keeps the existing exact geometric and
+adjacent-face-ancestry match. Previously it required this exact match even for
+box exterior edges: resizing X from 40 to 41 changed endpoints and invalidated
+the twelve-edge chamfer after an otherwise unaffected slot cut and rim bevels.
+
+When there is no exact match, only a straight edge with two singleton,
+unmixed principal box-face ancestry tokens is eligible for semantic transport.
+The tokens must share a construction UUID and identify different axes. Both
+stored and candidate line directions must agree with that intersection. Candidate
+search is confined to the explicitly referenced target solid and requires the
+complete adjacent ancestry pair, never one face or a subset of mixed ancestry.
+Every edge with that ancestry pair counts toward uniqueness, including an
+unsupported curve; splits or contradictory curve classes cannot become matches
+by filtering away competing candidates. Exact-match ambiguity also fails without
+falling through to semantic transport. Duplicate resolved selections fail.
+
+This is intentionally limited to the six explicitly named Base Model faces.
+Extrusion, Boolean-generated, circular/arc and bevel identities keep the existing
+strict policy. No nearest edge, persistent index, tolerance relaxation, witness
+rewrite, new document field or schema migration is involved. The complete edge
+set is still submitted to one native OCCT chamfer builder and validated before
+publishing. Reference resolution success does not make an oversized bevel valid.
+
+The deterministic acceptance fixture in `tests/test_semantic_edges.py` builds a
+40 × 30 × 20 box, a +Z-attached obround pocket 10 mm deep, both four-edge rim
+chamfers and one twelve-exterior-edge chamfer. X=39/41 and Y=29/31 preserve the
+whole model, UUIDs and witnesses through Undo/Redo and save/reopen. Separate
+box-only tests cover Z=19/21. Changing Z in the pocket fixture also moves its
+non-box slot rims; their strict references deliberately remain unresolved rather
+than extending semantic transport to arbitrary generated topology.
