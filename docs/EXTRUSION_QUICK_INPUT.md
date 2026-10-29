@@ -16,7 +16,7 @@ The compact nonmodal panel opens beneath the HERO Tools island with a 3 logical
 pixel gap, using above-island/clamped placement when screen space is limited.
 Distance is focused and selected so typing replaces the default. It can be moved by its native title bar. Operation
 and, when needed, target body remain visible. Changing the operation never chooses
-a different target. Its orange/cyan-gray palette distinguishes operations from
+a different target. Its orange/charcoal palette distinguishes operations from
 the unchanged dark tool island.
 
 **Enter / Apply** validates the raw text, validates/previews the candidate if

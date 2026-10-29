@@ -1192,3 +1192,22 @@ compositor dependent (including Wayland restrictions); internal corners are
 styled without custom window management. The largest existing island preset is
 named Expanded, not Large; its controls and styles are unchanged. See
 `docs/OPERATION_APPEARANCE.md` for current behavior and limits.
+
+## Operation palette follow-up after PR #36
+
+Kept the exact orange surface/title colors (`#B87743`, `#874923`) and replaced
+teal controls with warm charcoal inputs/buttons, ivory text, tonal borders and
+a soft sand focus/selection accent. Disabled controls use the same warm-neutral
+family. Only palette values and current documentation changed; native dropdown/
+spin arrows, CSS structure, positioning, sizing, focus and modeling logic remain.
+The shared palette updates operation forms and inline dimensions together; the
+HERO Tools island is untouched.
+
+Verified a real rendered Extrude/Join form, including its selected distance,
+operation/target dropdown arrows, Advanced, Cancel and Apply controls. No new
+tests for the palette-only correction. Existing appearance checks passed (13);
+the final full XCB/software-OpenGL run after retaining native subcontrols passed:
+**655 passed, 1 skipped**, 199.32 s. Skip: unavailable desktop-file-utils launcher
+validator. Existing 148 VTK/NumPy warnings remain. Test command:
+`DISPLAY=127.0.0.1:92 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`
+with local TCP Xvfb as documented above. `pip check` and `git diff --check` clean.

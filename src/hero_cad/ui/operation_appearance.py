@@ -2,16 +2,16 @@
 from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtGui import QGuiApplication
 
-# Slightly lighter than the suggested orange so dark labels stay readable.
+# Keep the orange surfaces; warm charcoal/ivory controls avoid a teal clash.
 ORANGE = '#B87743'
 SECONDARY_ORANGE = '#874923'
-INPUT = '#263B46'
-BUTTON = '#426879'
-HOVER = '#56899B'
-FOCUS = '#65B8D0'
-TEXT = '#171D22'
-LIGHT_TEXT = '#F0F3F4'
-ACCENT = '#D08B50'
+INPUT = '#302D2A'
+BUTTON = '#4A433D'
+HOVER = '#62574E'
+FOCUS = '#D9B590'
+TEXT = '#241C16'
+LIGHT_TEXT = '#F2EAE1'
+ACCENT = '#B6875D'
 GAP = 3
 
 
@@ -40,7 +40,7 @@ def _controls(scope, padding):
             background: {FOCUS}; color: {TEXT}; border-color: {INPUT}; }}
         {scope} QPushButton:disabled, {scope} QLineEdit:disabled,
         {scope} QDoubleSpinBox:disabled, {scope} QComboBox:disabled {{
-            background: #78563F; color: #E2D0BD; border-color: #AD805B; }}
+            background: #65574C; color: #C5B6A8; border-color: #867464; }}
     '''
 
 

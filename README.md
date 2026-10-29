@@ -258,7 +258,7 @@ inspection mode ends. See [quick-input notes](docs/EXTRUSION_QUICK_INPUT.md).
 
 ### Operation windows
 
-Chamfer, Extrude and Combine open in a shared orange/cyan-gray floating panel
+Chamfer, Extrude and Combine open in a shared orange/charcoal floating panel
 3 logical pixels below the HERO Tools island, with a screen-boundary fallback.
 The dialog can move independently; inline dimensions keep their existing
 cursor/geometry-relative placement with matching colors. See

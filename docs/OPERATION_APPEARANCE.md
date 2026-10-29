@@ -40,19 +40,21 @@ handler. Existing Escape, Cancel, close and precision handling remain.
 
 `ui/operation_appearance.py` contains only scoped styling and bounded placement
 helpers, not an application theme system. The primary orange is slightly lighter
-than the proposed starting color for readable dark labels.
+than the proposed starting color for readable dark labels. The palette follow-up
+keeps both orange surfaces and replaces cool teal controls with warm charcoal,
+ivory text and a subdued sand-colored focus/selection accent.
 
 | Element | Color |
 |---|---|
 | Operation/inline surface | `#B87743` |
 | Secondary orange/title surface | `#874923` |
-| Numeric inputs | `#263B46` |
-| Buttons | `#426879` |
-| Hover | `#56899B` |
-| Focus/active | `#65B8D0` |
-| Text on orange | `#171D22` |
-| Text on inputs/buttons | `#F0F3F4` |
-| Border/accent | `#D08B50` |
+| Numeric inputs | `#302D2A` |
+| Buttons | `#4A433D` |
+| Hover | `#62574E` |
+| Focus/active | `#D9B590` |
+| Text on orange | `#241C16` |
+| Text on inputs/buttons | `#F2EAE1` |
+| Border/accent | `#B6875D` |
 
 Apply has a distinct dark fill/accent and weight. Focus/hover states and disabled
 controls use explicit scoped rules. Internal operation surfaces have 8 px corners,
