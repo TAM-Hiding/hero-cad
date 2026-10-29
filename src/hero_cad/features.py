@@ -82,17 +82,29 @@ class BooleanParameters:
 @dataclass(frozen=True)
 class ChamferParameters:
     target_id: str
-    edge: object
+    edges: tuple
     distance: float = 1.0
 
     def __post_init__(self):
-        from hero_cad.chamfers import EdgeReference
+        from hero_cad.chamfers import EdgeReference, edge_sort_key
         valid_id(self.target_id)
-        if type(self.edge) is not EdgeReference:
-            raise ValueError('Expected a persistent edge reference')
+        edges = (self.edges,) if type(self.edges) is EdgeReference else self.edges
+        if (not isinstance(edges, tuple) or not 1 <= len(edges) <= 256
+                or any(type(edge) is not EdgeReference for edge in edges)):
+            raise ValueError('Expected 1–256 immutable persistent edge references')
+        if len(set(edges)) != len(edges):
+            raise ValueError('Duplicate chamfer edge references')
+        object.__setattr__(self, 'edges', tuple(sorted(edges, key=edge_sort_key)))
         if (type(self.distance) not in (int, float) or not isfinite(self.distance)
                 or not 1e-6 <= self.distance <= 100000):
             raise ValueError('Chamfer distance must be positive, from 0.000001 to 100000 mm')
+
+    @property
+    def edge(self):
+        """Compatibility accessor for existing single-edge callers."""
+        if len(self.edges) != 1:
+            raise ValueError('This chamfer contains multiple edges; use edges')
+        return self.edges[0]
 
 
 @dataclass(frozen=True)

@@ -345,3 +345,22 @@ V13 extends only curved edge records; straight-only chamfers retain v12. Existin
 sequential transactions, unresolved recovery, face lineage and operation styling
 are preserved. Rounded-slot tangent contours remain rejected; independent partial
 arcs can succeed. See docs/CHAMFERS.md for exact scope and tests.
+
+
+## PR #39 — explicit multi-edge chamfers and tangent selection
+
+ChamferParameters now stores a canonical immutable edge-witness tuple. The existing
+single-edge constructor/accessor and v12/v13 records remain compatible. V14 adds
+only multi-edge collections and checked witness-derived bevel-root segments.
+Resolution scans one explicit body's candidates for all requested witnesses.
+One native chamfer builder accepts the complete collection; its contour union
+must include every selected edge and no unselected edge before Build. Transactions,
+unresolved suppression/recovery and sequential regeneration are unchanged.
+
+The explicit context action walks analytic endpoint tangents within one current
+body (1e-7 mm endpoint and 1e-5 rad angular tolerance), rejecting ambiguous branches
+and terminating closed loops. It only changes Viewport.selections and the existing
+combined highlight; no geometry builder or history mutation runs. Shift selection,
+preview, Properties and operation styles/placement reuse their existing paths.
+Multiple bevel roots use persistent edge witness digests, never traversal indices.
+See docs/CHAMFERS.md for limits, persistence and test coverage.

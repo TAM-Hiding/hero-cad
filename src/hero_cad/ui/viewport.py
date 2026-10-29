@@ -33,6 +33,7 @@ class Viewport(QVTKRenderWindowInteractor):
     displayModeChanged = Signal(str)
     sketchContextRequested = Signal(object, object)
     faceContextRequested = Signal(object, object)
+    edgeContextRequested = Signal(object, object)
     deleteRequested = Signal()
     cancelRequested = Signal()
     profilePicked = Signal(object)
@@ -410,28 +411,46 @@ class Viewport(QVTKRenderWindowInteractor):
 
     def pick_at(self, x, y, additive=False):
         """Pick in device pixels. Shift toggles the current subshape in the set."""
-        name = self.selection_mode + '_id'
         if self.selection_mode == 'edge':
-            mesh = self.edge_mapper.GetInput()
-            hit = next((hit for hit in self.line_candidates(mesh, x, y) if self.visible_edge(hit[1])), None)
-            cell_id = hit[2] if hit else -1
+            selected = self.edge_pick_at(x,y)
         else:
             mesh = self.mapper.GetInput()
             hit = self.surface_pick(x,y)
-            cell_id = hit[0] if hit else -1
-        if cell_id < 0:
+            if hit is not None:
+                index = mesh.GetCellData().GetArray('face_id').GetValue(hit[0])
+                selected = Selection('face',index,self.faces[index],tuple(hit[1]))
+            else:
+                selected = None
+        if selected is None:
             if not additive:
                 self.clear_selection()
             return
-        index = mesh.GetCellData().GetArray(name).GetValue(cell_id)
-        shapes = self.faces if self.selection_mode == 'face' else self.edges
-        selected = Selection(self.selection_mode, index, shapes[index], tuple(hit[1]))
+        index = selected.index
         if not additive:
             self.selections = [selected]
         elif any(s.kind == selected.kind and s.index == index for s in self.selections):
             self.selections = [s for s in self.selections if (s.kind, s.index) != (selected.kind, index)]
         else:
             self.selections.append(selected)
+        self.show_selection()
+
+    def edge_pick_at(self, x, y):
+        mesh = self.edge_mapper.GetInput()
+        hit = next((hit for hit in self.line_candidates(mesh,x,y) if self.visible_edge(hit[1])),None)
+        if hit is None:
+            return None
+        index = mesh.GetCellData().GetArray('edge_id').GetValue(hit[2])
+        return Selection('edge',index,self.edges[index],tuple(hit[1]))
+
+    def select_edges(self, edges):
+        selections = []
+        for edge in edges:
+            matches = [i for i,item in enumerate(self.edges) if edge.IsSame(item)]
+            if len(matches) != 1:
+                raise ValueError('Expanded edge is missing or ambiguous in the current viewport')
+            index = matches[0]
+            selections.append(Selection('edge',index,self.edges[index]))
+        self.selections = selections
         self.show_selection()
 
     def show_selection(self):
@@ -537,7 +556,11 @@ class Viewport(QVTKRenderWindowInteractor):
                 else:
                     hit = self.sketch.hit(*self.display_position(event))
                     face = self.face_pick_at(*self.display_position(event)) if not self.sketch.active_id else None
-                    if face is not None and hit is None:
+                    edge = (self.edge_pick_at(*self.display_position(event))
+                            if self.selection_mode == 'edge' and not self.sketch.active_id else None)
+                    if edge is not None:
+                        self.edgeContextRequested.emit(edge, event.globalPosition().toPoint())
+                    elif face is not None and hit is None:
                         self.faceContextRequested.emit(face, event.globalPosition().toPoint())
                     else:
                         self.sketchContextRequested.emit(hit, event.globalPosition().toPoint())

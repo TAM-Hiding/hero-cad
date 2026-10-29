@@ -143,7 +143,7 @@ def test_failed_preview_and_property_edit_preserve_valid_model(qtbot,monkeypatch
     panel.cancel()
 
 
-def test_chamfer_disabled_for_faces_multiselection_and_sketch_edit(qtbot):
+def test_chamfer_disabled_for_faces_and_sketch_edit_and_enabled_for_multiple_edges(qtbot):
     w = window(qtbot)
     select_edge(w)
     w.viewport.set_selection_mode('face')
@@ -159,7 +159,7 @@ def test_chamfer_disabled_for_faces_multiselection_and_sketch_edit(qtbot):
     # Shift-selection creates the same authoritative multi-selection list.
     w.viewport.pick_at(*project(w.viewport,(20,0,20)), additive=True)
     assert len(w.viewport.selections) == 2
-    assert not w.chamfer_action.isEnabled()
+    assert w.chamfer_action.isEnabled()
     c = Circle(10,10,5)
     w.document.add_entity(sid,c)
     w.document.add_extrusion(sid,c.id)

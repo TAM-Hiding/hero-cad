@@ -1254,3 +1254,60 @@ before Build and preserves document/native state and history. Independent partia
 arcs can succeed; no multi-edge fallback is introduced. Curved faces remain
 selectable but cannot host sketches. Other arc endpoint configurations or large
 distances can fail native construction. No physical desktop/Wayland claim is made.
+
+## PR #39 — multi-edge chamfers and explicit tangent-chain selection
+
+Based on main after merged #38 (`4ac3340`). ChamferParameters stores a canonical
+immutable collection of 1–256 distinct checked edge witnesses. Existing single
+references and v12/v13 documents remain compatible; multi-edge records use v14.
+All references resolve within the explicit target body, with one classification
+pass per collection. One native OCCT builder handles all selected edges; contour
+coverage is checked before Build to reject extra or missing edges. No intermediate
+chamfer stacking, partial publication, hidden selection expansion or new cache.
+Unique generated bevel roots use input-witness digests, preserving single-edge
+roots and the existing face-lineage/attachment paths.
+
+Select Tangent Chain is an explicit edge context action. It reads analytic
+endpoint tangents (1e-7 mm endpoint, 1e-5 rad angular tolerance), rejects ambiguous
+branches, stops at unsupported/non-tangent/disconnected geometry, and terminates
+closed loops. Only the existing selection/highlight changes; no document or Undo
+entry is created. Shift toggling, preview, shared distance editing, colors, focus,
+rounded corners and operation placement are retained. The dialog/Properties/
+History now summarize the selected count; technical edge details remain in History.
+
+Validation with pinned Python 3.12/OCP 7.9.3/Qt 6.8.3 and real Qt/VTK/native solids:
+
+- Geometry/document/chamfer regression run after collection-resolution changes:
+  **114 passed**, 8.53 s. The expanded new multi-edge geometry suite subsequently
+  passed **36 tests**, 3.25 s.
+- New real UI workflow tests: **3 passed**, 4.56 s. Exercises actual right-click
+  menu activation, four-edge highlights, orbit, Shift add/remove, batch retention,
+  manual mixed selection, incomplete-contour diagnostic, preview/cancel/apply,
+  Properties, failed edit atomicity, Undo/Redo, save/reopen, bevel/outer-face picks,
+  regenerated edge ownership, cross-body refusal and original style/position/focus.
+- Final complete suite on the final implementation: **736 passed**, no skips,
+  **148 existing VTK/NumPy deprecation warnings**, **225.12 s**.
+  Command: `DISPLAY=127.0.0.1:98 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`,
+  with `Xvfb :98 -listen tcp -nolisten unix -nolisten local -ac -screen 0 1280x1024x24`
+  in the same execution environment (Unix display sockets are blocked here).
+- `pip check`: no broken requirements. `git diff --check`: clean.
+
+Native geometry cases include block edges, mixed line/circle and opposite hole
+rims, complete obround through-slot and blind-pocket openings, exact removed
+volumes/bounds, kernel validity, one-builder evaluation, canonical ordering,
+editable stable UUIDs, all-or-nothing upstream recovery, v14 malformed collections,
+legacy single-edge persistence, unique planar bevel attachments and downstream
+Cut. Traversal tests cover open/closed chains, sharp corners, reversed orientation,
+endpoint/angular tolerance boundaries, unsupported curves, disconnected geometry
+and ambiguous branches. The ambiguity fixture is a real native open edge/face
+graph used only for traversal; no nonmanifold solid is published. Native builder
+exceptions, invalid solids, excessive distances, duplicate resolved edges and
+omitted requested contours leave state/history intact.
+
+Limits: only lines/circles/arcs and one shared equal distance. Some edge sets or
+distances still fail OCCT. Incomplete required contours are refused with explicit
+selection guidance. Chain selection starts from one eligible edge, is body-scoped,
+and refuses ambiguous continuations or more than 256 edges. Curved faces remain
+selectable but cannot host sketches. No per-edge distances, edge reassignment UI,
+fillets, asynchronous evaluation or broader topology naming. No physical desktop
+or Wayland validation is claimed.

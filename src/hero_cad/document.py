@@ -12,7 +12,7 @@ from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
 from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
 from hero_cad.face_history import primitive_lineage, evaluated_faces
-from hero_cad.chamfers import edge_reference, resolve_edge, make_chamfer
+from hero_cad.chamfers import edge_reference, resolve_edges, make_chamfer, tangent_chain
 
 
 class Document:
@@ -326,16 +326,37 @@ class Document:
         return feature.id
 
     def edge_reference(self, edge):
+        target, references = self.edge_references((edge,))
+        return target, references[0]
+
+    def edge_references(self, edges):
         from OCP.TopAbs import TopAbs_EDGE
         from hero_cad.face_history import subshapes
-        owners = [i for i in self.active_body_ids
-                  if any(edge.IsSame(e) for e in subshapes(self.solid_shapes[i], TopAbs_EDGE))]
-        if len(owners) != 1:
-            raise OperationError('Select one edge belonging to exactly one current solid body')
-        target = owners[0]
-        reference = edge_reference(edge, self.face_lineages[target])
-        resolve_edge(reference, self.solid_shapes[target], self.face_lineages[target])
-        return target, reference
+        edges = tuple(edges)
+        if not edges:
+            raise OperationError('Select at least one straight, circular or arc edge on a current solid body')
+        if len(edges) > 256:
+            raise OperationError('Chamfer supports at most 256 selected edges')
+        body_edges = {i: subshapes(self.solid_shapes[i], TopAbs_EDGE) for i in self.active_body_ids}
+        targets = []
+        for edge in edges:
+            owners = [i for i,items in body_edges.items() if any(edge.IsSame(item) for item in items)]
+            if len(owners) != 1:
+                raise OperationError('Each selected edge must belong to exactly one current solid body')
+            targets.append(owners[0])
+        if len(set(targets)) != 1:
+            raise OperationError('All chamfer edges must belong to the same current solid body')
+        target = targets[0]
+        references = tuple(edge_reference(edge, self.face_lineages[target]) for edge in edges)
+        parameters = ChamferParameters(target, references)
+        resolve_edges(parameters.edges, self.solid_shapes[target], self.face_lineages[target])
+        return target, parameters.edges
+
+    def tangent_edges(self, seed):
+        target, _ = self.edge_reference(seed)
+        edges = tangent_chain(seed, self.solid_shapes[target], self.face_lineages[target])
+        self.edge_references(edges)  # Reject ambiguous/duplicate witnesses before selection publication.
+        return edges
 
     def add_chamfer(self, target_id, edge, distance=1.0):
         if target_id not in self.active_body_ids:

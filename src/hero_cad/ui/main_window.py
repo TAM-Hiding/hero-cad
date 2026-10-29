@@ -236,6 +236,7 @@ class MainWindow(QMainWindow):
         self.viewport.deleteRequested.connect(self.delete_selected)
         self.viewport.sketchContextRequested.connect(self.viewport_context_menu)
         self.viewport.faceContextRequested.connect(self.face_context_menu)
+        self.viewport.edgeContextRequested.connect(self.edge_context_menu)
         self.profile_action = QAction("Select Profile", self)
         self.profile_action.setCheckable(True)
         self.profile_action.setToolTip("Click inside an enclosed material region; holes stay empty. Select a sketch in the browser to access its profiles through bodies.")
@@ -254,9 +255,12 @@ class MainWindow(QMainWindow):
         self.combine_action.triggered.connect(self.combine_selected)
         toolbar.addAction(self.combine_action)
         self.chamfer_action = QAction('Chamfer…', self)
-        self.chamfer_action.setToolTip('Equal-distance chamfer on one selected straight, circular or arc solid edge')
+        self.chamfer_action.setToolTip('Shared equal-distance chamfer on selected straight, circular or arc edges of one solid')
         self.chamfer_action.triggered.connect(self.chamfer_selected)
         toolbar.addAction(self.chamfer_action)
+        self.tangent_chain_action = QAction('Select Tangent Chain', self)
+        self.tangent_chain_action.setToolTip('Expand one selected edge to its unambiguous tangent-connected chain')
+        self.tangent_chain_action.triggered.connect(self.select_tangent_chain)
         self.viewport.selectionChanged.connect(lambda _: self.update_actions())
         view_menu = self.menuBar().addMenu("&View")
         toolbar.addWidget(QLabel(" X-Ray: "))
@@ -434,6 +438,7 @@ class MainWindow(QMainWindow):
                              'Finish sketch editing and select at least two current bodies.')
         edge, edge_reason = self.selected_chamfer_edge() if not active else (None, 'Finish the current sketch first.')
         self.commands.enable('model.chamfer', edge is not None, edge_reason)
+        self.tangent_chain_action.setEnabled(not active and edge is not None and len(self.viewport.selections) == 1)
         if not self.viewport.sketch.features and self.profile_action.isChecked():
             self.profile_action.setChecked(False)
         self.commands.enable('profile.select', bool(self.viewport.sketch.features), 'Create a sketch with a closed profile first.')
@@ -742,7 +747,7 @@ class MainWindow(QMainWindow):
             self.entity_form.addRow(QLabel('Chamfer · equal distance' if chamfer else f"Extrusion · {entity.operation} · {entity.extent}" if extrusion else type(entity).__name__ + " · local sketch coordinates"))
             if chamfer:
                 status = self.document.statuses[self.entity_context[1]]
-                info = QLabel('Target: ' + self.body_label(entity.target_id) + '\n' + edge_description(entity.edge)
+                info = QLabel('Target: ' + self.body_label(entity.target_id) + f'\nSelected edges: {len(entity.edges)}' + ('\n' + edge_description(entity.edges[0]) if len(entity.edges) == 1 else '')
                               + ('\nResolved' if status.valid else '\n' + status.error))
                 info.setWordWrap(True)
                 self.entity_form.addRow(info)
@@ -1109,12 +1114,38 @@ class MainWindow(QMainWindow):
 
     def selected_chamfer_edge(self):
         selections = self.viewport.selections
-        if len(selections) != 1 or selections[0].kind != 'edge':
-            return None, 'Select exactly one straight, circular or arc edge on a current solid body.'
+        if not selections or any(item.kind != 'edge' for item in selections):
+            return None, 'Select one or more straight, circular or arc edges on one current solid body.'
         try:
-            return self.document.edge_reference(selections[0].shape), ''
+            return self.document.edge_references(item.shape for item in selections), ''
         except ValueError as error:
             return None, str(error)
+
+    def select_tangent_chain(self):
+        if self.viewport.sketch.active_id or len(self.viewport.selections) != 1:
+            return
+        selected = self.viewport.selection
+        if selected is None or selected.kind != 'edge':
+            return
+        try:
+            edges = self.document.tangent_edges(selected.shape)
+            self.viewport.select_edges(edges)
+        except ValueError as error:
+            self.statusBar().showMessage(str(error),8000)
+            return
+        self.statusBar().showMessage(f'Selected tangent chain: {len(edges)} edge(s). Review or Shift-click to adjust before Chamfer.',8000)
+
+    def edge_context_menu(self, hit, position):
+        if self.viewport.sketch.active_id:
+            return
+        if not any(item.kind == 'edge' and item.index == hit.index for item in self.viewport.selections):
+            self.viewport.selections = [hit]
+            self.viewport.show_selection()
+        menu = QMenu(self)
+        menu.addAction(self.tangent_chain_action)
+        menu.addAction(self.chamfer_action)
+        menu.popup(position)
+        self._context_menu = menu
 
     def chamfer_selected(self):
         if self.viewport.sketch.active_id:
