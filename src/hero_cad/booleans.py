@@ -11,7 +11,9 @@ from hero_cad.geometry import volume
 
 
 class OperationError(ValueError):
-    pass
+    def __init__(self, message, *, stage=None):
+        self.stage = stage  # Transient evaluation diagnostic, never serialized.
+        super().__init__(message)
 
 
 def bounds(shape):

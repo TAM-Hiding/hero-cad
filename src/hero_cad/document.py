@@ -160,7 +160,7 @@ class Document:
                         if (existing is not None and feature.type == 'chamfer'
                                 and feature != self.feature(feature.id)):
                             raise
-                        statuses[feature.id] = FeatureStatus(False, str(error))
+                        statuses[feature.id] = FeatureStatus(False, str(error), diagnostic_stage=getattr(error, 'stage', None))
                     except AttachmentError as error:
                         # Lost semantic faces remain in history, never substituted.
                         statuses[feature.id] = FeatureStatus(False, str(error), error.state.value)
@@ -168,7 +168,7 @@ class Document:
                 definitions[feature.id] = feature
                 resolved.append(feature)
             except Exception as error:
-                raise FeatureError(feature.id, str(error)) from error
+                raise FeatureError(feature.id, str(error), stage=getattr(error, 'stage', None)) from error
         if entity_ids.intersection(f.id for f in features):
             raise FeatureError('document', 'Entity and feature identifiers must be distinct')
         # Construct the final display-independent compound before publishing any

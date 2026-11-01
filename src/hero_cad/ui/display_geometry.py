@@ -19,6 +19,19 @@ SURFACE_DEFLECTION = .02  # millimetres, display only
 ANGULAR_DEFLECTION = .08  # radians
 
 
+class DisplayMeshError(ValueError):
+    """Display-only failure; does not assert that the underlying B-rep is invalid."""
+    stage = 'tessellation'
+
+    def __init__(self, face_index, mesher):
+        self.face_index = face_index
+        super().__init__(f'Tessellation failed: OCCT did not generate a display mesh '
+                         f'with usable triangles for face {face_index + 1}; '
+                         f'mesher_done={mesher.IsDone()}, status_flags={mesher.GetStatusFlags()}, '
+                         f'deflection={SURFACE_DEFLECTION} mm, angle={ANGULAR_DEFLECTION} rad. '
+                         'This display failure does not establish the geometric cause.')
+
+
 def subshapes(shape, kind):
     mapping = TopTools_IndexedMapOfShape()
     TopExp.MapShapes_s(shape, kind, mapping)
@@ -28,7 +41,7 @@ def subshapes(shape, kind):
 
 def tessellate(shape):
     """Triangles carry zero-based face indices into subshapes(shape, FACE)."""
-    BRepMesh_IncrementalMesh(shape, SURFACE_DEFLECTION, False, ANGULAR_DEFLECTION, True)
+    mesher = BRepMesh_IncrementalMesh(shape, SURFACE_DEFLECTION, False, ANGULAR_DEFLECTION, True)
     points, cells, face_ids = vtkPoints(), vtkCellArray(), vtkIntArray()
     normals = vtkDoubleArray()
     normals.SetName('Normals')
@@ -40,8 +53,8 @@ def tessellate(shape):
         face = TopoDS.Face_s(subshape)
         location = TopLoc_Location()
         mesh = BRep_Tool.Triangulation_s(face, location)
-        if mesh is None:
-            raise ValueError('OCCT did not generate a display mesh')
+        if mesh is None or not mesh.NbNodes() or not mesh.NbTriangles():
+            raise DisplayMeshError(face_id, mesher)
         offset = points.GetNumberOfPoints()
         surface = BRepAdaptor_Surface(face)
         for index in range(1, mesh.NbNodes() + 1):
