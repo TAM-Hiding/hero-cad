@@ -330,3 +330,12 @@ navigation and selection latency. These optional tools impose no CI timing limit
 Chamfer failures expose an evaluation stage in the existing History inspector;
 display-mesh failures identify the failed face and mesher status without assuming
 that the underlying geometry is invalid. Saved document versions are unchanged.
+
+### Safe document and display updates (Work Order #042)
+
+Properties edits, history steps and file replacement prepare their geometry and
+required display data before publishing. If preparation fails, the previous part,
+picking references and Undo/Redo history remain available; correct the pending
+input or use Undo to discard it. Expected unresolved downstream features remain
+supported. See [transaction boundaries, validation and limits](docs/atomic-document-display-042.md).
+Saved-document versions and reference matching are unchanged.

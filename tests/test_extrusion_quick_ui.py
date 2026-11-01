@@ -60,10 +60,11 @@ def test_immediate_typing_enter_commit_history_properties_and_reload(qtbot,text,
 @pytest.mark.parametrize('text',['','-','.','0','nan','inf','1e','1e999','100001','abc'])
 def test_invalid_input_stays_open_and_never_substitutes_old_value(qtbot,monkeypatch,text):
     w,p,sid,c=open_quick(qtbot)
-    import hero_cad.ui.operation_panel as module
-    calls=[];real=module.Document
+    from hero_cad.document import Document
+    # Candidate copies no longer call the constructor; count actual evaluations.
+    calls=[];real=Document._regenerate
     def counted(*a,**kw):calls.append(1);return real(*a,**kw)
-    monkeypatch.setattr(module,'Document',counted)
+    monkeypatch.setattr(Document,'_regenerate',counted)
     before=w.document.features;count=len(w.document._undo)
     p.quick_distance.setText(text)
     qtbot.keyClick(p.quick_distance,Qt.Key_Return)
@@ -80,10 +81,11 @@ def test_debounced_preview_escape_cancellation_and_shared_command_state(qtbot,mo
     before=w.document.features;count=len(w.document._undo)
     qtbot.waitUntil(lambda:p.candidate is not None,timeout=4000)
     assert p.actor.GetVisibility()
-    import hero_cad.ui.operation_panel as module
-    calls=[];real=module.Document
+    from hero_cad.document import Document
+    # Candidate copies no longer call the constructor; count actual evaluations.
+    calls=[];real=Document._regenerate
     def counted(*a,**kw):calls.append(1);return real(*a,**kw)
-    monkeypatch.setattr(module,'Document',counted)
+    monkeypatch.setattr(Document,'_regenerate',counted)
     for text in ('2','2.','2.125'):p.quick_distance.setText(text)
     qtbot.waitUntil(lambda:p.candidate is not None,timeout=4000)
     assert calls==[1] and p.candidate.features[-1].parameters.distance==2.125

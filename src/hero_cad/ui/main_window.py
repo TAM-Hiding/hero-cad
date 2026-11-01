@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 from hero_cad import __version__
 from hero_cad.chamfers import edge_description
 from hero_cad.document import BoxParameters, Document
-from hero_cad.features import ExtrudeParameters, ChamferParameters
+from hero_cad.features import ExtrudeParameters, ChamferParameters, FeatureError
 from hero_cad.geometry import volume, compound
 from hero_cad.sketch import PLANES
 from hero_cad.ui.viewport import Viewport
@@ -474,7 +474,12 @@ class MainWindow(QMainWindow):
             if self.browser.columnAt(pos.x()) == 1 and key and key[0] == 'sketch':
                 if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
                     feature = self.document.feature(key[1])
-                    self.document.set_sketch_visibility(feature.id, not feature.sketch_visible)
+                    try:
+                        self.edit_document(lambda d: d.set_sketch_visibility(feature.id, not feature.sketch_visible), reuse_unchanged_solids=True)
+                    except Exception as error:
+                        self.statusBar().showMessage(str(error), 5000)
+                        return True
+                    self._prepared_refresh = None
                     self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
                     item.setText(1, '●' if not feature.sketch_visible else '○')
                     item.setToolTip(1, 'Click to hide sketch' if not feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
@@ -530,8 +535,17 @@ class MainWindow(QMainWindow):
             self.update_commands()
 
     def base_box_visibility_changed(self, checked):
+        previous = getattr(self, '_displayed_solid_state', None)
+        try:
+            self.display_solids()
+        except Exception as error:
+            if previous is not None:
+                with QSignalBlocker(self.show_base_box):
+                    self.show_base_box.setChecked(previous[2])
+            self.document.last_failure = FeatureError('display', str(error), stage=getattr(error, 'stage', None) or 'display_preparation')
+            self.statusBar().showMessage(str(error), 5000)
+            return
         self._base_box_visibility_explicit = True
-        self.display_solids()
         self.viewport.sketch.update(self.viewport.sketch.features)
         self.viewport.GetRenderWindow().Render()
         self.update_status()
@@ -540,27 +554,156 @@ class MainWindow(QMainWindow):
         from hero_cad.ui.support_face import update_support_face
         update_support_face(self)
 
-    def display_solids(self, fit=False):
-        shapes = [shape for identifier, shape in self.document.solid_shapes.items()
-                  if identifier in self.document.active_body_ids and (self.show_base_box.isChecked() or self.document.feature(identifier).type != 'box')]
-        # An empty display is valid when the user hides the only solid.
-        visible = compound(shapes)
-        self.visible_volume = volume(visible)
-        self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
-        self.viewport.set_shape(visible, fit=fit)
+    def prepare_document_display(self, document, *, fit=False, reuse_unchanged_solids=False, preview_surface=None, finish_sketch=False):
+        """Fallible display work happens before any document/history publication."""
+        checked = self.show_base_box.isChecked()
+        has_extrusions = any(f.type == 'extrude' and document.statuses[f.id].valid for f in document.features)
+        if not self._base_box_visibility_explicit and (not has_extrusions or not getattr(self, '_had_extrusions', False)):
+            checked = not has_extrusions
+        previous = getattr(self, '_displayed_solid_state', None)
+        owner = getattr(document, '_candidate_owner', document)
+        unchanged = (previous is not None and previous[0] is owner
+                     and previous[1] is document.shape and previous[2] == checked)
+        solid, visible_volume, label = None, getattr(self, 'visible_volume', 0.), getattr(self, 'volume_label', 'Volume')
+        # Preview temporarily blanks live solid mappings. An unchanged native
+        # document can reuse its retained baseline, never that empty viewport.
+        panel = getattr(self, 'operation_panel', None)
+        saved = getattr(panel, '_base_display', None)
+        if unchanged and saved is not None and saved[0] is owner and saved[2] == checked:
+            solid = saved[3]
+        if fit or not reuse_unchanged_solids or not unchanged:
+            bodies = tuple(i for i in document.solid_shapes if i in document.active_body_ids
+                           and (checked or document.feature(i).type != 'box'))
+            shapes = [document.solid_shapes[i] for i in bodies]
+            visible = compound(shapes)
+            visible_volume = volume(visible)
+            label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
+            surface = preview_surface[1] if preview_surface is not None and preview_surface[0] == bodies else None
+            solid = self.viewport.prepare_shape(visible, surface=surface)
+        sketches = tuple(f for f in document.sketches if document.statuses[f.id].valid)
+        sketch_display = self.viewport.sketch.prepare_features(sketches, reset_preview=True, finish=finish_sketch)
+        from hero_cad.ui.support_face import prepare_support_face
+        v = self.viewport
+        active = None if finish_sketch else next((f for f in sketches if f.id == v.sketch.active_id), None)
+        faces = solid.faces if solid is not None else getattr(v, 'faces', [])
+        surface = solid.mapper.GetInput() if solid is not None else v.mapper.GetInput()
+        support = prepare_support_face(self, document, active, faces, surface, checked, force=not unchanged)
+        support_mapper = v.support_mapper
+        if support[1] and support[2] is not support_mapper.GetInput():
+            from vtkmodules.vtkRenderingCore import vtkPolyDataMapper
+            support_mapper = vtkPolyDataMapper()
+            support_mapper.ScalarVisibilityOff()
+            support_mapper.SetResolveCoincidentTopologyToPolygonOffset()
+            support_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
+            support_mapper.SetInputData(support[2])
+        return dict(solid=solid, sketch_display=sketch_display, sketches=sketches,
+                    support=support, support_mapper=support_mapper,
+                    checked=checked, has_extrusions=has_extrusions,
+                    volume=visible_volume, label=label)
+
+    def publish_document_display(self, candidate, prepared, *, replacement=False):
+        """One synchronous reference swap; no regeneration, conversion or render."""
+        old_document = self.document
+        old_state = old_document.__dict__
+        v = self.viewport
+        old_solid, old_sketch = v.solid_state(), v.sketch.display_state()
+        old_sketches = v.sketch.features
+        old_support = (v.support_mapper, getattr(v, '_support_key', None),
+                       getattr(v, '_support_available', False), v.support_actor.GetVisibility())
+        stage = 'document_publication'
+        try:
+            if replacement:
+                self.document = candidate
+            else:
+                old_document.adopt_candidate(candidate)
+            stage = 'viewport_presentation'
+            if prepared['solid'] is not None:
+                v.install_shape(prepared['solid'])
+            v.sketch.install_display(prepared['sketch_display'])
+            v.sketch.features = prepared['sketches']
+            v.support_actor.SetMapper(prepared['support_mapper'])
+            v.support_mapper = prepared['support_mapper']
+            v._support_key, v._support_available, _ = prepared['support']
+            v.support_actor.SetVisibility(v._support_available)
+        except Exception as error:
+            self.document = old_document
+            old_document.__dict__ = old_state
+            v.install_shape(old_solid)
+            v.sketch.install_display(old_sketch)
+            v.sketch.features = old_sketches
+            v.support_mapper, v._support_key, v._support_available, visible = old_support
+            v.support_actor.SetMapper(v.support_mapper)
+            v.support_actor.SetVisibility(visible)
+            raise FeatureError('display', str(error), stage=stage) from error
+        self._prepared_refresh = (self.document, self.document.features, self.document.shape, prepared)
+        self.visible_volume, self.volume_label = prepared['volume'], prepared['label']
+        with QSignalBlocker(self.show_base_box):
+            self.show_base_box.setChecked(prepared['checked'])
+        if prepared['solid'] is not None:
+            self._displayed_solid_state = (self.document, self.document.shape, prepared['checked'])
+            self.viewport.clear_selection(render=False)
+
+    def edit_document(self, edit, *, fit=False, reuse_unchanged_solids=False):
+        candidate = self.document.candidate()
+        try:
+            result = edit(candidate)
+        except FeatureError as error:
+            failure = error if error.stage else FeatureError(error.feature_id, error.status.error, stage='geometry_evaluation')
+            self.document.last_failure = failure
+            if failure is error:
+                raise
+            raise failure from error
+        try:
+            prepared = self.prepare_document_display(candidate, fit=fit, reuse_unchanged_solids=reuse_unchanged_solids)
+            self.publish_document_display(candidate, prepared)
+        except Exception as error:
+            failure = error if isinstance(error, FeatureError) else FeatureError('display', str(error), stage=getattr(error, 'stage', None) or 'display_preparation')
+            self.document.last_failure = failure
+            if failure is error:
+                raise
+            raise failure from error
+        if hasattr(self, 'operation_panel') and self.operation_panel.active:
+            self.operation_panel.cancel(restore=False)
+        return result
+
+    def display_solids(self, fit=False, *, prepared=None):
+        if prepared is None:
+            shapes = [shape for identifier,shape in self.document.solid_shapes.items()
+                      if identifier in self.document.active_body_ids
+                      and (self.show_base_box.isChecked() or self.document.feature(identifier).type != 'box')]
+            visible = compound(shapes)
+            visible_volume = volume(visible)
+            solid = self.viewport.prepare_shape(visible)
+            previous = self.viewport.solid_state()
+            try:
+                self.viewport.install_shape(solid)
+            except Exception:
+                self.viewport.install_shape(previous)
+                raise
+            self.visible_volume = visible_volume
+            self.volume_label = 'Volume (sum of bodies)' if len(shapes) > 1 else 'Volume'
+        else:
+            self.visible_volume, self.volume_label = prepared['volume'], prepared['label']
+        self.viewport.present_shape(fit=fit)
         self._displayed_solid_state = (self.document, self.document.shape, self.show_base_box.isChecked())
 
     def refresh(self, fit=False, *, reuse_unchanged_solids=False):
+        pending = getattr(self, '_prepared_refresh', None)
+        if (pending is not None and pending[0] is self.document and pending[1] is self.document.features
+                and pending[2] is self.document.shape):
+            prepared = pending[3]
+        else:
+            prepared = self.prepare_document_display(self.document, fit=fit, reuse_unchanged_solids=reuse_unchanged_solids)
+            self.publish_document_display(self.document, prepared, replacement=True)
+        self._prepared_refresh = None
         if hasattr(self, 'operation_panel') and self.operation_panel.active:
-            self.operation_panel.cancel()
+            self.operation_panel.cancel(restore=False)
         self.viewport.dimensions.reset()
         self.viewport.profiles.clear()
         self.viewport.profiles.cache.clear()
-        has_extrusions = any(f.type == 'extrude' and self.document.statuses[f.id].valid for f in self.document.features)
-        if not self._base_box_visibility_explicit and (not has_extrusions or not getattr(self, '_had_extrusions', False)):
-            with QSignalBlocker(self.show_base_box):
-                self.show_base_box.setChecked(not has_extrusions)
-        self._had_extrusions = has_extrusions
+        with QSignalBlocker(self.show_base_box):
+            self.show_base_box.setChecked(prepared['checked'])
+        self._had_extrusions = prepared['has_extrusions']
         for name, field in self.fields.items():
             with QSignalBlocker(field):
                 field.setValue(getattr(self.document.parameters, name))
@@ -569,13 +712,8 @@ class MainWindow(QMainWindow):
         self._shown_values = {n: f.value() for n, f in self.fields.items()}
         # Entity commits may retain the entire evaluated solid state. Keep its
         # meshes AND picking maps together, never meshes over regenerated shapes.
-        previous = getattr(self, '_displayed_solid_state', None)
-        unchanged = (previous is not None and previous[0] is self.document
-                     and previous[1] is self.document.shape
-                     and previous[2] == self.show_base_box.isChecked())
-        if (fit or not reuse_unchanged_solids
-                or not unchanged):
-            self.display_solids(fit=fit)
+        if prepared['solid'] is not None:
+            self.display_solids(fit=fit, prepared=prepared)
         else:
             self.viewport.clear_selection(render=False)
         self.viewport.sketch.update(f for f in self.document.sketches if self.document.statuses[f.id].valid)
@@ -608,18 +746,19 @@ class MainWindow(QMainWindow):
                 values = self.entity_values()
                 if self.entity_context[0] in ('extrude', 'chamfer'):
                     feature = self.document.feature(self.entity_context[1])
-                    self.document.replace_feature(replace(feature, parameters=replace(entity, **values)))
+                    self.edit_document(lambda d: d.replace_feature(replace(feature, parameters=replace(entity, **values))), reuse_unchanged_solids=True)
                 else:
-                    self.document.update_entity(self.entity_context[0], replace(entity, **values))
+                    self.edit_document(lambda d: d.update_entity(self.entity_context[0], replace(entity, **values)), reuse_unchanged_solids=True)
             else:
-                self.document.set_box(self.field_parameters())
+                parameters = self.field_parameters()
+                self.edit_document(lambda d: d.set_box(parameters), reuse_unchanged_solids=True)
         except Exception as error:
             QMessageBox.warning(self, "Cannot update parameters", str(error))
             return False
         self.refresh(reuse_unchanged_solids=True)
         return True
 
-    def cancel_interaction(self, *, history=False):
+    def cancel_interaction(self, *, history=False, restore=True):
         """End temporary input routing without changing camera or preferences."""
         self.profile_action.setChecked(False)
         self.viewport.profiles.set_mode(False)
@@ -627,29 +766,29 @@ class MainWindow(QMainWindow):
         if self.viewport.sketch.controller.tool and not history:
             self.viewport.sketch.set_tool('select')
         if self.operation_panel.active:
-            self.operation_panel.cancel()
+            self.operation_panel.cancel(restore=restore)
         self.update_actions()
 
     def undo(self):
-        self.cancel_interaction(history=True)
         try:
             # Undo first cancels uncommitted property edits.
             if not self.has_pending_edits():
-                self.document.undo()
+                self.edit_document(lambda d: d.undo())
         except Exception as error:
             QMessageBox.warning(self, "Cannot undo", str(error))
             return
+        self.cancel_interaction(history=True, restore=False)
         self.refresh()
 
     def redo(self):
-        self.cancel_interaction(history=True)
         if self.has_pending_edits():
             return
         try:
-            self.document.redo()
+            self.edit_document(lambda d: d.redo())
         except Exception as error:
             QMessageBox.warning(self, "Cannot redo", str(error))
             return
+        self.cancel_interaction(history=True, restore=False)
         self.refresh()
 
     def save_document(self, checked=False, *, save_as=False):
@@ -696,7 +835,14 @@ class MainWindow(QMainWindow):
     def new_document(self):
         if not self.confirm_replace():
             return
-        self.document = Document()
+        try:
+            replacement = Document()
+            prepared = self.prepare_document_display(replacement, fit=True)
+            self.publish_document_display(replacement, prepared, replacement=True)
+        except Exception as error:
+            self.document.last_failure = FeatureError('display', str(error), stage=getattr(error, 'stage', None) or 'display_preparation')
+            QMessageBox.warning(self, 'Cannot create document', str(error))
+            return
         self.refresh(fit=True)
 
     def open_document(self):
@@ -717,10 +863,14 @@ class MainWindow(QMainWindow):
         except Exception as error:
             QMessageBox.warning(self, "Cannot open document", str(error))
             return
-        self.document = replacement
-        if not self._base_box_visibility_explicit:
-            with QSignalBlocker(self.show_base_box):
-                self.show_base_box.setChecked(not any(f.type == 'extrude' for f in replacement.features))
+        try:
+            prepared = self.prepare_document_display(replacement, fit=True)
+            self.publish_document_display(replacement, prepared, replacement=True)
+        except Exception as error:
+            failure = FeatureError('display', str(error), stage=getattr(error, 'stage', None) or 'display_preparation')
+            self.document.last_failure = failure
+            QMessageBox.warning(self, 'Cannot open document', str(failure))
+            return
         self.refresh(fit=True)
 
     def current_entity(self):
@@ -961,7 +1111,7 @@ class MainWindow(QMainWindow):
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         try:
-            identifier = self.document.add_face_sketch(reference)
+            identifier = self.edit_document(lambda d: d.add_face_sketch(reference))
         except ValueError as error:
             self.statusBar().showMessage(str(error), 5000)
             return
@@ -983,7 +1133,7 @@ class MainWindow(QMainWindow):
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         try:
-            identifier = self.document.add_sketch(plane)
+            identifier = self.edit_document(lambda d: d.add_sketch(plane))
         except Exception as error:
             QMessageBox.warning(self, "Cannot create sketch", str(error))
             return
@@ -1029,7 +1179,7 @@ class MainWindow(QMainWindow):
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         try:
-            self.document.add_entity(identifier, entity)
+            self.edit_document(lambda d: d.add_entity(identifier, entity), reuse_unchanged_solids=True)
         except Exception as error:
             # Construction failures are inline feedback, never placement dialogs.
             self.statusBar().showMessage(str(error))
@@ -1086,8 +1236,8 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage('Only sketch entities, unreferenced sketches and extrusions can be deleted', 4000)
             return
         try:
-            self.document.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean', 'chamfer')],
-                                 entities=[k[1:] for k in keys if k[0] == 'entity'])
+            self.edit_document(lambda d: d.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean', 'chamfer')],
+                                                 entities=[k[1:] for k in keys if k[0] == 'entity']))
         except Exception as error:
             self.statusBar().showMessage(str(error), 5000)
             return

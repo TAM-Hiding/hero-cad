@@ -364,3 +364,20 @@ combined highlight; no geometry builder or history mutation runs. Shift selectio
 preview, Properties and operation styles/placement reuse their existing paths.
 Multiple bevel roots use persistent edge witness digests, never traversal indices.
 See docs/CHAMFERS.md for limits, persistence and test coverage.
+
+## Work Order #042 — staged document/display publication
+
+Window editing paths use a staging copy of the existing Document with independent
+history lists. Existing evaluation/rejection and leaf-sketch reuse run once on
+that candidate. A baseline/owner check precedes adoption into the original
+Document object; adoption does not regenerate or replace saved-file metadata.
+Viewport solid meshes/maps and changed sketch/support layers are prepared with
+detached mappers. Their buffers are referenced, not deep-copied. A synchronous
+reference swap retains previous document/display resources for rollback; signals,
+selection clearing and rendering follow publication. Prepared resources feed the
+normal refresh, avoiding a second mesh build. Operation Apply can adopt a preview
+candidate and reuse its matching surface. Preview cancellation restores retained
+mappings rather than remeshing. Transient failures extend existing FeatureError/
+FeatureStatus diagnostics. No geometry algorithm, schema, dependency scheduler or
+renderer framework changes. See [the scope and remaining callback/external-mutation
+limits](docs/atomic-document-display-042.md).

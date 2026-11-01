@@ -143,6 +143,7 @@ class FeatureStatus:
 class FeatureError(ValueError):
     def __init__(self, feature_id, message, *, stage=None):
         self.feature_id = feature_id
+        self.stage = stage
         self.status = FeatureStatus(False, str(message), diagnostic_stage=stage)
         super().__init__(f'Feature {feature_id}: {message}')
 
