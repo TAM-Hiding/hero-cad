@@ -242,3 +242,11 @@ remaining limitations are recorded in [VALIDATION.md](../VALIDATION.md).
   rendering diagnostics, and consider narrowly scoped camera/widget error handling
   only if concrete failures justify it. Keep existing strict reference identity
   and explicit unresolved-dependency behavior.
+
+## Pre-merge follow-up
+
+See [the viewport/circle investigation](viewport-circle-followup-042.md) for the
+confirmed pre-existing native stereo shortcut hazard, its narrow key-routing fix,
+deterministic multi-body recovery tests and circle input results. The original
+circle mismatch and precise Join-to-purple trigger remain unreproduced. The
+transaction implementation above is retained.

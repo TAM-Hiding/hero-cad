@@ -1521,3 +1521,59 @@ refresh costs and ordinary shared-host variation; no speedup or universal latenc
 guarantee is claimed. Full breakdowns and the fixed-overhead follow-up are in the
 report. Matching shaded-body pixel counts and current source/harness SHA-256
 fingerprints were checked before committing the raw data.
+
+### PR #42 pre-merge follow-up — hidden stereo and circle input
+
+2026-10-31. Existing branch baseline:
+`a267f7ede52a31ac949043ba62aee7364e32b074`; main comparison:
+`d2d556f8edc2e88a1a7b4b987eef4abe1d31cb26`.
+
+A controlled Qt key **3** on both sources toggled native VTK `StereoRender`
+from 0 to 1, with type RedBlue. The background framebuffer pixel changed from
+(23,31,41) to (31,0,31), and every framebuffer green component became zero.
+Native actor count stayed constant. A second 3 restored normal rendering.
+Seven-sample software-GL render medians were 7.53→19.84→6.89 ms on old #42 and
+8.02→20.74→7.56 ms on main. This is a confirmed pre-existing shortcut hazard,
+not proof of a shader or geometry failure. The user's exact Join/focus/keypress
+sequence was not available.
+
+The narrow change consumes unclaimed viewport key 3 after construction numeric
+routing and on release. The corrected probe stayed stereo-off with identical
+normal background through both presses (6.62 / 6.68 / 6.99 ms). Native scene,
+renderer framework, actor styling and all transaction mechanisms are retained.
+No circle conversion or label change was justified: both input modes and actual
+OCCT geometry matched all tested values, including Radius 4.99999 and Diameter
+9.99998. See [full findings and raw probe data](docs/viewport-circle-followup-042.md).
+
+Focused command under TCP-Xvfb:
+
+```sh
+DISPLAY=127.0.0.1:75 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/pytest tests/test_viewport_circle_followup_042.py tests/test_dimension_focus.py tests/test_precision.py tests/test_atomic_updates_042.py -q
+```
+
+**84 passed**, 16 upstream warnings, 39.99 s. This exercises the real Qt key route,
+actual framebuffer, three/four-body Join/cancel/rejection/recovery, interrupted
+previews, layer/actor identities, picking maps, subsequent navigation, circle
+preview/native radius/extruded bounds/volume/Properties/save/reopen, numeric 3,
+mode reset and typed/Tab/click entry. Existing snapping tests remain enabled.
+
+Full command on the same real X11/software-GL display:
+
+```sh
+DISPLAY=127.0.0.1:75 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/pytest -q
+```
+
+**829 passed, 0 failed, 0 skipped**, 165 upstream warnings, **252.67 s**.
+All original 802 tests remain, with 27 follow-up cases. `pip check`, compilation
+and whitespace checks pass. No dependencies were changed. Runtime prerequisites
+were restored in the re-created workspace; the previous branch was re-cloned.
+
+Before the fix, the initial follow-up matrix returned 19 passed / 1 failed because
+the key-3 regression enabled stereo. During test development, its new framebuffer
+brightness check was adjusted to detect the existing dim blue/green isometric
+solid palette while excluding background/axes; stereo-state and exact framebuffer
+invariance assertions were retained. No existing test was removed or weakened.
+The controlled multi-body Join flows did not reproduce purple by themselves.
+No actor/resource leak was established, so no speculative cleanup/refactor was
+introduced. Remaining limits are the user's uncaptured original event sequence,
+unreproduced circle mismatch and unavailable original model/NVIDIA desktop.

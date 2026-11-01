@@ -1,0 +1,133 @@
+{
+  "purpose": "Controlled hidden-stereo investigation, not a hardware timing guarantee",
+  "baseline_pr42": "a267f7ede52a31ac949043ba62aee7364e32b074",
+  "baseline_main": "d2d556f8edc2e88a1a7b4b987eef4abe1d31cb26",
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "ocp": "7.9.3.1",
+    "qt": "6.8.3",
+    "vtk": "9.6.2",
+    "software_gl": true,
+    "display": "TCP-Xvfb xcb",
+    "render_samples": 7,
+    "cpu": "AMD EPYC 9V74 80-Core Processor"
+  },
+  "method": "Show stock box, Isometric, focus viewport, capture framebuffer and median 7 synchronous renders before/after Qt key 3; repeat key 3. Same probe on both pinned sources; fixed source consumes that shortcut.",
+  "records": {
+    "pr42_before": {
+      "BEFORE": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 7.5273180000294815,
+        "actors": 16
+      },
+      "AFTER_3": {
+        "stereo": 1,
+        "type": "RedBlue",
+        "background_pixel": [
+          31,
+          0,
+          31
+        ],
+        "green_max": 0,
+        "render_ms": 19.84244700003046,
+        "actors": 16
+      },
+      "AFTER_3_AGAIN": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 6.889825999962795,
+        "actors": 16
+      }
+    },
+    "main_before": {
+      "BEFORE": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 8.017691000020477,
+        "actors": 16
+      },
+      "AFTER_3": {
+        "stereo": 1,
+        "type": "RedBlue",
+        "background_pixel": [
+          31,
+          0,
+          31
+        ],
+        "green_max": 0,
+        "render_ms": 20.741727000029186,
+        "actors": 16
+      },
+      "AFTER_3_AGAIN": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 7.561068999962117,
+        "actors": 16
+      }
+    },
+    "pr42_fixed": {
+      "BEFORE": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 6.61637400003201,
+        "actors": 16
+      },
+      "AFTER_3": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 6.675591999965036,
+        "actors": 16
+      },
+      "AFTER_3_AGAIN": {
+        "stereo": 0,
+        "type": "RedBlue",
+        "background_pixel": [
+          23,
+          31,
+          41
+        ],
+        "green_max": 204,
+        "render_ms": 6.9926500000292435,
+        "actors": 16
+      }
+    }
+  }
+}

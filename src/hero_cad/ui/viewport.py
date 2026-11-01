@@ -647,7 +647,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.mousePressEvent(event)
 
     def keyReleaseEvent(self, event):
-        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P):
+        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P, Qt.Key_3):
             event.accept()
             return
         super().keyReleaseEvent(event)
@@ -666,6 +666,11 @@ class Viewport(QVTKRenderWindowInteractor):
             if self.dimensions.begin(event.text()):
                 event.accept()
                 return
+        # VTK's native '3' shortcut toggles Red/Blue stereo for the entire
+        # framebuffer. HERO has no stereo command; numeric entry above owns 3.
+        if event.key() == Qt.Key_3:
+            event.accept()
+            return
         if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self.deleteRequested.emit()
             return
