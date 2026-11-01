@@ -319,3 +319,14 @@ order, parameters, direct parents/dependents, regeneration status and errors.
 The summary is read-only and updates through normal editing, Undo/Redo and Open.
 **Properties → Edit** retains the existing editing controls. See
 [the inspector guide and limits](docs/HISTORY_INSPECTOR.md).
+
+### Architecture and performance audit (Work Order #041)
+
+See [the audit report](docs/architecture-performance-audit-041.md) for connected-part
+benchmarks, chamfer boundary results, reference stability and prioritized follow-ups.
+Run `PYTHONPATH=.:src .venv/bin/python tools/benchmark_audit_041.py --output /tmp/audit.json`
+for CPU measurements; add `--viewport` under a desktop/Xvfb for actual rendering,
+navigation and selection latency. These optional tools impose no CI timing limits.
+Chamfer failures expose an evaluation stage in the existing History inspector;
+display-mesh failures identify the failed face and mesher status without assuming
+that the underlying geometry is invalid. Saved document versions are unchanged.

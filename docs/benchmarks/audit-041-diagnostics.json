@@ -1,0 +1,1030 @@
+{
+  "environment": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "ocp": "7.9.3.1",
+    "vtk": "9.6.2",
+    "qt": "6.8.3",
+    "numpy": "2.5.4",
+    "cpu": "INTEL(R) XEON(R) PLATINUM 8573C",
+    "logical_cpus": 9,
+    "revision": "b38c144d7a5f9b3103b35ccd9a05b753c7e5ce17",
+    "qt_platform": "xcb",
+    "software_gl": "1",
+    "surface_deflection_mm": 0.02,
+    "angular_deflection_rad": 0.08,
+    "samples": 3,
+    "source_sha256": {
+      "document.py": "e5d80d36a50906a8aa50dbe9c1f7fadd2536cd62894338bfd46ebf8f35324b53",
+      "chamfers.py": "424d6bb8e4f9314e2cf16a9552d9c42dd2409c65e2945601b7d8c55e2e223223",
+      "features.py": "736fae95369d145bfe620673fea1ad4168fed110abd6bcc9ab723abb31551f8d",
+      "ui/display_geometry.py": "8b9856e4b0764ed7d608dc70fe6641427d5d4fcbf99ea84377ed2c7bbc32eee8"
+    },
+    "harness_sha256": "0eddd26bcbc8810c5e58b0ed3a646e0bf0345a1804640a858a692f53ed800176"
+  },
+  "cases": [
+    {
+      "features": 5,
+      "construction_ms": 93.07054900000367,
+      "load_ms": 58.956968000074994,
+      "regeneration_ms": 65.89186799988056,
+      "tessellation_conversion_ms": 41.05245700020532,
+      "native_mesher_ms": 18.59790299999986,
+      "vtk_conversion_normals_ms": 22.454554000205462,
+      "edge_mesh_ms": 1.4075219999085675,
+      "triangles": 1288,
+      "edge_points": 366,
+      "feature_execution_instrumented": [
+        {
+          "id": "db947a6e-6c7f-516d-bb6e-f482906a59c0",
+          "type": "box",
+          "ms": 0.9520610001345631
+        },
+        {
+          "id": "424fcd58-30f8-5cae-928e-55392b030634",
+          "type": "sketch",
+          "ms": 0.5307090000314929
+        },
+        {
+          "id": "249d4827-23d9-5e29-9c89-865f153be5d6",
+          "type": "extrude",
+          "ms": 20.324578999861842
+        },
+        {
+          "id": "204778a1-1868-55bf-bba9-0421b454da5f",
+          "type": "sketch",
+          "ms": 0.22152800011099316
+        },
+        {
+          "id": "ddfd3df5-c356-55aa-8cf4-c121e6c83639",
+          "type": "extrude",
+          "ms": 32.463402999837854
+        }
+      ],
+      "process_peak_rss_mib": 491.98828125,
+      "viewport": {
+        "update_ms": 62.95333799994296,
+        "orbit_render_ms": 18.222266999828207,
+        "face_selection_render_ms": 23.585043000139194,
+        "edge_pick_ms": 1.174564999928407,
+        "viewport_only_calls": {
+          "regeneration": 0,
+          "tessellation": 0,
+          "edge_mesh": 0
+        },
+        "framebuffer_nonblank": true,
+        "size": [
+          800,
+          600
+        ],
+        "render_capabilities": "server glx vendor string:  SGI\nserver glx version string:  1.4\nserver glx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_multisample GLX_EXT_create_context_es_profile GLX_EXT_create_context_es2_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_get_drawable_type GLX_EXT_libglvnd GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_OML_swap_method GLX_SGI_make_current_read GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group \nclient glx vendor string:  Mesa Project and SGI\nclient glx version string:  1.4\nglx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_get_proc_address GLX_ARB_multisample GLX_EXT_create_context_es2_profile GLX_EXT_create_context_es_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_MESA_gl_interop GLX_MESA_query_renderer GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group GLX_SGI_make_current_read \nOpenGL vendor string:  Mesa\nOpenGL renderer string:  llvmpipe (LLVM 20.1.2, 256 bits)\nOpenGL version string:  4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2\nOpenGL extensions:  \n  GL_3DFX_texture_compression_FXT1\n  GL_AMD_conservative_depth\n  GL_AMD_draw_buffers_blend\n  GL_AMD_gpu_shader_int64\n  GL_AMD_multi_draw_indirect\n  GL_AMD_pinned_memory\n  GL_AMD_query_buffer_object\n  GL_AMD_seamless_cubemap_per_texture\n  GL_AMD_shader_stencil_export\n  GL_AMD_shader_trinary_minmax\n  GL_AMD_texture_texture4\n  GL_AMD_vertex_shader_layer\n  GL_AMD_vertex_shader_viewport_index\n  GL_ANGLE_texture_compression_dxt3\n  GL_ANGLE_texture_compression_dxt5\n  GL_ARB_ES2_compatibility\n  GL_ARB_ES3_1_compatibility\n  GL_ARB_ES3_2_compatibility\n  GL_ARB_ES3_compatibility\n  GL_ARB_arrays_of_arrays\n  GL_ARB_base_instance\n  GL_ARB_blend_func_extended\n  GL_ARB_buffer_storage\n  GL_ARB_clear_buffer_object\n  GL_ARB_clear_texture\n  GL_ARB_clip_control\n  GL_ARB_compressed_texture_pixel_storage\n  GL_ARB_compute_shader\n  GL_ARB_conditional_render_inverted\n  GL_ARB_conservative_depth\n  GL_ARB_copy_buffer\n  GL_ARB_copy_image\n  GL_ARB_cull_distance\n  GL_ARB_debug_output\n  GL_ARB_depth_buffer_float\n  GL_ARB_depth_clamp\n  GL_ARB_derivative_control\n  GL_ARB_direct_state_access\n  GL_ARB_draw_buffers\n  GL_ARB_draw_buffers_blend\n  GL_ARB_draw_elements_base_vertex\n  GL_ARB_draw_indirect\n  GL_ARB_draw_instanced\n  GL_ARB_enhanced_layouts\n  GL_ARB_explicit_attrib_location\n  GL_ARB_explicit_uniform_location\n  GL_ARB_fragment_coord_conventions\n  GL_ARB_fragment_layer_viewport\n  GL_ARB_fragment_shader\n  GL_ARB_framebuffer_no_attachments\n  GL_ARB_framebuffer_object\n  GL_ARB_framebuffer_sRGB\n  GL_ARB_get_program_binary\n  GL_ARB_get_texture_sub_image\n  GL_ARB_gl_spirv\n  GL_ARB_gpu_shader5\n  GL_ARB_gpu_shader_fp64\n  GL_ARB_gpu_shader_int64\n  GL_ARB_half_float_pixel\n  GL_ARB_half_float_vertex\n  GL_ARB_indirect_parameters\n  GL_ARB_instanced_arrays\n  GL_ARB_internalformat_query\n  GL_ARB_internalformat_query2\n  GL_ARB_invalidate_subdata\n  GL_ARB_map_buffer_alignment\n  GL_ARB_map_buffer_range\n  GL_ARB_multi_bind\n  GL_ARB_multi_draw_indirect\n  GL_ARB_occlusion_query2\n  GL_ARB_parallel_shader_compile\n  GL_ARB_pipeline_statistics_query\n  GL_ARB_pixel_buffer_object\n  GL_ARB_point_sprite\n  GL_ARB_polygon_offset_clamp\n  GL_ARB_post_depth_coverage\n  GL_ARB_program_interface_query\n  GL_ARB_provoking_vertex\n  GL_ARB_query_buffer_object\n  GL_ARB_robust_buffer_access_behavior\n  GL_ARB_robustness\n  GL_ARB_sample_shading\n  GL_ARB_sampler_objects\n  GL_ARB_seamless_cube_map\n  GL_ARB_seamless_cubemap_per_texture\n  GL_ARB_separate_shader_objects\n  GL_ARB_shader_atomic_counter_ops\n  GL_ARB_shader_atomic_counters\n  GL_ARB_shader_ballot\n  GL_ARB_shader_bit_encoding\n  GL_ARB_shader_clock\n  GL_ARB_shader_draw_parameters\n  GL_ARB_shader_group_vote\n  GL_ARB_shader_image_load_store\n  GL_ARB_shader_image_size\n  GL_ARB_shader_objects\n  GL_ARB_shader_precision\n  GL_ARB_shader_stencil_export\n  GL_ARB_shader_storage_buffer_object\n  GL_ARB_shader_subroutine\n  GL_ARB_shader_texture_image_samples\n  GL_ARB_shader_texture_lod\n  GL_ARB_shader_viewport_layer_array\n  GL_ARB_shading_language_420pack\n  GL_ARB_shading_language_include\n  GL_ARB_shading_language_packing\n  GL_ARB_spirv_extensions\n  GL_ARB_stencil_texturing\n  GL_ARB_sync\n  GL_ARB_tessellation_shader\n  GL_ARB_texture_barrier\n  GL_ARB_texture_border_clamp\n  GL_ARB_texture_buffer_object\n  GL_ARB_texture_buffer_object_rgb32\n  GL_ARB_texture_buffer_range\n  GL_ARB_texture_compression_bptc\n  GL_ARB_texture_compression_rgtc\n  GL_ARB_texture_cube_map_array\n  GL_ARB_texture_filter_anisotropic\n  GL_ARB_texture_filter_minmax\n  GL_ARB_texture_float\n  GL_ARB_texture_gather\n  GL_ARB_texture_mirror_clamp_to_edge\n  GL_ARB_texture_multisample\n  GL_ARB_texture_non_power_of_two\n  GL_ARB_texture_query_levels\n  GL_ARB_texture_query_lod\n  GL_ARB_texture_rectangle\n  GL_ARB_texture_rg\n  GL_ARB_texture_rgb10_a2ui\n  GL_ARB_texture_stencil8\n  GL_ARB_texture_storage\n  GL_ARB_texture_storage_multisample\n  GL_ARB_texture_swizzle\n  GL_ARB_texture_view\n  GL_ARB_timer_query\n  GL_ARB_transform_feedback2\n  GL_ARB_transform_feedback3\n  GL_ARB_transform_feedback_instanced\n  GL_ARB_transform_feedback_overflow_query\n  GL_ARB_uniform_buffer_object\n  GL_ARB_vertex_array_bgra\n  GL_ARB_vertex_array_object\n  GL_ARB_vertex_attrib_64bit\n  GL_ARB_vertex_attrib_binding\n  GL_ARB_vertex_buffer_object\n  GL_ARB_vertex_shader\n  GL_ARB_vertex_type_10f_11f_11f_rev\n  GL_ARB_vertex_type_2_10_10_10_rev\n  GL_ARB_viewport_array\n  GL_ARM_shader_framebuffer_fetch_depth_stencil\n  GL_ATI_blend_equation_separate\n  GL_ATI_meminfo\n  GL_ATI_texture_float\n  GL_ATI_texture_mirror_once\n  GL_EXT_EGL_image_storage\n  GL_EXT_EGL_image_storage_compression\n  GL_EXT_EGL_sync\n  GL_EXT_abgr\n  GL_EXT_blend_equation_separate\n  GL_EXT_debug_label\n  GL_EXT_draw_buffers2\n  GL_EXT_draw_instanced\n  GL_EXT_framebuffer_blit\n  GL_EXT_framebuffer_multisample\n  GL_EXT_framebuffer_multisample_blit_scaled\n  GL_EXT_framebuffer_object\n  GL_EXT_framebuffer_sRGB\n  GL_EXT_memory_object\n  GL_EXT_memory_object_fd\n  GL_EXT_packed_depth_stencil\n  GL_EXT_packed_float\n  GL_EXT_pixel_buffer_object\n  GL_EXT_polygon_offset_clamp\n  GL_EXT_provoking_vertex\n  GL_EXT_shader_clock\n  GL_EXT_shader_framebuffer_fetch\n  GL_EXT_shader_framebuffer_fetch_non_coherent\n  GL_EXT_shader_image_load_formatted\n  GL_EXT_shader_integer_mix\n  GL_EXT_texture_array\n  GL_EXT_texture_compression_dxt1\n  GL_EXT_texture_compression_rgtc\n  GL_EXT_texture_compression_s3tc\n  GL_EXT_texture_filter_anisotropic\n  GL_EXT_texture_filter_minmax\n  GL_EXT_texture_integer\n  GL_EXT_texture_mirror_clamp\n  GL_EXT_texture_sRGB\n  GL_EXT_texture_sRGB_R8\n  GL_EXT_texture_sRGB_RG8\n  GL_EXT_texture_sRGB_decode\n  GL_EXT_texture_shadow_lod\n  GL_EXT_texture_shared_exponent\n  GL_EXT_texture_snorm\n  GL_EXT_texture_storage\n  GL_EXT_texture_swizzle\n  GL_EXT_timer_query\n  GL_EXT_transform_feedback\n  GL_EXT_vertex_array_bgra\n  GL_EXT_vertex_attrib_64bit\n  GL_IBM_multimode_draw_arrays\n  GL_INTEL_shader_atomic_float_minmax\n  GL_KHR_blend_equation_advanced\n  GL_KHR_blend_equation_advanced_coherent\n  GL_KHR_context_flush_control\n  GL_KHR_debug\n  GL_KHR_no_error\n  GL_KHR_parallel_shader_compile\n  GL_KHR_robust_buffer_access_behavior\n  GL_KHR_robustness\n  GL_KHR_texture_compression_astc_ldr\n  GL_KHR_texture_compression_astc_sliced_3d\n  GL_MESA_framebuffer_flip_y\n  GL_MESA_pack_invert\n  GL_MESA_shader_integer_functions\n  GL_MESA_texture_signed_rgba\n  GL_NVX_gpu_memory_info\n  GL_NV_alpha_to_coverage_dither_control\n  GL_NV_conditional_render\n  GL_NV_copy_image\n  GL_NV_depth_clamp\n  GL_NV_packed_depth_stencil\n  GL_NV_shader_atomic_float\n  GL_NV_texture_barrier\n  GL_OES_EGL_image\n  GL_OVR_multiview\n  GL_OVR_multiview2\n  GL_S3_s3tc\nX Extensions:  Generic Event Extension, SHAPE, MIT-SHM, XInputExtension, XTEST, BIG-REQUESTS, SYNC, XKEYBOARD, XC-MISC, SECURITY, XFIXES, RENDER, RANDR, XINERAMA, Composite, DAMAGE, MIT-SCREEN-SAVER, DOUBLE-BUFFER, RECORD, Present, X-Resource, XVideo, GLX\n"
+      }
+    },
+    {
+      "features": 20,
+      "construction_ms": 613.1532529998367,
+      "load_ms": 413.2135429999835,
+      "regeneration_ms": 388.20753000004515,
+      "tessellation_conversion_ms": 188.71149300002799,
+      "native_mesher_ms": 84.97818800015011,
+      "vtk_conversion_normals_ms": 94.29813799988551,
+      "edge_mesh_ms": 4.504626999960237,
+      "triangles": 6372,
+      "edge_points": 1594,
+      "feature_execution_instrumented": [
+        {
+          "id": "db947a6e-6c7f-516d-bb6e-f482906a59c0",
+          "type": "box",
+          "ms": 1.2291549999190465
+        },
+        {
+          "id": "424fcd58-30f8-5cae-928e-55392b030634",
+          "type": "sketch",
+          "ms": 0.5812320000586624
+        },
+        {
+          "id": "249d4827-23d9-5e29-9c89-865f153be5d6",
+          "type": "extrude",
+          "ms": 24.724486999957662
+        },
+        {
+          "id": "204778a1-1868-55bf-bba9-0421b454da5f",
+          "type": "sketch",
+          "ms": 0.1887089999854652
+        },
+        {
+          "id": "ddfd3df5-c356-55aa-8cf4-c121e6c83639",
+          "type": "extrude",
+          "ms": 29.658409000148822
+        },
+        {
+          "id": "910185c5-a99a-5e54-b9bc-3465b3b5a069",
+          "type": "sketch",
+          "ms": 0.2571889999671839
+        },
+        {
+          "id": "07cd27b5-d370-5ded-8d98-a4c20e6f2adb",
+          "type": "extrude",
+          "ms": 33.4474029998546
+        },
+        {
+          "id": "34e2f486-618d-52b0-a76f-e3b97c8a8b59",
+          "type": "sketch",
+          "ms": 0.49085399996329215
+        },
+        {
+          "id": "537b01bd-c6d9-54fc-bba3-70d2eaed07c6",
+          "type": "extrude",
+          "ms": 34.67792100013867
+        },
+        {
+          "id": "0eb5071e-cc31-510a-a3ae-096fe10c2d67",
+          "type": "sketch",
+          "ms": 0.16152600005625573
+        },
+        {
+          "id": "0f5dcf63-b4c6-5f98-8b0b-b68a6e59f7f3",
+          "type": "extrude",
+          "ms": 43.61443099992357
+        },
+        {
+          "id": "82f7d978-21f5-5d7e-94c7-100b33397e8f",
+          "type": "sketch",
+          "ms": 0.17668999998932122
+        },
+        {
+          "id": "4773906a-54c6-5c56-9157-efb95193e9af",
+          "type": "extrude",
+          "ms": 38.60258600002453
+        },
+        {
+          "id": "69167348-a74b-5fd6-a6f8-6fbfbfa0ec34",
+          "type": "sketch",
+          "ms": 0.19299599989608396
+        },
+        {
+          "id": "0df4a7f9-ca62-5678-90f1-f3692167fcef",
+          "type": "extrude",
+          "ms": 42.79556599999523
+        },
+        {
+          "id": "42791545-982d-54f1-b505-0c5a0efcf8ca",
+          "type": "sketch",
+          "ms": 0.20383400010359765
+        },
+        {
+          "id": "ebd270ec-62ad-592c-a7fb-f90021aea5e3",
+          "type": "extrude",
+          "ms": 50.648927999873194
+        },
+        {
+          "id": "d30eb324-15f5-5ab9-9d1f-e613214230c9",
+          "type": "sketch",
+          "ms": 0.269520000074408
+        },
+        {
+          "id": "fd98bb07-586a-5e71-ae0f-987a982c0699",
+          "type": "extrude",
+          "ms": 49.1004289999637
+        },
+        {
+          "id": "117f13a7-8602-5938-8e6d-f25d3416126f",
+          "type": "chamfer",
+          "ms": 105.3438129999904
+        }
+      ],
+      "process_peak_rss_mib": 666.046875,
+      "viewport": {
+        "update_ms": 213.63087800000358,
+        "orbit_render_ms": 25.070705999951315,
+        "face_selection_render_ms": 38.042828000016016,
+        "edge_pick_ms": 4.51376099999834,
+        "viewport_only_calls": {
+          "regeneration": 0,
+          "tessellation": 0,
+          "edge_mesh": 0
+        },
+        "framebuffer_nonblank": true,
+        "size": [
+          800,
+          600
+        ],
+        "render_capabilities": "server glx vendor string:  SGI\nserver glx version string:  1.4\nserver glx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_multisample GLX_EXT_create_context_es_profile GLX_EXT_create_context_es2_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_get_drawable_type GLX_EXT_libglvnd GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_OML_swap_method GLX_SGI_make_current_read GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group \nclient glx vendor string:  Mesa Project and SGI\nclient glx version string:  1.4\nglx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_get_proc_address GLX_ARB_multisample GLX_EXT_create_context_es2_profile GLX_EXT_create_context_es_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_MESA_gl_interop GLX_MESA_query_renderer GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group GLX_SGI_make_current_read \nOpenGL vendor string:  Mesa\nOpenGL renderer string:  llvmpipe (LLVM 20.1.2, 256 bits)\nOpenGL version string:  4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2\nOpenGL extensions:  \n  GL_3DFX_texture_compression_FXT1\n  GL_AMD_conservative_depth\n  GL_AMD_draw_buffers_blend\n  GL_AMD_gpu_shader_int64\n  GL_AMD_multi_draw_indirect\n  GL_AMD_pinned_memory\n  GL_AMD_query_buffer_object\n  GL_AMD_seamless_cubemap_per_texture\n  GL_AMD_shader_stencil_export\n  GL_AMD_shader_trinary_minmax\n  GL_AMD_texture_texture4\n  GL_AMD_vertex_shader_layer\n  GL_AMD_vertex_shader_viewport_index\n  GL_ANGLE_texture_compression_dxt3\n  GL_ANGLE_texture_compression_dxt5\n  GL_ARB_ES2_compatibility\n  GL_ARB_ES3_1_compatibility\n  GL_ARB_ES3_2_compatibility\n  GL_ARB_ES3_compatibility\n  GL_ARB_arrays_of_arrays\n  GL_ARB_base_instance\n  GL_ARB_blend_func_extended\n  GL_ARB_buffer_storage\n  GL_ARB_clear_buffer_object\n  GL_ARB_clear_texture\n  GL_ARB_clip_control\n  GL_ARB_compressed_texture_pixel_storage\n  GL_ARB_compute_shader\n  GL_ARB_conditional_render_inverted\n  GL_ARB_conservative_depth\n  GL_ARB_copy_buffer\n  GL_ARB_copy_image\n  GL_ARB_cull_distance\n  GL_ARB_debug_output\n  GL_ARB_depth_buffer_float\n  GL_ARB_depth_clamp\n  GL_ARB_derivative_control\n  GL_ARB_direct_state_access\n  GL_ARB_draw_buffers\n  GL_ARB_draw_buffers_blend\n  GL_ARB_draw_elements_base_vertex\n  GL_ARB_draw_indirect\n  GL_ARB_draw_instanced\n  GL_ARB_enhanced_layouts\n  GL_ARB_explicit_attrib_location\n  GL_ARB_explicit_uniform_location\n  GL_ARB_fragment_coord_conventions\n  GL_ARB_fragment_layer_viewport\n  GL_ARB_fragment_shader\n  GL_ARB_framebuffer_no_attachments\n  GL_ARB_framebuffer_object\n  GL_ARB_framebuffer_sRGB\n  GL_ARB_get_program_binary\n  GL_ARB_get_texture_sub_image\n  GL_ARB_gl_spirv\n  GL_ARB_gpu_shader5\n  GL_ARB_gpu_shader_fp64\n  GL_ARB_gpu_shader_int64\n  GL_ARB_half_float_pixel\n  GL_ARB_half_float_vertex\n  GL_ARB_indirect_parameters\n  GL_ARB_instanced_arrays\n  GL_ARB_internalformat_query\n  GL_ARB_internalformat_query2\n  GL_ARB_invalidate_subdata\n  GL_ARB_map_buffer_alignment\n  GL_ARB_map_buffer_range\n  GL_ARB_multi_bind\n  GL_ARB_multi_draw_indirect\n  GL_ARB_occlusion_query2\n  GL_ARB_parallel_shader_compile\n  GL_ARB_pipeline_statistics_query\n  GL_ARB_pixel_buffer_object\n  GL_ARB_point_sprite\n  GL_ARB_polygon_offset_clamp\n  GL_ARB_post_depth_coverage\n  GL_ARB_program_interface_query\n  GL_ARB_provoking_vertex\n  GL_ARB_query_buffer_object\n  GL_ARB_robust_buffer_access_behavior\n  GL_ARB_robustness\n  GL_ARB_sample_shading\n  GL_ARB_sampler_objects\n  GL_ARB_seamless_cube_map\n  GL_ARB_seamless_cubemap_per_texture\n  GL_ARB_separate_shader_objects\n  GL_ARB_shader_atomic_counter_ops\n  GL_ARB_shader_atomic_counters\n  GL_ARB_shader_ballot\n  GL_ARB_shader_bit_encoding\n  GL_ARB_shader_clock\n  GL_ARB_shader_draw_parameters\n  GL_ARB_shader_group_vote\n  GL_ARB_shader_image_load_store\n  GL_ARB_shader_image_size\n  GL_ARB_shader_objects\n  GL_ARB_shader_precision\n  GL_ARB_shader_stencil_export\n  GL_ARB_shader_storage_buffer_object\n  GL_ARB_shader_subroutine\n  GL_ARB_shader_texture_image_samples\n  GL_ARB_shader_texture_lod\n  GL_ARB_shader_viewport_layer_array\n  GL_ARB_shading_language_420pack\n  GL_ARB_shading_language_include\n  GL_ARB_shading_language_packing\n  GL_ARB_spirv_extensions\n  GL_ARB_stencil_texturing\n  GL_ARB_sync\n  GL_ARB_tessellation_shader\n  GL_ARB_texture_barrier\n  GL_ARB_texture_border_clamp\n  GL_ARB_texture_buffer_object\n  GL_ARB_texture_buffer_object_rgb32\n  GL_ARB_texture_buffer_range\n  GL_ARB_texture_compression_bptc\n  GL_ARB_texture_compression_rgtc\n  GL_ARB_texture_cube_map_array\n  GL_ARB_texture_filter_anisotropic\n  GL_ARB_texture_filter_minmax\n  GL_ARB_texture_float\n  GL_ARB_texture_gather\n  GL_ARB_texture_mirror_clamp_to_edge\n  GL_ARB_texture_multisample\n  GL_ARB_texture_non_power_of_two\n  GL_ARB_texture_query_levels\n  GL_ARB_texture_query_lod\n  GL_ARB_texture_rectangle\n  GL_ARB_texture_rg\n  GL_ARB_texture_rgb10_a2ui\n  GL_ARB_texture_stencil8\n  GL_ARB_texture_storage\n  GL_ARB_texture_storage_multisample\n  GL_ARB_texture_swizzle\n  GL_ARB_texture_view\n  GL_ARB_timer_query\n  GL_ARB_transform_feedback2\n  GL_ARB_transform_feedback3\n  GL_ARB_transform_feedback_instanced\n  GL_ARB_transform_feedback_overflow_query\n  GL_ARB_uniform_buffer_object\n  GL_ARB_vertex_array_bgra\n  GL_ARB_vertex_array_object\n  GL_ARB_vertex_attrib_64bit\n  GL_ARB_vertex_attrib_binding\n  GL_ARB_vertex_buffer_object\n  GL_ARB_vertex_shader\n  GL_ARB_vertex_type_10f_11f_11f_rev\n  GL_ARB_vertex_type_2_10_10_10_rev\n  GL_ARB_viewport_array\n  GL_ARM_shader_framebuffer_fetch_depth_stencil\n  GL_ATI_blend_equation_separate\n  GL_ATI_meminfo\n  GL_ATI_texture_float\n  GL_ATI_texture_mirror_once\n  GL_EXT_EGL_image_storage\n  GL_EXT_EGL_image_storage_compression\n  GL_EXT_EGL_sync\n  GL_EXT_abgr\n  GL_EXT_blend_equation_separate\n  GL_EXT_debug_label\n  GL_EXT_draw_buffers2\n  GL_EXT_draw_instanced\n  GL_EXT_framebuffer_blit\n  GL_EXT_framebuffer_multisample\n  GL_EXT_framebuffer_multisample_blit_scaled\n  GL_EXT_framebuffer_object\n  GL_EXT_framebuffer_sRGB\n  GL_EXT_memory_object\n  GL_EXT_memory_object_fd\n  GL_EXT_packed_depth_stencil\n  GL_EXT_packed_float\n  GL_EXT_pixel_buffer_object\n  GL_EXT_polygon_offset_clamp\n  GL_EXT_provoking_vertex\n  GL_EXT_shader_clock\n  GL_EXT_shader_framebuffer_fetch\n  GL_EXT_shader_framebuffer_fetch_non_coherent\n  GL_EXT_shader_image_load_formatted\n  GL_EXT_shader_integer_mix\n  GL_EXT_texture_array\n  GL_EXT_texture_compression_dxt1\n  GL_EXT_texture_compression_rgtc\n  GL_EXT_texture_compression_s3tc\n  GL_EXT_texture_filter_anisotropic\n  GL_EXT_texture_filter_minmax\n  GL_EXT_texture_integer\n  GL_EXT_texture_mirror_clamp\n  GL_EXT_texture_sRGB\n  GL_EXT_texture_sRGB_R8\n  GL_EXT_texture_sRGB_RG8\n  GL_EXT_texture_sRGB_decode\n  GL_EXT_texture_shadow_lod\n  GL_EXT_texture_shared_exponent\n  GL_EXT_texture_snorm\n  GL_EXT_texture_storage\n  GL_EXT_texture_swizzle\n  GL_EXT_timer_query\n  GL_EXT_transform_feedback\n  GL_EXT_vertex_array_bgra\n  GL_EXT_vertex_attrib_64bit\n  GL_IBM_multimode_draw_arrays\n  GL_INTEL_shader_atomic_float_minmax\n  GL_KHR_blend_equation_advanced\n  GL_KHR_blend_equation_advanced_coherent\n  GL_KHR_context_flush_control\n  GL_KHR_debug\n  GL_KHR_no_error\n  GL_KHR_parallel_shader_compile\n  GL_KHR_robust_buffer_access_behavior\n  GL_KHR_robustness\n  GL_KHR_texture_compression_astc_ldr\n  GL_KHR_texture_compression_astc_sliced_3d\n  GL_MESA_framebuffer_flip_y\n  GL_MESA_pack_invert\n  GL_MESA_shader_integer_functions\n  GL_MESA_texture_signed_rgba\n  GL_NVX_gpu_memory_info\n  GL_NV_alpha_to_coverage_dither_control\n  GL_NV_conditional_render\n  GL_NV_copy_image\n  GL_NV_depth_clamp\n  GL_NV_packed_depth_stencil\n  GL_NV_shader_atomic_float\n  GL_NV_texture_barrier\n  GL_OES_EGL_image\n  GL_OVR_multiview\n  GL_OVR_multiview2\n  GL_S3_s3tc\nX Extensions:  Generic Event Extension, SHAPE, MIT-SHM, XInputExtension, XTEST, BIG-REQUESTS, SYNC, XKEYBOARD, XC-MISC, SECURITY, XFIXES, RENDER, RANDR, XINERAMA, Composite, DAMAGE, MIT-SCREEN-SAVER, DOUBLE-BUFFER, RECORD, Present, X-Resource, XVideo, GLX\n"
+      }
+    },
+    {
+      "features": 50,
+      "construction_ms": 3121.955812000124,
+      "load_ms": 1619.8369250000724,
+      "regeneration_ms": 1537.553594999963,
+      "tessellation_conversion_ms": 682.4409049997939,
+      "native_mesher_ms": 463.94497000005686,
+      "vtk_conversion_normals_ms": 221.2179200000719,
+      "edge_mesh_ms": 9.555127999874458,
+      "triangles": 15912,
+      "edge_points": 4024,
+      "feature_execution_instrumented": [
+        {
+          "id": "db947a6e-6c7f-516d-bb6e-f482906a59c0",
+          "type": "box",
+          "ms": 1.4120480000201496
+        },
+        {
+          "id": "424fcd58-30f8-5cae-928e-55392b030634",
+          "type": "sketch",
+          "ms": 1.089808999950037
+        },
+        {
+          "id": "249d4827-23d9-5e29-9c89-865f153be5d6",
+          "type": "extrude",
+          "ms": 22.16840799997044
+        },
+        {
+          "id": "204778a1-1868-55bf-bba9-0421b454da5f",
+          "type": "sketch",
+          "ms": 0.166198999977496
+        },
+        {
+          "id": "ddfd3df5-c356-55aa-8cf4-c121e6c83639",
+          "type": "extrude",
+          "ms": 25.792822000084925
+        },
+        {
+          "id": "910185c5-a99a-5e54-b9bc-3465b3b5a069",
+          "type": "sketch",
+          "ms": 0.15188399993348867
+        },
+        {
+          "id": "07cd27b5-d370-5ded-8d98-a4c20e6f2adb",
+          "type": "extrude",
+          "ms": 60.60648800007584
+        },
+        {
+          "id": "34e2f486-618d-52b0-a76f-e3b97c8a8b59",
+          "type": "sketch",
+          "ms": 0.2905599999394326
+        },
+        {
+          "id": "537b01bd-c6d9-54fc-bba3-70d2eaed07c6",
+          "type": "extrude",
+          "ms": 30.91165999990153
+        },
+        {
+          "id": "0eb5071e-cc31-510a-a3ae-096fe10c2d67",
+          "type": "sketch",
+          "ms": 0.1532500000394066
+        },
+        {
+          "id": "0f5dcf63-b4c6-5f98-8b0b-b68a6e59f7f3",
+          "type": "extrude",
+          "ms": 41.05309800002033
+        },
+        {
+          "id": "82f7d978-21f5-5d7e-94c7-100b33397e8f",
+          "type": "sketch",
+          "ms": 0.1933609999014152
+        },
+        {
+          "id": "4773906a-54c6-5c56-9157-efb95193e9af",
+          "type": "extrude",
+          "ms": 40.119268000125885
+        },
+        {
+          "id": "69167348-a74b-5fd6-a6f8-6fbfbfa0ec34",
+          "type": "sketch",
+          "ms": 0.15666399986002943
+        },
+        {
+          "id": "0df4a7f9-ca62-5678-90f1-f3692167fcef",
+          "type": "extrude",
+          "ms": 42.882544000121925
+        },
+        {
+          "id": "42791545-982d-54f1-b505-0c5a0efcf8ca",
+          "type": "sketch",
+          "ms": 0.16258400000879192
+        },
+        {
+          "id": "ebd270ec-62ad-592c-a7fb-f90021aea5e3",
+          "type": "extrude",
+          "ms": 45.74959899991882
+        },
+        {
+          "id": "d30eb324-15f5-5ab9-9d1f-e613214230c9",
+          "type": "sketch",
+          "ms": 0.14954200014472008
+        },
+        {
+          "id": "fd98bb07-586a-5e71-ae0f-987a982c0699",
+          "type": "extrude",
+          "ms": 47.55507300001227
+        },
+        {
+          "id": "b1bd24cf-c434-5fed-8d1d-74404c3f705e",
+          "type": "sketch",
+          "ms": 0.1633759998185269
+        },
+        {
+          "id": "daaf3919-4873-583e-96bf-f97583369a05",
+          "type": "extrude",
+          "ms": 53.33438499997101
+        },
+        {
+          "id": "ce1f4039-38fa-5bad-b013-32f7fd99c13d",
+          "type": "sketch",
+          "ms": 0.14545900012308266
+        },
+        {
+          "id": "ff69adf3-331b-5c45-a66d-ee0e4ef5f724",
+          "type": "extrude",
+          "ms": 51.82099500007098
+        },
+        {
+          "id": "f1e573ad-c676-51b5-adaf-e606cfdb1d2c",
+          "type": "sketch",
+          "ms": 0.2670349999789323
+        },
+        {
+          "id": "dc7a6601-9cd0-5f1a-bf83-a5d31f41925e",
+          "type": "extrude",
+          "ms": 56.82607299991105
+        },
+        {
+          "id": "34dd13b9-d176-5684-8ab2-38973864bad1",
+          "type": "sketch",
+          "ms": 0.15808300008757215
+        },
+        {
+          "id": "87e1d900-52e9-59d1-9c9a-04d39cccd2c4",
+          "type": "extrude",
+          "ms": 54.95946299993193
+        },
+        {
+          "id": "069c3194-ded3-548f-bb0d-2481c2fc879b",
+          "type": "sketch",
+          "ms": 0.3921330001048773
+        },
+        {
+          "id": "9f0416c8-c8ae-55c3-9369-9525c2f9fb5c",
+          "type": "extrude",
+          "ms": 71.56229599991093
+        },
+        {
+          "id": "a85087df-7949-5607-9b78-6323ae9d0450",
+          "type": "sketch",
+          "ms": 0.19281000004411908
+        },
+        {
+          "id": "683fd091-1995-506f-b487-ccbc38b784c1",
+          "type": "extrude",
+          "ms": 66.5613559999656
+        },
+        {
+          "id": "6a8b5238-65ac-5e66-8292-2962810c99b2",
+          "type": "sketch",
+          "ms": 0.22834299988971907
+        },
+        {
+          "id": "6cb23324-d100-5346-9ea1-ac4bf28119de",
+          "type": "extrude",
+          "ms": 67.70163800001683
+        },
+        {
+          "id": "5db74c0a-c909-5f7d-bfc3-a11851b203e4",
+          "type": "sketch",
+          "ms": 0.21645900005751173
+        },
+        {
+          "id": "07dec1c0-4c56-501d-9265-ddc5622681d2",
+          "type": "extrude",
+          "ms": 66.7745850000756
+        },
+        {
+          "id": "c44a6e30-31e0-530d-8449-31838ef12fa6",
+          "type": "sketch",
+          "ms": 0.2027169998655154
+        },
+        {
+          "id": "0ec741b3-35c3-5b31-90d4-ba5d8f21e875",
+          "type": "extrude",
+          "ms": 72.13537799998448
+        },
+        {
+          "id": "b549a82c-940f-5f16-aadb-9d1aca6898bf",
+          "type": "sketch",
+          "ms": 0.1908110000385932
+        },
+        {
+          "id": "df533363-ed0c-50fe-8dda-4d5cf840007d",
+          "type": "extrude",
+          "ms": 75.56461500007572
+        },
+        {
+          "id": "6d0bc4bf-a9ca-5bb6-87f5-2480abfeda36",
+          "type": "sketch",
+          "ms": 0.19522699994922732
+        },
+        {
+          "id": "3c9bcde7-8287-5b13-be0a-9ea0a1a40760",
+          "type": "extrude",
+          "ms": 75.68194000009498
+        },
+        {
+          "id": "720523f0-fe90-5dc1-b868-ce24dc05e793",
+          "type": "sketch",
+          "ms": 0.2785479998692608
+        },
+        {
+          "id": "52fd8df3-b211-517e-92db-c6fc63f8a5d9",
+          "type": "extrude",
+          "ms": 88.9036590001524
+        },
+        {
+          "id": "4081c36f-c074-5142-90cb-2cefdedac141",
+          "type": "sketch",
+          "ms": 0.2135429999725602
+        },
+        {
+          "id": "ac8c0271-d481-55dc-9ae4-686138b26c3e",
+          "type": "extrude",
+          "ms": 86.4125509999667
+        },
+        {
+          "id": "76bc5591-0a61-55a9-b8a6-c79f6b2884dd",
+          "type": "sketch",
+          "ms": 0.25534699989293586
+        },
+        {
+          "id": "d112acc6-40d1-5fee-948f-23f506ff83a4",
+          "type": "extrude",
+          "ms": 80.97162100011701
+        },
+        {
+          "id": "609b9dd1-99f2-5e55-8d02-e48b09c7561e",
+          "type": "sketch",
+          "ms": 0.33738000001903856
+        },
+        {
+          "id": "b69f8253-85a1-5806-8d05-bcf29195305c",
+          "type": "extrude",
+          "ms": 99.28077199992913
+        },
+        {
+          "id": "117f13a7-8602-5938-8e6d-f25d3416126f",
+          "type": "chamfer",
+          "ms": 244.91287799992278
+        }
+      ],
+      "process_peak_rss_mib": 800.6015625,
+      "viewport": {
+        "update_ms": 741.5283780001118,
+        "orbit_render_ms": 29.835663000085333,
+        "face_selection_render_ms": 41.01071099989895,
+        "edge_pick_ms": 9.78922500007684,
+        "viewport_only_calls": {
+          "regeneration": 0,
+          "tessellation": 0,
+          "edge_mesh": 0
+        },
+        "framebuffer_nonblank": true,
+        "size": [
+          800,
+          600
+        ],
+        "render_capabilities": "server glx vendor string:  SGI\nserver glx version string:  1.4\nserver glx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_multisample GLX_EXT_create_context_es_profile GLX_EXT_create_context_es2_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_get_drawable_type GLX_EXT_libglvnd GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_OML_swap_method GLX_SGI_make_current_read GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group \nclient glx vendor string:  Mesa Project and SGI\nclient glx version string:  1.4\nglx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_get_proc_address GLX_ARB_multisample GLX_EXT_create_context_es2_profile GLX_EXT_create_context_es_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_MESA_gl_interop GLX_MESA_query_renderer GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group GLX_SGI_make_current_read \nOpenGL vendor string:  Mesa\nOpenGL renderer string:  llvmpipe (LLVM 20.1.2, 256 bits)\nOpenGL version string:  4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2\nOpenGL extensions:  \n  GL_3DFX_texture_compression_FXT1\n  GL_AMD_conservative_depth\n  GL_AMD_draw_buffers_blend\n  GL_AMD_gpu_shader_int64\n  GL_AMD_multi_draw_indirect\n  GL_AMD_pinned_memory\n  GL_AMD_query_buffer_object\n  GL_AMD_seamless_cubemap_per_texture\n  GL_AMD_shader_stencil_export\n  GL_AMD_shader_trinary_minmax\n  GL_AMD_texture_texture4\n  GL_AMD_vertex_shader_layer\n  GL_AMD_vertex_shader_viewport_index\n  GL_ANGLE_texture_compression_dxt3\n  GL_ANGLE_texture_compression_dxt5\n  GL_ARB_ES2_compatibility\n  GL_ARB_ES3_1_compatibility\n  GL_ARB_ES3_2_compatibility\n  GL_ARB_ES3_compatibility\n  GL_ARB_arrays_of_arrays\n  GL_ARB_base_instance\n  GL_ARB_blend_func_extended\n  GL_ARB_buffer_storage\n  GL_ARB_clear_buffer_object\n  GL_ARB_clear_texture\n  GL_ARB_clip_control\n  GL_ARB_compressed_texture_pixel_storage\n  GL_ARB_compute_shader\n  GL_ARB_conditional_render_inverted\n  GL_ARB_conservative_depth\n  GL_ARB_copy_buffer\n  GL_ARB_copy_image\n  GL_ARB_cull_distance\n  GL_ARB_debug_output\n  GL_ARB_depth_buffer_float\n  GL_ARB_depth_clamp\n  GL_ARB_derivative_control\n  GL_ARB_direct_state_access\n  GL_ARB_draw_buffers\n  GL_ARB_draw_buffers_blend\n  GL_ARB_draw_elements_base_vertex\n  GL_ARB_draw_indirect\n  GL_ARB_draw_instanced\n  GL_ARB_enhanced_layouts\n  GL_ARB_explicit_attrib_location\n  GL_ARB_explicit_uniform_location\n  GL_ARB_fragment_coord_conventions\n  GL_ARB_fragment_layer_viewport\n  GL_ARB_fragment_shader\n  GL_ARB_framebuffer_no_attachments\n  GL_ARB_framebuffer_object\n  GL_ARB_framebuffer_sRGB\n  GL_ARB_get_program_binary\n  GL_ARB_get_texture_sub_image\n  GL_ARB_gl_spirv\n  GL_ARB_gpu_shader5\n  GL_ARB_gpu_shader_fp64\n  GL_ARB_gpu_shader_int64\n  GL_ARB_half_float_pixel\n  GL_ARB_half_float_vertex\n  GL_ARB_indirect_parameters\n  GL_ARB_instanced_arrays\n  GL_ARB_internalformat_query\n  GL_ARB_internalformat_query2\n  GL_ARB_invalidate_subdata\n  GL_ARB_map_buffer_alignment\n  GL_ARB_map_buffer_range\n  GL_ARB_multi_bind\n  GL_ARB_multi_draw_indirect\n  GL_ARB_occlusion_query2\n  GL_ARB_parallel_shader_compile\n  GL_ARB_pipeline_statistics_query\n  GL_ARB_pixel_buffer_object\n  GL_ARB_point_sprite\n  GL_ARB_polygon_offset_clamp\n  GL_ARB_post_depth_coverage\n  GL_ARB_program_interface_query\n  GL_ARB_provoking_vertex\n  GL_ARB_query_buffer_object\n  GL_ARB_robust_buffer_access_behavior\n  GL_ARB_robustness\n  GL_ARB_sample_shading\n  GL_ARB_sampler_objects\n  GL_ARB_seamless_cube_map\n  GL_ARB_seamless_cubemap_per_texture\n  GL_ARB_separate_shader_objects\n  GL_ARB_shader_atomic_counter_ops\n  GL_ARB_shader_atomic_counters\n  GL_ARB_shader_ballot\n  GL_ARB_shader_bit_encoding\n  GL_ARB_shader_clock\n  GL_ARB_shader_draw_parameters\n  GL_ARB_shader_group_vote\n  GL_ARB_shader_image_load_store\n  GL_ARB_shader_image_size\n  GL_ARB_shader_objects\n  GL_ARB_shader_precision\n  GL_ARB_shader_stencil_export\n  GL_ARB_shader_storage_buffer_object\n  GL_ARB_shader_subroutine\n  GL_ARB_shader_texture_image_samples\n  GL_ARB_shader_texture_lod\n  GL_ARB_shader_viewport_layer_array\n  GL_ARB_shading_language_420pack\n  GL_ARB_shading_language_include\n  GL_ARB_shading_language_packing\n  GL_ARB_spirv_extensions\n  GL_ARB_stencil_texturing\n  GL_ARB_sync\n  GL_ARB_tessellation_shader\n  GL_ARB_texture_barrier\n  GL_ARB_texture_border_clamp\n  GL_ARB_texture_buffer_object\n  GL_ARB_texture_buffer_object_rgb32\n  GL_ARB_texture_buffer_range\n  GL_ARB_texture_compression_bptc\n  GL_ARB_texture_compression_rgtc\n  GL_ARB_texture_cube_map_array\n  GL_ARB_texture_filter_anisotropic\n  GL_ARB_texture_filter_minmax\n  GL_ARB_texture_float\n  GL_ARB_texture_gather\n  GL_ARB_texture_mirror_clamp_to_edge\n  GL_ARB_texture_multisample\n  GL_ARB_texture_non_power_of_two\n  GL_ARB_texture_query_levels\n  GL_ARB_texture_query_lod\n  GL_ARB_texture_rectangle\n  GL_ARB_texture_rg\n  GL_ARB_texture_rgb10_a2ui\n  GL_ARB_texture_stencil8\n  GL_ARB_texture_storage\n  GL_ARB_texture_storage_multisample\n  GL_ARB_texture_swizzle\n  GL_ARB_texture_view\n  GL_ARB_timer_query\n  GL_ARB_transform_feedback2\n  GL_ARB_transform_feedback3\n  GL_ARB_transform_feedback_instanced\n  GL_ARB_transform_feedback_overflow_query\n  GL_ARB_uniform_buffer_object\n  GL_ARB_vertex_array_bgra\n  GL_ARB_vertex_array_object\n  GL_ARB_vertex_attrib_64bit\n  GL_ARB_vertex_attrib_binding\n  GL_ARB_vertex_buffer_object\n  GL_ARB_vertex_shader\n  GL_ARB_vertex_type_10f_11f_11f_rev\n  GL_ARB_vertex_type_2_10_10_10_rev\n  GL_ARB_viewport_array\n  GL_ARM_shader_framebuffer_fetch_depth_stencil\n  GL_ATI_blend_equation_separate\n  GL_ATI_meminfo\n  GL_ATI_texture_float\n  GL_ATI_texture_mirror_once\n  GL_EXT_EGL_image_storage\n  GL_EXT_EGL_image_storage_compression\n  GL_EXT_EGL_sync\n  GL_EXT_abgr\n  GL_EXT_blend_equation_separate\n  GL_EXT_debug_label\n  GL_EXT_draw_buffers2\n  GL_EXT_draw_instanced\n  GL_EXT_framebuffer_blit\n  GL_EXT_framebuffer_multisample\n  GL_EXT_framebuffer_multisample_blit_scaled\n  GL_EXT_framebuffer_object\n  GL_EXT_framebuffer_sRGB\n  GL_EXT_memory_object\n  GL_EXT_memory_object_fd\n  GL_EXT_packed_depth_stencil\n  GL_EXT_packed_float\n  GL_EXT_pixel_buffer_object\n  GL_EXT_polygon_offset_clamp\n  GL_EXT_provoking_vertex\n  GL_EXT_shader_clock\n  GL_EXT_shader_framebuffer_fetch\n  GL_EXT_shader_framebuffer_fetch_non_coherent\n  GL_EXT_shader_image_load_formatted\n  GL_EXT_shader_integer_mix\n  GL_EXT_texture_array\n  GL_EXT_texture_compression_dxt1\n  GL_EXT_texture_compression_rgtc\n  GL_EXT_texture_compression_s3tc\n  GL_EXT_texture_filter_anisotropic\n  GL_EXT_texture_filter_minmax\n  GL_EXT_texture_integer\n  GL_EXT_texture_mirror_clamp\n  GL_EXT_texture_sRGB\n  GL_EXT_texture_sRGB_R8\n  GL_EXT_texture_sRGB_RG8\n  GL_EXT_texture_sRGB_decode\n  GL_EXT_texture_shadow_lod\n  GL_EXT_texture_shared_exponent\n  GL_EXT_texture_snorm\n  GL_EXT_texture_storage\n  GL_EXT_texture_swizzle\n  GL_EXT_timer_query\n  GL_EXT_transform_feedback\n  GL_EXT_vertex_array_bgra\n  GL_EXT_vertex_attrib_64bit\n  GL_IBM_multimode_draw_arrays\n  GL_INTEL_shader_atomic_float_minmax\n  GL_KHR_blend_equation_advanced\n  GL_KHR_blend_equation_advanced_coherent\n  GL_KHR_context_flush_control\n  GL_KHR_debug\n  GL_KHR_no_error\n  GL_KHR_parallel_shader_compile\n  GL_KHR_robust_buffer_access_behavior\n  GL_KHR_robustness\n  GL_KHR_texture_compression_astc_ldr\n  GL_KHR_texture_compression_astc_sliced_3d\n  GL_MESA_framebuffer_flip_y\n  GL_MESA_pack_invert\n  GL_MESA_shader_integer_functions\n  GL_MESA_texture_signed_rgba\n  GL_NVX_gpu_memory_info\n  GL_NV_alpha_to_coverage_dither_control\n  GL_NV_conditional_render\n  GL_NV_copy_image\n  GL_NV_depth_clamp\n  GL_NV_packed_depth_stencil\n  GL_NV_shader_atomic_float\n  GL_NV_texture_barrier\n  GL_OES_EGL_image\n  GL_OVR_multiview\n  GL_OVR_multiview2\n  GL_S3_s3tc\nX Extensions:  Generic Event Extension, SHAPE, MIT-SHM, XInputExtension, XTEST, BIG-REQUESTS, SYNC, XKEYBOARD, XC-MISC, SECURITY, XFIXES, RENDER, RANDR, XINERAMA, Composite, DAMAGE, MIT-SCREEN-SAVER, DOUBLE-BUFFER, RECORD, Present, X-Resource, XVideo, GLX\n"
+      }
+    },
+    {
+      "features": 100,
+      "construction_ms": 8721.767344,
+      "load_ms": 4691.481973999998,
+      "regeneration_ms": 5294.52540300008,
+      "tessellation_conversion_ms": 2029.581473999997,
+      "native_mesher_ms": 1562.8450989997873,
+      "vtk_conversion_normals_ms": 449.0205959998548,
+      "edge_mesh_ms": 19.926787000031254,
+      "triangles": 31812,
+      "edge_points": 8074,
+      "feature_execution_instrumented": [
+        {
+          "id": "db947a6e-6c7f-516d-bb6e-f482906a59c0",
+          "type": "box",
+          "ms": 2.440768000042226
+        },
+        {
+          "id": "424fcd58-30f8-5cae-928e-55392b030634",
+          "type": "sketch",
+          "ms": 1.6712550000193005
+        },
+        {
+          "id": "249d4827-23d9-5e29-9c89-865f153be5d6",
+          "type": "extrude",
+          "ms": 27.40432900009182
+        },
+        {
+          "id": "204778a1-1868-55bf-bba9-0421b454da5f",
+          "type": "sketch",
+          "ms": 0.32046699993770744
+        },
+        {
+          "id": "ddfd3df5-c356-55aa-8cf4-c121e6c83639",
+          "type": "extrude",
+          "ms": 32.28601599994363
+        },
+        {
+          "id": "910185c5-a99a-5e54-b9bc-3465b3b5a069",
+          "type": "sketch",
+          "ms": 0.3694310000810219
+        },
+        {
+          "id": "07cd27b5-d370-5ded-8d98-a4c20e6f2adb",
+          "type": "extrude",
+          "ms": 30.863732999932836
+        },
+        {
+          "id": "34e2f486-618d-52b0-a76f-e3b97c8a8b59",
+          "type": "sketch",
+          "ms": 0.3065790001528512
+        },
+        {
+          "id": "537b01bd-c6d9-54fc-bba3-70d2eaed07c6",
+          "type": "extrude",
+          "ms": 35.69281599993701
+        },
+        {
+          "id": "0eb5071e-cc31-510a-a3ae-096fe10c2d67",
+          "type": "sketch",
+          "ms": 0.16376400003537128
+        },
+        {
+          "id": "0f5dcf63-b4c6-5f98-8b0b-b68a6e59f7f3",
+          "type": "extrude",
+          "ms": 36.3850689998344
+        },
+        {
+          "id": "82f7d978-21f5-5d7e-94c7-100b33397e8f",
+          "type": "sketch",
+          "ms": 0.1747680000789842
+        },
+        {
+          "id": "4773906a-54c6-5c56-9157-efb95193e9af",
+          "type": "extrude",
+          "ms": 39.275353999983054
+        },
+        {
+          "id": "69167348-a74b-5fd6-a6f8-6fbfbfa0ec34",
+          "type": "sketch",
+          "ms": 0.18176499997935025
+        },
+        {
+          "id": "0df4a7f9-ca62-5678-90f1-f3692167fcef",
+          "type": "extrude",
+          "ms": 40.98311500001728
+        },
+        {
+          "id": "42791545-982d-54f1-b505-0c5a0efcf8ca",
+          "type": "sketch",
+          "ms": 0.39006099996186094
+        },
+        {
+          "id": "ebd270ec-62ad-592c-a7fb-f90021aea5e3",
+          "type": "extrude",
+          "ms": 48.05607299999792
+        },
+        {
+          "id": "d30eb324-15f5-5ab9-9d1f-e613214230c9",
+          "type": "sketch",
+          "ms": 0.18446200010657776
+        },
+        {
+          "id": "fd98bb07-586a-5e71-ae0f-987a982c0699",
+          "type": "extrude",
+          "ms": 45.170647000077224
+        },
+        {
+          "id": "b1bd24cf-c434-5fed-8d1d-74404c3f705e",
+          "type": "sketch",
+          "ms": 0.16872699984560313
+        },
+        {
+          "id": "daaf3919-4873-583e-96bf-f97583369a05",
+          "type": "extrude",
+          "ms": 48.05912899996656
+        },
+        {
+          "id": "ce1f4039-38fa-5bad-b013-32f7fd99c13d",
+          "type": "sketch",
+          "ms": 0.26334900007896067
+        },
+        {
+          "id": "ff69adf3-331b-5c45-a66d-ee0e4ef5f724",
+          "type": "extrude",
+          "ms": 61.72829699994509
+        },
+        {
+          "id": "f1e573ad-c676-51b5-adaf-e606cfdb1d2c",
+          "type": "sketch",
+          "ms": 0.18601800002215896
+        },
+        {
+          "id": "dc7a6601-9cd0-5f1a-bf83-a5d31f41925e",
+          "type": "extrude",
+          "ms": 60.01776200014319
+        },
+        {
+          "id": "34dd13b9-d176-5684-8ab2-38973864bad1",
+          "type": "sketch",
+          "ms": 0.22758000000067113
+        },
+        {
+          "id": "87e1d900-52e9-59d1-9c9a-04d39cccd2c4",
+          "type": "extrude",
+          "ms": 56.229918999861184
+        },
+        {
+          "id": "069c3194-ded3-548f-bb0d-2481c2fc879b",
+          "type": "sketch",
+          "ms": 0.5368170000110695
+        },
+        {
+          "id": "9f0416c8-c8ae-55c3-9369-9525c2f9fb5c",
+          "type": "extrude",
+          "ms": 58.578705999934755
+        },
+        {
+          "id": "a85087df-7949-5607-9b78-6323ae9d0450",
+          "type": "sketch",
+          "ms": 0.23402300007546728
+        },
+        {
+          "id": "683fd091-1995-506f-b487-ccbc38b784c1",
+          "type": "extrude",
+          "ms": 84.02077100004135
+        },
+        {
+          "id": "6a8b5238-65ac-5e66-8292-2962810c99b2",
+          "type": "sketch",
+          "ms": 0.23837499998080602
+        },
+        {
+          "id": "6cb23324-d100-5346-9ea1-ac4bf28119de",
+          "type": "extrude",
+          "ms": 70.5766290000156
+        },
+        {
+          "id": "5db74c0a-c909-5f7d-bfc3-a11851b203e4",
+          "type": "sketch",
+          "ms": 0.24847000008776376
+        },
+        {
+          "id": "07dec1c0-4c56-501d-9265-ddc5622681d2",
+          "type": "extrude",
+          "ms": 66.58039099988855
+        },
+        {
+          "id": "c44a6e30-31e0-530d-8449-31838ef12fa6",
+          "type": "sketch",
+          "ms": 0.19807300009233586
+        },
+        {
+          "id": "0ec741b3-35c3-5b31-90d4-ba5d8f21e875",
+          "type": "extrude",
+          "ms": 72.10700299992823
+        },
+        {
+          "id": "b549a82c-940f-5f16-aadb-9d1aca6898bf",
+          "type": "sketch",
+          "ms": 0.20412499998201383
+        },
+        {
+          "id": "df533363-ed0c-50fe-8dda-4d5cf840007d",
+          "type": "extrude",
+          "ms": 74.57896699997946
+        },
+        {
+          "id": "6d0bc4bf-a9ca-5bb6-87f5-2480abfeda36",
+          "type": "sketch",
+          "ms": 0.1937370000177907
+        },
+        {
+          "id": "3c9bcde7-8287-5b13-be0a-9ea0a1a40760",
+          "type": "extrude",
+          "ms": 88.01782199998343
+        },
+        {
+          "id": "720523f0-fe90-5dc1-b868-ce24dc05e793",
+          "type": "sketch",
+          "ms": 0.2526089999719261
+        },
+        {
+          "id": "52fd8df3-b211-517e-92db-c6fc63f8a5d9",
+          "type": "extrude",
+          "ms": 81.9786730000942
+        },
+        {
+          "id": "4081c36f-c074-5142-90cb-2cefdedac141",
+          "type": "sketch",
+          "ms": 0.2423229998385068
+        },
+        {
+          "id": "ac8c0271-d481-55dc-9ae4-686138b26c3e",
+          "type": "extrude",
+          "ms": 82.69159800011039
+        },
+        {
+          "id": "76bc5591-0a61-55a9-b8a6-c79f6b2884dd",
+          "type": "sketch",
+          "ms": 0.4634479998912866
+        },
+        {
+          "id": "d112acc6-40d1-5fee-948f-23f506ff83a4",
+          "type": "extrude",
+          "ms": 86.551166000163
+        },
+        {
+          "id": "609b9dd1-99f2-5e55-8d02-e48b09c7561e",
+          "type": "sketch",
+          "ms": 0.22836399989500933
+        },
+        {
+          "id": "b69f8253-85a1-5806-8d05-bcf29195305c",
+          "type": "extrude",
+          "ms": 95.65930600001593
+        },
+        {
+          "id": "e8dfaed8-54bb-5bb4-93f5-c4793706ebe2",
+          "type": "sketch",
+          "ms": 0.23559100009151734
+        },
+        {
+          "id": "52a3d2b9-b607-5f62-9faa-bd4a633c6f49",
+          "type": "extrude",
+          "ms": 96.44053800002439
+        },
+        {
+          "id": "dddd6f30-ead8-5a44-a560-e8ab5340f936",
+          "type": "sketch",
+          "ms": 0.21756699993602524
+        },
+        {
+          "id": "9a022189-048e-5a27-ad1b-2036c9c3c904",
+          "type": "extrude",
+          "ms": 95.11744799988264
+        },
+        {
+          "id": "bd4fcde8-4892-574b-9f95-e861a268ac54",
+          "type": "sketch",
+          "ms": 0.45239800010676845
+        },
+        {
+          "id": "9d8c811c-74ca-54e2-a95b-5fc58a8577fa",
+          "type": "extrude",
+          "ms": 108.97852299990518
+        },
+        {
+          "id": "c97a995e-dce0-50df-95d4-aa3eb1046b13",
+          "type": "sketch",
+          "ms": 0.31365200015898154
+        },
+        {
+          "id": "bb8dcbd3-bd3f-5b76-b0db-c03dcf8db2ff",
+          "type": "extrude",
+          "ms": 99.18912299986005
+        },
+        {
+          "id": "a20bcf78-3715-5f5d-8ccf-cef9bd70fb7c",
+          "type": "sketch",
+          "ms": 0.2102299999933166
+        },
+        {
+          "id": "c10a580d-bfe3-5eca-b32f-a2724310d6fc",
+          "type": "extrude",
+          "ms": 100.87348299998666
+        },
+        {
+          "id": "ccd16723-916d-5c9e-b8f3-e31ee53b3269",
+          "type": "sketch",
+          "ms": 0.20351400007712073
+        },
+        {
+          "id": "ff9a2858-b772-5f3f-a132-cb55389ca69b",
+          "type": "extrude",
+          "ms": 110.48326600007385
+        },
+        {
+          "id": "caeb7e35-fbc9-5563-aca4-8f114aeeb920",
+          "type": "sketch",
+          "ms": 0.20642999993469857
+        },
+        {
+          "id": "ba2460f2-c5c5-506c-96ba-2220b3d95c48",
+          "type": "extrude",
+          "ms": 109.92065300001741
+        },
+        {
+          "id": "b5f4c62e-d803-5d24-a136-b8882bb7893e",
+          "type": "sketch",
+          "ms": 0.2005470000767673
+        },
+        {
+          "id": "59f96938-d43f-5e2d-ac33-797a9b06253d",
+          "type": "extrude",
+          "ms": 140.88538900000458
+        },
+        {
+          "id": "56ed02bc-00a7-5abc-a727-5297157b0ea4",
+          "type": "sketch",
+          "ms": 0.2471329999025329
+        },
+        {
+          "id": "e1597f15-3c0c-5b30-b01f-a5f626aba699",
+          "type": "extrude",
+          "ms": 122.38619300001119
+        },
+        {
+          "id": "662ed54c-f9e9-5b66-9f8b-d25b95e717dc",
+          "type": "sketch",
+          "ms": 0.23780800006534264
+        },
+        {
+          "id": "56617379-37bb-5a9c-9bda-095911563e28",
+          "type": "extrude",
+          "ms": 143.29617799990046
+        },
+        {
+          "id": "da232253-bfe4-5953-b250-e53ea9faf34f",
+          "type": "sketch",
+          "ms": 0.2795400000650261
+        },
+        {
+          "id": "4a69adb9-6869-5b91-91e2-374b3bfb7c14",
+          "type": "extrude",
+          "ms": 160.84385099998144
+        },
+        {
+          "id": "91fb0742-0607-50fc-81b5-cc529cbd9216",
+          "type": "sketch",
+          "ms": 0.35731999992094643
+        },
+        {
+          "id": "17f616d9-003a-5ed1-83c5-0534bfd8e1ea",
+          "type": "extrude",
+          "ms": 131.6652600000907
+        },
+        {
+          "id": "55643460-3a2a-5b2e-a266-b6a9fe60a25e",
+          "type": "sketch",
+          "ms": 0.27393899995331594
+        },
+        {
+          "id": "7d491b1b-175a-5188-80fb-47e31f68c4f8",
+          "type": "extrude",
+          "ms": 129.38413100005164
+        },
+        {
+          "id": "67b1bcf3-f6a5-5e34-b9b6-aee5bb68a844",
+          "type": "sketch",
+          "ms": 0.24653700006638246
+        },
+        {
+          "id": "b1ab23c3-1f23-5858-99a0-4383539c0992",
+          "type": "extrude",
+          "ms": 142.3973629998727
+        },
+        {
+          "id": "cf9946b0-fe63-5c0a-b516-cd706b70b13d",
+          "type": "sketch",
+          "ms": 0.40831599994817225
+        },
+        {
+          "id": "beef7762-2b6c-5d56-a49b-169ebee10568",
+          "type": "extrude",
+          "ms": 146.44361600016964
+        },
+        {
+          "id": "2596ab7d-7c35-5556-9281-2889490cd3d9",
+          "type": "sketch",
+          "ms": 0.2620719999413268
+        },
+        {
+          "id": "1a065739-5fe9-5815-a52d-cf7c6585ae01",
+          "type": "extrude",
+          "ms": 143.19208000006256
+        },
+        {
+          "id": "c31b15bc-7d19-5baf-af88-fc787ae2546c",
+          "type": "sketch",
+          "ms": 0.40238999986286217
+        },
+        {
+          "id": "2cc1f6a0-13ac-5305-aa66-1de9cfc39d11",
+          "type": "extrude",
+          "ms": 179.34494199994333
+        },
+        {
+          "id": "fb2624c2-1c15-5194-99ec-30bf16ac195c",
+          "type": "sketch",
+          "ms": 0.275218000069799
+        },
+        {
+          "id": "860ce4a2-72e8-5a6e-a03a-889619a328e5",
+          "type": "extrude",
+          "ms": 166.72334300005787
+        },
+        {
+          "id": "bc7941af-29ea-514c-9553-b19b8be62400",
+          "type": "sketch",
+          "ms": 0.2572539999619039
+        },
+        {
+          "id": "5f215898-ea9a-551a-bbd3-2a910556721f",
+          "type": "extrude",
+          "ms": 159.19338499998048
+        },
+        {
+          "id": "af7fbad7-8513-50f7-8f62-3954b3529d17",
+          "type": "sketch",
+          "ms": 0.45661500007554423
+        },
+        {
+          "id": "7a657efb-0831-5094-86f1-e06accd2d322",
+          "type": "extrude",
+          "ms": 180.1931049999439
+        },
+        {
+          "id": "2069e752-3f58-59da-8ac1-f2901c6c85b3",
+          "type": "sketch",
+          "ms": 0.522644000056971
+        },
+        {
+          "id": "469be01c-07e1-56a9-8d0e-31d0e01ea20d",
+          "type": "extrude",
+          "ms": 174.1861489999792
+        },
+        {
+          "id": "64f05fa1-a7af-5b73-a5a1-ec115e3cbfa3",
+          "type": "sketch",
+          "ms": 0.3593179999370477
+        },
+        {
+          "id": "97f68f64-dd36-561b-8a31-6d2610ace1da",
+          "type": "extrude",
+          "ms": 168.2635189999928
+        },
+        {
+          "id": "ecef041c-be81-506e-9164-586b511da999",
+          "type": "sketch",
+          "ms": 0.35896200006391155
+        },
+        {
+          "id": "3613213f-33a4-5616-ae91-9aea52fe25ab",
+          "type": "extrude",
+          "ms": 180.86053899992294
+        },
+        {
+          "id": "666fa77a-f612-5c6d-b6cd-feb67bebe674",
+          "type": "sketch",
+          "ms": 0.29130699999768694
+        },
+        {
+          "id": "c4f79c2c-dcd1-520d-bd26-84b1160a369e",
+          "type": "extrude",
+          "ms": 178.42975300004582
+        },
+        {
+          "id": "7d45327c-1263-57a4-8ee0-b161223fb5e0",
+          "type": "sketch",
+          "ms": 0.2834110000549117
+        },
+        {
+          "id": "708a2d4e-becc-5975-95e1-102d06db42bc",
+          "type": "extrude",
+          "ms": 169.4973639998807
+        },
+        {
+          "id": "117f13a7-8602-5938-8e6d-f25d3416126f",
+          "type": "chamfer",
+          "ms": 885.6558200000109
+        }
+      ],
+      "process_peak_rss_mib": 1003.64453125,
+      "viewport": {
+        "update_ms": 2029.0295429999787,
+        "orbit_render_ms": 40.400438000006034,
+        "face_selection_render_ms": 49.994909999895754,
+        "edge_pick_ms": 32.252547999860326,
+        "viewport_only_calls": {
+          "regeneration": 0,
+          "tessellation": 0,
+          "edge_mesh": 0
+        },
+        "framebuffer_nonblank": true,
+        "size": [
+          800,
+          600
+        ],
+        "render_capabilities": "server glx vendor string:  SGI\nserver glx version string:  1.4\nserver glx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_multisample GLX_EXT_create_context_es_profile GLX_EXT_create_context_es2_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_get_drawable_type GLX_EXT_libglvnd GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_OML_swap_method GLX_SGI_make_current_read GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group \nclient glx vendor string:  Mesa Project and SGI\nclient glx version string:  1.4\nglx extensions:  GLX_ARB_context_flush_control GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_fbconfig_float GLX_ARB_framebuffer_sRGB GLX_ARB_get_proc_address GLX_ARB_multisample GLX_EXT_create_context_es2_profile GLX_EXT_create_context_es_profile GLX_EXT_fbconfig_packed_float GLX_EXT_framebuffer_sRGB GLX_EXT_no_config_context GLX_EXT_texture_from_pixmap GLX_EXT_visual_info GLX_EXT_visual_rating GLX_MESA_copy_sub_buffer GLX_MESA_gl_interop GLX_MESA_query_renderer GLX_SGIS_multisample GLX_SGIX_fbconfig GLX_SGIX_pbuffer GLX_SGIX_visual_select_group GLX_SGI_make_current_read \nOpenGL vendor string:  Mesa\nOpenGL renderer string:  llvmpipe (LLVM 20.1.2, 256 bits)\nOpenGL version string:  4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2\nOpenGL extensions:  \n  GL_3DFX_texture_compression_FXT1\n  GL_AMD_conservative_depth\n  GL_AMD_draw_buffers_blend\n  GL_AMD_gpu_shader_int64\n  GL_AMD_multi_draw_indirect\n  GL_AMD_pinned_memory\n  GL_AMD_query_buffer_object\n  GL_AMD_seamless_cubemap_per_texture\n  GL_AMD_shader_stencil_export\n  GL_AMD_shader_trinary_minmax\n  GL_AMD_texture_texture4\n  GL_AMD_vertex_shader_layer\n  GL_AMD_vertex_shader_viewport_index\n  GL_ANGLE_texture_compression_dxt3\n  GL_ANGLE_texture_compression_dxt5\n  GL_ARB_ES2_compatibility\n  GL_ARB_ES3_1_compatibility\n  GL_ARB_ES3_2_compatibility\n  GL_ARB_ES3_compatibility\n  GL_ARB_arrays_of_arrays\n  GL_ARB_base_instance\n  GL_ARB_blend_func_extended\n  GL_ARB_buffer_storage\n  GL_ARB_clear_buffer_object\n  GL_ARB_clear_texture\n  GL_ARB_clip_control\n  GL_ARB_compressed_texture_pixel_storage\n  GL_ARB_compute_shader\n  GL_ARB_conditional_render_inverted\n  GL_ARB_conservative_depth\n  GL_ARB_copy_buffer\n  GL_ARB_copy_image\n  GL_ARB_cull_distance\n  GL_ARB_debug_output\n  GL_ARB_depth_buffer_float\n  GL_ARB_depth_clamp\n  GL_ARB_derivative_control\n  GL_ARB_direct_state_access\n  GL_ARB_draw_buffers\n  GL_ARB_draw_buffers_blend\n  GL_ARB_draw_elements_base_vertex\n  GL_ARB_draw_indirect\n  GL_ARB_draw_instanced\n  GL_ARB_enhanced_layouts\n  GL_ARB_explicit_attrib_location\n  GL_ARB_explicit_uniform_location\n  GL_ARB_fragment_coord_conventions\n  GL_ARB_fragment_layer_viewport\n  GL_ARB_fragment_shader\n  GL_ARB_framebuffer_no_attachments\n  GL_ARB_framebuffer_object\n  GL_ARB_framebuffer_sRGB\n  GL_ARB_get_program_binary\n  GL_ARB_get_texture_sub_image\n  GL_ARB_gl_spirv\n  GL_ARB_gpu_shader5\n  GL_ARB_gpu_shader_fp64\n  GL_ARB_gpu_shader_int64\n  GL_ARB_half_float_pixel\n  GL_ARB_half_float_vertex\n  GL_ARB_indirect_parameters\n  GL_ARB_instanced_arrays\n  GL_ARB_internalformat_query\n  GL_ARB_internalformat_query2\n  GL_ARB_invalidate_subdata\n  GL_ARB_map_buffer_alignment\n  GL_ARB_map_buffer_range\n  GL_ARB_multi_bind\n  GL_ARB_multi_draw_indirect\n  GL_ARB_occlusion_query2\n  GL_ARB_parallel_shader_compile\n  GL_ARB_pipeline_statistics_query\n  GL_ARB_pixel_buffer_object\n  GL_ARB_point_sprite\n  GL_ARB_polygon_offset_clamp\n  GL_ARB_post_depth_coverage\n  GL_ARB_program_interface_query\n  GL_ARB_provoking_vertex\n  GL_ARB_query_buffer_object\n  GL_ARB_robust_buffer_access_behavior\n  GL_ARB_robustness\n  GL_ARB_sample_shading\n  GL_ARB_sampler_objects\n  GL_ARB_seamless_cube_map\n  GL_ARB_seamless_cubemap_per_texture\n  GL_ARB_separate_shader_objects\n  GL_ARB_shader_atomic_counter_ops\n  GL_ARB_shader_atomic_counters\n  GL_ARB_shader_ballot\n  GL_ARB_shader_bit_encoding\n  GL_ARB_shader_clock\n  GL_ARB_shader_draw_parameters\n  GL_ARB_shader_group_vote\n  GL_ARB_shader_image_load_store\n  GL_ARB_shader_image_size\n  GL_ARB_shader_objects\n  GL_ARB_shader_precision\n  GL_ARB_shader_stencil_export\n  GL_ARB_shader_storage_buffer_object\n  GL_ARB_shader_subroutine\n  GL_ARB_shader_texture_image_samples\n  GL_ARB_shader_texture_lod\n  GL_ARB_shader_viewport_layer_array\n  GL_ARB_shading_language_420pack\n  GL_ARB_shading_language_include\n  GL_ARB_shading_language_packing\n  GL_ARB_spirv_extensions\n  GL_ARB_stencil_texturing\n  GL_ARB_sync\n  GL_ARB_tessellation_shader\n  GL_ARB_texture_barrier\n  GL_ARB_texture_border_clamp\n  GL_ARB_texture_buffer_object\n  GL_ARB_texture_buffer_object_rgb32\n  GL_ARB_texture_buffer_range\n  GL_ARB_texture_compression_bptc\n  GL_ARB_texture_compression_rgtc\n  GL_ARB_texture_cube_map_array\n  GL_ARB_texture_filter_anisotropic\n  GL_ARB_texture_filter_minmax\n  GL_ARB_texture_float\n  GL_ARB_texture_gather\n  GL_ARB_texture_mirror_clamp_to_edge\n  GL_ARB_texture_multisample\n  GL_ARB_texture_non_power_of_two\n  GL_ARB_texture_query_levels\n  GL_ARB_texture_query_lod\n  GL_ARB_texture_rectangle\n  GL_ARB_texture_rg\n  GL_ARB_texture_rgb10_a2ui\n  GL_ARB_texture_stencil8\n  GL_ARB_texture_storage\n  GL_ARB_texture_storage_multisample\n  GL_ARB_texture_swizzle\n  GL_ARB_texture_view\n  GL_ARB_timer_query\n  GL_ARB_transform_feedback2\n  GL_ARB_transform_feedback3\n  GL_ARB_transform_feedback_instanced\n  GL_ARB_transform_feedback_overflow_query\n  GL_ARB_uniform_buffer_object\n  GL_ARB_vertex_array_bgra\n  GL_ARB_vertex_array_object\n  GL_ARB_vertex_attrib_64bit\n  GL_ARB_vertex_attrib_binding\n  GL_ARB_vertex_buffer_object\n  GL_ARB_vertex_shader\n  GL_ARB_vertex_type_10f_11f_11f_rev\n  GL_ARB_vertex_type_2_10_10_10_rev\n  GL_ARB_viewport_array\n  GL_ARM_shader_framebuffer_fetch_depth_stencil\n  GL_ATI_blend_equation_separate\n  GL_ATI_meminfo\n  GL_ATI_texture_float\n  GL_ATI_texture_mirror_once\n  GL_EXT_EGL_image_storage\n  GL_EXT_EGL_image_storage_compression\n  GL_EXT_EGL_sync\n  GL_EXT_abgr\n  GL_EXT_blend_equation_separate\n  GL_EXT_debug_label\n  GL_EXT_draw_buffers2\n  GL_EXT_draw_instanced\n  GL_EXT_framebuffer_blit\n  GL_EXT_framebuffer_multisample\n  GL_EXT_framebuffer_multisample_blit_scaled\n  GL_EXT_framebuffer_object\n  GL_EXT_framebuffer_sRGB\n  GL_EXT_memory_object\n  GL_EXT_memory_object_fd\n  GL_EXT_packed_depth_stencil\n  GL_EXT_packed_float\n  GL_EXT_pixel_buffer_object\n  GL_EXT_polygon_offset_clamp\n  GL_EXT_provoking_vertex\n  GL_EXT_shader_clock\n  GL_EXT_shader_framebuffer_fetch\n  GL_EXT_shader_framebuffer_fetch_non_coherent\n  GL_EXT_shader_image_load_formatted\n  GL_EXT_shader_integer_mix\n  GL_EXT_texture_array\n  GL_EXT_texture_compression_dxt1\n  GL_EXT_texture_compression_rgtc\n  GL_EXT_texture_compression_s3tc\n  GL_EXT_texture_filter_anisotropic\n  GL_EXT_texture_filter_minmax\n  GL_EXT_texture_integer\n  GL_EXT_texture_mirror_clamp\n  GL_EXT_texture_sRGB\n  GL_EXT_texture_sRGB_R8\n  GL_EXT_texture_sRGB_RG8\n  GL_EXT_texture_sRGB_decode\n  GL_EXT_texture_shadow_lod\n  GL_EXT_texture_shared_exponent\n  GL_EXT_texture_snorm\n  GL_EXT_texture_storage\n  GL_EXT_texture_swizzle\n  GL_EXT_timer_query\n  GL_EXT_transform_feedback\n  GL_EXT_vertex_array_bgra\n  GL_EXT_vertex_attrib_64bit\n  GL_IBM_multimode_draw_arrays\n  GL_INTEL_shader_atomic_float_minmax\n  GL_KHR_blend_equation_advanced\n  GL_KHR_blend_equation_advanced_coherent\n  GL_KHR_context_flush_control\n  GL_KHR_debug\n  GL_KHR_no_error\n  GL_KHR_parallel_shader_compile\n  GL_KHR_robust_buffer_access_behavior\n  GL_KHR_robustness\n  GL_KHR_texture_compression_astc_ldr\n  GL_KHR_texture_compression_astc_sliced_3d\n  GL_MESA_framebuffer_flip_y\n  GL_MESA_pack_invert\n  GL_MESA_shader_integer_functions\n  GL_MESA_texture_signed_rgba\n  GL_NVX_gpu_memory_info\n  GL_NV_alpha_to_coverage_dither_control\n  GL_NV_conditional_render\n  GL_NV_copy_image\n  GL_NV_depth_clamp\n  GL_NV_packed_depth_stencil\n  GL_NV_shader_atomic_float\n  GL_NV_texture_barrier\n  GL_OES_EGL_image\n  GL_OVR_multiview\n  GL_OVR_multiview2\n  GL_S3_s3tc\nX Extensions:  Generic Event Extension, SHAPE, MIT-SHM, XInputExtension, XTEST, BIG-REQUESTS, SYNC, XKEYBOARD, XC-MISC, SECURITY, XFIXES, RENDER, RANDR, XINERAMA, Composite, DAMAGE, MIT-SCREEN-SAVER, DOUBLE-BUFFER, RECORD, Present, X-Resource, XVideo, GLX\n"
+      }
+    }
+  ]
+}

@@ -73,6 +73,8 @@ def feature_history_text(document, identifier):
         lines.append(f'{"Edge" if feature.type == "chamfer" else "Face"} reference: {status.reference_state.title()}')
     if status.error:
         lines.extend(['', 'Regeneration error:', status.error])
+    if status.diagnostic_stage:
+        lines.append('Failure stage: ' + status.diagnostic_stage.replace('_', ' ').title())
     if blocked:
         lines.append('Blocked by: ' + reference_label(blocked))
 

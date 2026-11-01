@@ -268,11 +268,14 @@ def resolve_edge(reference, body, lineage):
 
 def make_chamfer(parameters, body, lineage, identifier):
     """Build on candidate geometry; return validated solid and existing lineage."""
-    edges = resolve_edges(parameters.edges, body, lineage)
-    if any(a.IsSame(b) for i,a in enumerate(edges) for b in edges[i+1:]):
-        raise OperationError('Duplicate resolved chamfer edges')
+    stage = 'edge_resolution'
     try:
+        edges = resolve_edges(parameters.edges, body, lineage)
+        if any(a.IsSame(b) for i,a in enumerate(edges) for b in edges[i+1:]):
+            raise OperationError('Duplicate resolved chamfer edges')
+        stage = 'input_validation'
         one_solid(body)
+        stage = 'chamfer_construction'
         builder = BRepFilletAPI_MakeChamfer(body)
         for edge in edges:
             if builder.Contour(edge) == 0:
@@ -284,11 +287,25 @@ def make_chamfer(parameters, body, lineage, identifier):
         if (not covered or any(not any(edge.IsSame(item) for item in covered) for edge in edges)):
             raise OperationError('OCCT could not include every selected chamfer edge; no partial chamfer applied')
         builder.Build()
-        if not builder.IsDone() or builder.Shape().IsNull():
+        if not builder.IsDone():
             raise OperationError('OCCT could not build this chamfer; reduce the distance or choose another eligible edge')
-        result = one_solid(builder.Shape())
+        shape = builder.Shape()
+        if shape.IsNull():
+            raise OperationError('OCCT chamfer construction completed but returned a null shape')
+        stage = 'result_validation'
+        try:
+            result = one_solid(shape)
+        except OperationError as error:
+            # Extra inspection only on failure; do not validate successful shapes twice.
+            from OCP.BRepCheck import BRepCheck_Analyzer
+            from OCP.TopAbs import TopAbs_SOLID
+            details = (f'topology_valid={BRepCheck_Analyzer(shape).IsValid()}, '
+                       f'solids={len(subshapes(shape, TopAbs_SOLID))}, volume_mm3={volume(shape):.9g}')
+            raise OperationError(f'OCCT chamfer result validation failed: {error} ({details}); '
+                                 'requested distance was not changed') from error
         if abs(volume(result)-volume(body)) <= max(1e-15, volume(body)*1e-12):
             raise OperationError('Chamfer did not remove or add measurable material; choose another edge or distance')
+        stage = 'reference_publication'
         sources = {}
         generated = [(reference, [TopoDS.Face_s(f) for f in builder.Generated(edge)
                                   if f.ShapeType() == TopAbs_FACE])
@@ -307,8 +324,8 @@ def make_chamfer(parameters, body, lineage, identifier):
         ancestry = tuple((f, tokens | frozenset(t for face, ts in seeds if f.IsSame(face) for t in ts))
                          for f, tokens in ancestry)
         return result, ancestry, sources
-    except OperationError:
-        raise
+    except OperationError as error:
+        raise OperationError(str(error), stage=error.stage or stage) from error
     except Exception as error:
-        raise OperationError(f'OCCT chamfer failed: {error}') from error
+        raise OperationError(f'OCCT chamfer failed during {stage.replace("_", " ")}: {error}', stage=stage) from error
 

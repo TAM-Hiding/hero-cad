@@ -1,0 +1,139 @@
+{
+  "fixture": "40x30x5 base, face-attached slot radius 1, center distance 12, Join height 10 mm",
+  "native": [
+    {
+      "distance_mm": 0.5,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": true,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6267.761428066399,
+      "triangles": 1752,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 0.9,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": true,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6259.914643501313,
+      "triangles": 1908,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 0.99,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": true,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6257.591746312843,
+      "triangles": 1812,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 0.999,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": true,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6257.348661025111,
+      "triangles": 1760,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 1.0,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": false,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6317.087866771712,
+      "triangles": 1911,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 1.001,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": false,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6315.407576585261,
+      "triangles": 5918,
+      "missing_mesh_faces": 0
+    },
+    {
+      "distance_mm": 1.2,
+      "selected_edges": 4,
+      "builder_done": true,
+      "null": false,
+      "topology_valid": false,
+      "solids": 1,
+      "faces": 15,
+      "volume_mm3": 6329.9829756209065,
+      "triangles": 63038,
+      "missing_mesh_faces": 0
+    }
+  ],
+  "explicit_roof_experiment": [
+    {
+      "distance_mm": 1.0,
+      "topology_valid": true,
+      "solids": 1,
+      "volume_mm3": 6257.321531433502,
+      "bounds_mm": [
+        0.0,
+        40.0,
+        0.0,
+        30.0,
+        0.0,
+        15.0
+      ],
+      "triangles": 1739,
+      "scope": "Explicit reconstruction only; no feature-reference ancestry"
+    },
+    {
+      "distance_mm": 1.001,
+      "topology_valid": true,
+      "solids": 1,
+      "volume_mm3": 6257.294389840851,
+      "bounds_mm": [
+        0.0,
+        40.0,
+        0.0,
+        30.0,
+        0.0,
+        14.999
+      ],
+      "triangles": 1739,
+      "scope": "Explicit reconstruction only; no feature-reference ancestry"
+    },
+    {
+      "distance_mm": 1.2,
+      "topology_valid": true,
+      "solids": 1,
+      "volume_mm3": 6251.893212902786,
+      "bounds_mm": [
+        0.0,
+        40.0,
+        0.0,
+        30.0,
+        0.0,
+        14.8
+      ],
+      "triangles": 1739,
+      "scope": "Explicit reconstruction only; no feature-reference ancestry"
+    }
+  ]
+}

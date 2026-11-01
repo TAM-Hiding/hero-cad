@@ -1375,3 +1375,74 @@ the slot-pocket fixture moves its rim edges and deliberately leaves that earlier
 rim chamfer unresolved, while its downstream exterior chamfer is blocked.
 Successful reference resolution still cannot make an oversized native chamfer
 geometrically valid. No schema migration or automatic witness rewriting occurs.
+
+## Work Order #041 — architecture, performance and geometry reliability audit
+
+2026-10-31. Baseline: `b38c144d7a5f9b3103b35ccd9a05b753c7e5ce17`
+(merged PR #40). Python 3.12.14; installed project pins PySide6 6.8.3,
+cadquery-ocp 7.9.3.1.1 and VTK 9.6.2. No repository dependency or lock changes.
+
+Full baseline and final suites used a real X server, software GL, and native Qt
+xcb. The hosted sandbox does not permit the normal X11 Unix-socket connection;
+its isolated test Xvfb used TCP instead. Equivalent final command:
+
+```sh
+Xvfb :181 -screen 0 1280x1024x24 -listen tcp -nolisten unix -ac > /tmp/hero-xserver181.log 2>&1 &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null' EXIT
+sleep 1
+DISPLAY=127.0.0.1:181 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q
+```
+
+Use the ordinary README `xvfb-run` command outside this hosted restriction.
+
+- Unchanged baseline full suite in a detached checkout, with baseline `src` first
+  in `PYTHONPATH`: **755 passed, 1 skipped, 148 warnings**, 472.13 s.
+- Final full suite: **776 passed, 1 skipped, 149 warnings**, 455.38 s.
+  **No baseline or new failures in the supported Xvfb environment.** Suite durations
+  overlap other investigative work; they are not performance comparisons.
+- The same skip in each run: `tests/test_desktop_launcher.py:110`, missing
+  `desktop-file-utils` / `desktop-file-validate`. The real installed-launcher
+  window/framebuffer test passed in both full X11 runs.
+- Warnings are upstream VTK `numpy_support` NumPy 2.5 array-shape deprecations;
+  the new real-framebuffer test adds one occurrence. No tests were weakened.
+- Focused existing geometry/reference/diagnostic suites: **152 passed** in 23.91 s.
+- `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/test_document.py -q`:
+  **23 passed** in 1.22 s.
+- New audit kernel + real X11 viewport tests: **21 passed**, 1 upstream warning,
+  9.71 s; also included in the full suite.
+- After the test helper's import was made compatible with console-script pytest,
+  `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/test_audit_041.py -q`:
+  **15 passed**, 5.53 s. No root `PYTHONPATH` override required for these tests.
+- `.venv/bin/pip check`: **No broken requirements found**.
+- `.venv/bin/python -m compileall -q tools/benchmark_audit_041.py tools/probe_chamfer_041.py`
+  and `git diff --check`: passed.
+
+Environment probes are not counted as valid rendering verification: an initial
+Qt offscreen full run returned **673 passed, 82 failed, 1 skipped** with absent
+X11/blank EGL-shader rendering; ordinary Unix-socket Xvfb probes aborted at Qt
+initialization. An offscreen launcher-only probe also lacked `DISPLAY`. Both
+complete TCP-X11 runs above establish that these were environment-dependent
+failures, not an excuse to remove tests or classify source defects as passing.
+
+The diagnostic-only `probe_chamfer_041.py --mesh-invalid --alternative` reproduced
+invalid native chamfer results at 1.0/1.001/1.2 mm, accepted valid 0.5–0.999 mm
+results, and validated an explicit experimental ridge reconstruction for those
+three larger distances. It never invokes an application fallback. Exact raw
+results, performance commands, source fingerprints and limitations are in
+[the audit report](docs/architecture-performance-audit-041.md) and its linked JSON.
+The original user's missing-mesh failure was not reproduced; this fixture's
+observed rejection happens at post-builder solid validation. No laptop manual
+signoff, hardware frame-rate guarantee or general alternative chamfer algorithm
+is claimed. The report also records the uncorrected broader Properties/display
+transaction gap and prioritizes follow-up work.
+
+Final performance runs executed sequentially after both full suites completed,
+using the same harness with baseline and diagnostics sources selected by
+`PYTHONPATH`. Each completed all 5/20/50/100-feature cases, three CPU samples and
+at least five viewport samples. Source/harness digests, deterministic feature
+IDs, identical triangle/edge-point counts, nonblank framebuffers and zero
+viewport-only regeneration/remesh counters were verified across both runs.
+The diagnostics build contains no accepted optimization; run-to-run timing
+variation is not reported as a speedup. Raw data is committed under
+`docs/benchmarks/audit-041-{baseline,diagnostics}.json`.

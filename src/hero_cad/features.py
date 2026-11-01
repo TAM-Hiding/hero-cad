@@ -137,11 +137,12 @@ class FeatureStatus:
     error: str | None = None
     reference_state: str | None = None
     blocked_by: str | None = None  # Transient authoritative evaluation result.
+    diagnostic_stage: str | None = None
 
 
 class FeatureError(ValueError):
-    def __init__(self, feature_id, message):
+    def __init__(self, feature_id, message, *, stage=None):
         self.feature_id = feature_id
-        self.status = FeatureStatus(False, str(message))
+        self.status = FeatureStatus(False, str(message), diagnostic_stage=stage)
         super().__init__(f'Feature {feature_id}: {message}')
 
