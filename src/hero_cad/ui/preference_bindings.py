@@ -52,6 +52,12 @@ def bind_preferences(w):
         w.update_sketch_face()
         v.GetRenderWindow().Render()
 
+    def general_opacity(value):
+        w.viewport.xray_opacity = value / 100
+        w.viewport.apply_solid_style()
+        w.viewport.GetRenderWindow().Render()
+
+    setters['viewport/v1/xray_opacity'] = general_opacity
     for key in ('viewport/v1/sketch_xray', 'viewport/v1/sketch_opacity', 'viewport/v1/sketch_face'):
         setters[key] = sketch_presentation
     setters.update({'viewport/v1/contrast': contrast, 'viewport/v1/display_mode': display,

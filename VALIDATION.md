@@ -1648,3 +1648,150 @@ actual surface/edge/picking/normal/mapper preparation once per final result;
 intermediate previews, frame presentation and interaction are excluded. Raw
 samples, environment and harness hash are in the report. No performance assertion
 is added to CI. Follow-up options and unsupported operations are in the scope doc.
+
+## Work Order #044 — experimental UI palette laboratory
+
+Baseline: latest main `6d5fd0fab4114aac6294dff7cc14c324496c37bb`, merged #43.
+Branch: `experimental-palette-044`. No CAD/document/schema/dependency changes.
+
+Inspected the existing Preferences/QSettings catalogue and bindings, platform Qt
+palette, ToolIsland stylesheet, operation_appearance operation/inline styles,
+MainWindow browser/Properties construction and status icons, VTK constructor/style
+callbacks, foreground sketch/profile actors, snap/grid precomposition, X-Ray
+opacity/highlights, and operation candidate/display reuse. The small registry and
+appearance bridge extend those paths; no theme framework or renderer replacement.
+
+The Settings → Experimental → UI Palette editor is modeless, with 55 RGB properties
+in five tabs. It provides swatches/native picker, live hex input, individual/category/
+whole reset, HERO Default/remembered Custom, validated complete JSON import and
+atomic QSaveFile export. Hidden palette entries use the existing centralized
+Preferences. Validated batches publish once; unknown/missing/malformed/duplicate
+records reject before mutation. Override metadata preserves contextual/native
+fallbacks, so default export/import does not flatten the original styles. Custom
+main background flows into ordinary dialogs unless independently overridden.
+
+21 focused new regressions exercise default/live/reset behavior, real hex controls,
+independent panels, unchanged sketch/grid/model buffers/profile selections/tools,
+shading/lighting/X-Ray opacity and real framebuffers, restart/fresh-process storage,
+full JSON round-trip/fallback inheritance, invalid imports with unchanged complete
+state, corrupt stored preferences, native-picker live/accept/cancel behavior,
+readable dialog labels/inputs, in-place history indicators/diagnostics, multi-profile
+Cut preview Apply/edit/cancel, and single-profile New Body/Join/Cut with a custom
+palette. Test hooks reject geometry evaluation, refresh or solid-display preparation
+during recolor. All original tests remain unchanged.
+
+Commands and results:
+
+- Initial existing preference/X-Ray/operation-style matrix: **39 passed**.
+- Focused matrix including the first 20 new cases: **59 passed**, 10 upstream
+  warnings, **30.29 s**.
+- Final palette-only matrix including the dialog-contrast regression:
+  **21 passed**, 4 upstream warnings, **14.50 s** (before the final inherited
+  swatch-value assertion; the final full run includes that assertion).
+- Complete run before picker disposal: **873 passed**, 172 upstream warnings, **534.40 s**.
+- Final full suite including picker disposal assertions: **873 passed, 0 failed, 0 skipped**, 172 upstream warnings, **514.72 s**.
+- `.venv/bin/pip check`: **No broken requirements found**; no dependency changes.
+- `.venv/bin/python -m compileall -q src tests/test_palette_ui.py tools/preview_palette_044.py`: pass.
+- `git diff --check`: pass.
+
+The final full suite uses `Xvfb :100 -screen 0 1600x1100x24 -listen tcp -nolisten
+unix -ac` followed by `DISPLAY=127.0.0.1:100 LIBGL_ALWAYS_SOFTWARE=1
+QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`. TCP X11 is necessary in this hosted
+workspace because Unix sockets are blocked. Servers are terminated after each
+run. Real software OpenGL is exercised; no desktop NVIDIA/high-DPI claim is made.
+
+During test development, a no-op edit preview correctly reused evaluation rather
+than calling the test's forbidden evaluator; the regression was corrected to test
+actual candidate reuse/cancellation. A test-only manual monkeypatch.undo also
+removed the shared teardown discard fixture, blocking cleanup on the unsaved-file
+prompt; scoped patch contexts fixed that test. Screenshot QA caught light text on
+native dialog surfaces in a custom dark main palette; the scoped dialog/menu/input
+styles now preserve readable foregrounds and focus indicators, with a new explicit
+regression. Final resource review added deferred deletion of dismissed native
+color-picker instances, with accept/cancel assertions that no picker children
+accumulate. Full-suite attempts before those final appearance fixes were stopped;
+only the final result above is the acceptance run. No existing test was weakened.
+
+Performance/screenshot command (same TCP-Xvfb/software GL environment):
+`.venv/bin/python tools/preview_palette_044.py`. Ten live changes per property on a
+base box and three-circle face sketch (2 features), including modeling-window
+redraw/styling before opening the editor for its screenshot, yielded
+medians **40.28 ms** viewport background, **47.44 ms** active sketch color,
+**75.82 ms** Properties background. Recorded **0 geometry evaluations** and
+**0 solid-display preparations**; feature definitions, history, serialization,
+solid meshes and profile selection identities remained unchanged. No timing gates
+or new caching framework. Software rendering/widget polishing contribute to these
+numbers; editor/picker event overhead and larger desktop models remain future
+profiling cases.
+
+Actual editor/modeling PNGs and raw measurements are committed under docs/images/
+and docs/benchmarks/palette-044.json. Final screenshots were visually inspected for
+readable controls, visible geometry and unclipped editor content. Reproduce them
+with tools/preview_palette_044.py; its settings use a temporary directory rather
+than user preferences. See docs/UI_PALETTE_044.md for the schema, supported knobs,
+contrast adjustment, precedence, platform/native/mixed-selection limits and
+recommended consolidation of exported experiments into later permanent defaults.
+
+## PR #44 follow-up — sketch/general X-Ray opacity
+
+Existing PR/branch: #44 / experimental-palette-044. Follow-up baseline:
+`29a9e3edf6a4d9ec0e87f12a2a806770b1eaddfe`. No new PR or automatic merge.
+
+Root cause was isolated before modifying production code. Direct numeric entry
+without a dialog default action correctly stored/applied 10%. With Qt's Restore
+Category Defaults default-button state established, Return/keypad Enter accepted
+10%, then emitted the Reset button's clicked signal: sketch_opacity 10 → 35 and
+xray Orange → Off. This exact trace also reproduced with pre-44 merged-main code
+`6d5fd0fab4114aac6294dff7cc14c324496c37bb` loaded from a detached worktree.
+PreferencesDialog was unchanged in original #44; the defect predates the palette
+lab. The test explicitly establishes default assignment when a button opts in,
+since the initial default state depends on platform/focus rather than always
+occurring in a fresh dialog.
+
+The four new keyboard regressions failed before the fix on both original #44
+(**4 failed**, 2.51 s) and the pre-44 baseline (**4 failed**, 2.98 s), with 10
+other new cases deselected. No mocked renderer/default reset was used: these
+are actual Qt key events, preference signals and actor values. Captured accepted
+input/reset events identify category reset, rather than storage/type validation,
+X-Ray synchronization or palette callbacks, as the cause of the paired symptom.
+
+Correction: Preferences action buttons opt out of automatic/default Enter actions.
+Return accepts a numeric value without implicit Reset/Close; explicit mouse/Space
+buttons remain. Added only General X-Ray Opacity (%) under Viewport, integer
+0–100, default 85, using viewport/v1/xray_opacity and the existing Preferences
+binding path. The cached viewport percentage replaces the old .85 literal.
+Sketch opacity remains separate (default 35); sketch editing owns opacity when
+enabled and is opaque when disabled. Off is opaque outside sketch; Orange/Celadon
+outside sketch use General. Transitions/percentage changes do not write the mode
+or overwrite the other percentage. RGB palette registry/format/import/export and
+font styling are unchanged. Font-color inconsistencies are documented separately
+in docs/UI_PALETTE_044.md and docs/XRAY_OPACITY_044.md, not fixed here.
+
+14 focused new cases cover Return/keypad Enter and both colors, typed sketch and
+general values 0/10/35/90/100, real framebuffer differences, checkbox toggle,
+mode/percentage preservation across enter/finish/reenter, restart in a separate
+process and actual window, RGB palette Default/Custom independence, native shape/
+mesh/history/selection/tool/serialization isolation, explicit reset and invalid/
+missing stored values. Spies reject regeneration and solid-display preparation.
+All existing tests remain unchanged. The new general opacity initializes through
+the same bidirectional binding used for immediate subsequent updates.
+
+Validation commands/results:
+
+- `DISPLAY=127.0.0.1:108 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest tests/test_opacity_preferences_ui.py tests/test_preferences_ui.py tests/test_palette_ui.py tests/test_profiles_xray_ui.py -q`:
+  **61 passed**, 20 upstream warnings, **21.82 s**.
+- Final full suite: **887 passed, 0 failed, 0 skipped**, 182 upstream warnings, **285.90 s**.
+- `.venv/bin/python -m compileall -q src tests/test_opacity_preferences_ui.py`: pass.
+- `.venv/bin/pip check`: No broken requirements found. No dependency changes.
+- `git diff --check`: pass.
+
+The full suite uses isolated `Xvfb :109 -screen 0 1440x1000x24 -listen tcp
+-nolisten unix -ac`, then `DISPLAY=127.0.0.1:109 LIBGL_ALWAYS_SOFTWARE=1
+QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`. Test servers are stopped afterward.
+Runtime prerequisites were restored after workspace maintenance removed the old
+venv/system packages; authoritative repository work remained intact. Rendering
+is real software OpenGL, not a blank offscreen fallback. Existing high-contrast
+edge outlines/operation-preview opacity remain separate from shaded-body opacity.
+The user's exact desktop event history and NVIDIA GPU were not captured; the
+reproduction verifies the matching conditional Qt default-button mechanism on
+both code revisions. No other hypothetical opacity or font fix was introduced.

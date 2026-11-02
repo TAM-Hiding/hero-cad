@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
         self.viewport.update_support_face = self.update_sketch_face
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
+        self.browser.setObjectName("modelBrowser")
         self.browser.setIconSize(QSize(22, 14))
         self.browser.setColumnCount(2)
         self.browser.setHeaderLabels(['Model · mm', 'Visible'])
@@ -86,8 +87,10 @@ class MainWindow(QMainWindow):
         info_layout.addRow(self.edit_operation_button)
         self.property_stack.addWidget(info_panel)
         self.property_tabs = QTabWidget()
+        self.property_tabs.setObjectName("propertiesPanel")
         self.property_tabs.addTab(self.property_stack, 'Edit')
         self.history_inspector = QPlainTextEdit()
+        self.history_inspector.setObjectName("historyInspector")
         self.history_inspector.setReadOnly(True)
         self.history_inspector.setAccessibleName('Feature history inspector')
         self.history_inspector.setPlaceholderText('Select a feature in the model browser to inspect its history.')
@@ -347,6 +350,20 @@ class MainWindow(QMainWindow):
         settings_menu.addSeparator()
         self.preferences_action = settings_menu.addAction('Preferences…')
         self.preferences_action.triggered.connect(self.open_preferences)
+        from hero_cad.ui.palette_controller import PaletteController
+        self.palette_controller = PaletteController(self)
+        self.palette_editor = None
+        experimental = settings_menu.addMenu('Experimental')
+        self.palette_action = experimental.addAction('UI Palette')
+        self.palette_action.triggered.connect(self.open_palette)
+
+    def open_palette(self):
+        from hero_cad.ui.palette_editor import PaletteEditor
+        if self.palette_editor is None:
+            self.palette_editor = PaletteEditor(self.palette_controller, self)
+        self.palette_editor.show()
+        self.palette_editor.raise_()
+        self.palette_editor.activateWindow()
 
     def open_preferences(self):
         from hero_cad.ui.preferences_dialog import PreferencesDialog
@@ -1016,7 +1033,7 @@ class MainWindow(QMainWindow):
                     position = next(i for i, f in enumerate(self.document.features, 1) if f.id == parent.id)
                     tooltip = f'Blocked by #{position} · {parent.type.title()} ({parent.id})\n' + tooltip
                 item.setToolTip(0, tooltip)
-                item.setIcon(0, feature_icon(feature, state))
+                item.setIcon(0, feature_icon(feature, state, getattr(self, 'palette_controller', None)))
                 if feature.id == earliest and state == 'unresolved':
                     font = item.font(0)
                     font.setBold(True)

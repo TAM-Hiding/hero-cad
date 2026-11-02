@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from math import isfinite
 from PySide6.QtCore import QObject, Signal
+from hero_cad.palette import COLORS, PREFIX, ENABLED, hex_color
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,7 @@ class Preference:
     minimum: float = 0
     maximum: float = 100
     exposed: bool = True
+    color: bool = False
 
     def validated(self, value, *, stored=False):
         if value is None and self.default is None:
@@ -24,6 +26,8 @@ class Preference:
             if stored and isinstance(value, str) and value.lower() in ('true', 'false'):
                 return value.lower() == 'true'
         elif self.kind is str:
+            if self.color:
+                return hex_color(value)
             if isinstance(value, str) and value in self.choices:
                 return value
         elif type(value) is not bool:
@@ -41,6 +45,7 @@ class Preference:
 CATEGORIES = ('Appearance', 'Grid & Snapping', 'Viewport', 'Sketching', 'Interface')
 PREFERENCES = {
     'viewport/v1/sketch_xray': Preference('Viewport', 'Enable Sketch X-Ray', True, bool),
+    'viewport/v1/xray_opacity': Preference('Viewport', 'General X-Ray Opacity (%)', 85, int),
     'viewport/v1/sketch_opacity': Preference('Viewport', 'Sketch X-Ray Opacity (%)', 35, int),
     'viewport/v1/sketch_face': Preference('Viewport', 'Highlight Active Sketch Face', True, bool),
     'viewport/v1/contrast': Preference('Appearance', 'High-Contrast Geometry', 'Auto', str, ('Off', 'Auto', 'Always')),
@@ -66,9 +71,14 @@ PREFERENCES = {
     'tool_island/v1/y': Preference('Interface', 'Island vertical position', None, int, minimum=-10000000, maximum=10000000, exposed=False),
 }
 
+PREFERENCES[ENABLED] = Preference('Experimental Palette', 'Use Custom palette', False, bool, exposed=False)
+PREFERENCES.update({PREFIX+key:Preference('Experimental Palette', spec.label, None, str, exposed=False, color=True)
+                    for key, spec in COLORS.items()})
+
 
 class Preferences(QObject):
     changed = Signal(str, object)
+    batch_changed = Signal(tuple)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -84,16 +94,23 @@ class Preferences(QObject):
         return self.values[key]
 
     def set(self, key, value):
-        value = PREFERENCES[key].validated(value)
-        if self.values[key] == value:
+        self.set_many({key:value})
+
+    def set_many(self, values):
+        validated = {key:PREFERENCES[key].validated(value) for key, value in values.items()}
+        changed = {key:value for key, value in validated.items() if self.values[key] != value}
+        if not changed:
             return
-        self.values[key] = value
-        if value is None:
-            self.settings.remove(key)
-        else:
-            self.settings.setValue(key, value)
+        self.values.update(changed)
+        for key, value in changed.items():
+            if value is None:
+                self.settings.remove(key)
+            else:
+                self.settings.setValue(key, value)
         self.settings.sync()
-        self.changed.emit(key, value)
+        for key, value in changed.items():
+            self.changed.emit(key, value)
+        self.batch_changed.emit(tuple(changed))
 
     def restore_category(self, category):
         if category not in CATEGORIES:

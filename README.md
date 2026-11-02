@@ -29,7 +29,7 @@ there is no hidden propagation. See [CHAMFERS.md](docs/CHAMFERS.md) for scope.
 ### Sketch workflow
 
 1. Expand **Origin**, select **XY**, **XZ** or **YZ Plane**, then choose **New Sketch**.
-2. The camera faces the plane orthographically; axes and origin appear. All sketch editing retains existing evaluated solids at 35% opacity and other shown sketches as placement references, respecting Settings → Show base box and the selected display mode.
+2. The camera faces the plane orthographically; axes and origin appear. By default, sketch editing retains existing evaluated solids at 35% opacity and other shown sketches as placement references, respecting Settings → Show base box and the selected display mode.
 3. Choose **Line**, **Rectangle** or **Circle** in the contextual sketch toolbar. Placement previews appear while moving the cursor.
 4. Choose **Select**, then click an entity (or its browser entry) to edit numeric parameters in Properties. Click **Apply entity parameters** to commit.
 5. Choose **Finish Sketch** to restore the previous model view. Select an existing sketch and choose **Edit Sketch**, or double-click its browser entry, to return.
@@ -107,7 +107,7 @@ Extrusions support **New Body, Join, Cut and Intersect**, without taper, drag-de
 
 ### Sketch on a planar face
 
-Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing any sketch, existing evaluated solids remain visible at 35% opacity with their boundary edges, and other shown sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores opaque solids. Active sketch entities and material profiles can be selected through reference bodies. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
+Right-click a visible supported solid face and choose **New Sketch**. This picks the actual analytic OCCT face independently of the face/edge filter, selects it, and enters an orthographic sketch view. Existing tools, Shift gestures, dimensions, grid and local-origin/center snapping work unchanged. While editing any sketch, existing evaluated solids remain visible at the configured sketch opacity (35% by default) with their boundary edges, and other shown sketches remain visible for placement context. Viewport entity selection is restricted to the active sketch. Finish restores model-view opacity. Active sketch entities and material profiles can be selected through reference bodies. Finish Sketch restores model view; select the sketch in the browser and choose Edit Sketch (or double-click it) to reenter and align again. Shift-right drag and Shift-right double-click retain pan and Look At Face.
 
 Supported references:
 - Box: **+X, −X, +Y, −Y, +Z, −Z**.
@@ -134,7 +134,7 @@ Operations require one valid connected positive-volume solid result. Join accept
 
 ### X-Ray
 
-The compact **X-Ray** toolbar dropdown and **View → X-Ray** menu share three modes: **Off**, **Celadon**, **Orange**. Celadon uses the existing grey-cyan solid color and Orange uses the warm operation-preview color, both at **85% opacity**. A brighter warm selection distinguishes selected faces/edges in Orange mode. Sketch lines, construction guides and selection/preview actors retain their own styling. Explicit X-Ray overrides automatic sketch-body opacity; Off restores 35% bodies during sketch editing and 100% in model view. The session choice survives sketch transitions, refresh, Undo/Redo and New/Open without modifying document geometry. Operation previews retain their separate orange appearance. No X-Ray opacity slider is added.
+The compact **X-Ray** toolbar dropdown and **View → X-Ray** menu share **Off**, **Celadon** and **Orange**. Celadon uses grey-cyan shading and Orange warm shading by default; the experimental palette can override RGB colors independently. **Settings → Preferences → Viewport → General X-Ray Opacity (%)** controls Orange/Celadon outside sketch editing (default **85%**, range **0–100%**). In an active sketch, **Enable Sketch X-Ray** selects the separate **Sketch X-Ray Opacity (%)** (default **35%**, range **0–100%**); disabling it makes sketch-context solids opaque. Off is opaque in model view. Entering/finishing a sketch and editing either percentage preserve the selected mode and both saved values. Numeric Enter accepts the preference without invoking category reset. Contrast edges may stay opaque; operation-preview opacity remains separate. See [the opacity precedence, root cause and verification](docs/XRAY_OPACITY_044.md).
 
 ### Explicit display modes
 
@@ -339,3 +339,12 @@ picking references and Undo/Redo history remain available; correct the pending
 input or use Undo to discard it. Expected unresolved downstream features remain
 supported. See [transaction boundaries, validation and limits](docs/atomic-document-display-042.md).
 Saved-document versions and reference matching are unchanged.
+
+### Experimental palette laboratory
+
+**Settings → Experimental → UI Palette** opens a modeless RGB editor with live
+panel, control, sketch, viewport, X-Ray and diagnostic colors. Compare HERO Default
+and saved Custom, reset individual/category/all colors, and import/export a strict
+JSON palette. Colors persist in application preferences, never in part files.
+Lighting, opacity preferences, geometry, profile selections and history are
+preserved. See [controls, screenshots, format and limits](docs/UI_PALETTE_044.md).

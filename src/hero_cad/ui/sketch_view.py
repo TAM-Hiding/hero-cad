@@ -335,7 +335,7 @@ class SketchView:
         mesh.SetVerts(cells)
         self.snap_mapper.SetInputData(mesh)
         colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
-        self.snap_actor.GetProperty().SetColor(*colors[result.target])
+        self.snap_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.'+result.target.lower(), colors[result.target]))
         self.snap_actor.GetProperty().SetPointSize(7 if result.target == 'GRID' else 9)
 
     def hit(self, x, y):

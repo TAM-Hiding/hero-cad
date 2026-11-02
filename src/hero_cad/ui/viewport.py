@@ -52,6 +52,7 @@ class Viewport(QVTKRenderWindowInteractor):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.palette_colors = {}
         self.selection = None
         self.selections = []
         self.edge_tolerance_px = 6
@@ -60,6 +61,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.xray_mode = 'Off'
         self.sketch_xray = True
         self.sketch_opacity = .35
+        self.xray_opacity = .85
         self.sketch_face_enabled = True
         self.contrast_mode = 'Auto'
         self.planar_normals = []
@@ -328,21 +330,31 @@ class Viewport(QVTKRenderWindowInteractor):
         return bool(camera.GetParallelProjection() and any(
             abs(sum(a*b for a,b in zip(direction,n))) >= .999390827 for n in normals))
 
+    def palette_rgb(self, key, fallback):
+        return self.palette_colors.get(key, fallback)
+
     def apply_solid_style(self):
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
         # Editing owns opacity; explicit model X-Ray resumes after Finish.
-        opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (.85 if explicit else 1.)
+        opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (self.xray_opacity if explicit else 1.)
         self.actor.GetProperty().SetOpacity(opacity)
         self.edge_actor.GetProperty().SetOpacity(opacity)
         contrast = self.high_contrast()
-        self.edge_actor.GetProperty().SetColor(*((.055, .075, .095) if contrast else (.13, .20, .25)))
+        self.edge_actor.GetProperty().SetColor(*self.palette_rgb(
+            'viewport.contrast_edges' if contrast else 'viewport.edges',
+            (.055, .075, .095) if contrast else (.13, .20, .25)))
         # Opaque dark boundaries contrast against pale solids, retaining real depth.
         if contrast:
             self.edge_actor.GetProperty().SetOpacity(1.)
-        self.actor.GetProperty().SetColor(*((1., .65, .15) if self.xray_mode == 'Orange' else (.65, .79, .86)))
+        self.actor.GetProperty().SetColor(*self.palette_rgb(
+            {'Orange':'xray.orange', 'Celadon':'xray.celadon'}.get(self.xray_mode, 'viewport.model'),
+            (1., .65, .15) if self.xray_mode == 'Orange' else (.65, .79, .86)))
         # A brighter warm selection distinguishes it from orange reference bodies.
-        self.highlight_actor.GetProperty().SetColor(*((1., .93, .65) if self.xray_mode == 'Orange' else (1., .65, .15)))
+        key = 'viewport.selected_edges' if self.selections and all(s.kind == 'edge' for s in self.selections) else 'viewport.faces'
+        key = {'Orange':'xray.orange_highlight', 'Celadon':'xray.celadon_highlight'}.get(self.xray_mode, key)
+        self.highlight_actor.GetProperty().SetColor(*self.palette_rgb(
+            key, (1., .93, .65) if self.xray_mode == 'Orange' else (1., .65, .15)))
 
     def apply_display_mode(self):
         self.apply_solid_style()
