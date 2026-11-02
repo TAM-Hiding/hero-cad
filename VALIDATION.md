@@ -1446,3 +1446,134 @@ viewport-only regeneration/remesh counters were verified across both runs.
 The diagnostics build contains no accepted optimization; run-to-run timing
 variation is not reported as a speedup. Raw data is committed under
 `docs/benchmarks/audit-041-{baseline,diagnostics}.json`.
+
+## Work Order #042 — atomic document and display updates
+
+2026-10-31. Baseline: merged PR #41,
+`d2d556f8edc2e88a1a7b4b987eef4abe1d31cb26`.
+The existing pinned Python 3.12 environment is retained. No repository dependencies,
+lock files, geometry algorithms or document schema versions changed.
+
+Final full validation used actual Qt xcb / software OpenGL under Xvfb. As in #41,
+this sandbox requires TCP-X11 instead of its default Unix-socket transport:
+
+```sh
+Xvfb :341 -screen 0 1280x1024x24 -listen tcp -nolisten unix -ac > /tmp/hero-xserver341.log 2>&1 &
+server_pid=$!
+trap 'kill "$server_pid" 2>/dev/null' EXIT
+sleep 1
+DISPLAY=127.0.0.1:341 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q
+```
+
+- **Final full suite: 802 passed, 149 upstream warnings, 236.52 s. No failures or
+  skips.** This includes 25 new transaction tests and existing real framebuffer,
+  native geometry/reference, saved-document and launcher checks.
+- `desktop-file-utils` was installed in this test environment, so #41's previously
+  skipped standard desktop validator also passed. Runtime test prerequisites were
+  restored after this hosted environment reset; no app dependency was added.
+- Latest focused transaction/preview/sketch-reuse suite: **52 passed**, 26.27 s.
+- Geometry/document requirement: `QT_QPA_PLATFORM=offscreen .venv/bin/pytest
+  tests/test_document.py -q`: **23 passed**, 0.78 s.
+- `.venv/bin/pip check`: **No broken requirements found**.
+- `git diff --check` and compilation of changed modules, tests and benchmark tools:
+  passed.
+- Existing leaf-sketch CPU benchmark, after adapting its instrumentation to follow
+  candidate instances: `QT_QPA_PLATFORM=offscreen PYTHONPATH=.:src .venv/bin/python
+  tools/benchmark_leaf_sketch_commit.py --samples 1`: completed all six cases;
+  **zero solid regeneration and zero solid-display reconstruction** on each leaf
+  insertion. Render is deliberately disabled in that tool; its startup EGL
+  warnings are not treated as rendering verification.
+
+Investigation/iteration results are not hidden: the first operation-focused pass
+found a constructor-count assertion that needed to follow actual regeneration on
+candidate copies (retaining its zero/one evaluation assertions). An intermediate
+full suite returned **795 passed / 1 failed** because the existing `world_path`
+query had been removed; it was restored. A subsequent full suite returned
+**800 passed / 1 failed** because unconditional support-overlay reconstruction
+broke existing mesh reuse; preparation now respects unchanged native geometry.
+Both regressions are fixed, and neither existing assertion was removed or weakened.
+The final 802-test run above includes those tests and the additional cached-preview
+Properties regression. The warnings are VTK NumPy array-shape deprecations.
+
+Properties failures injected at tessellation, edge conversion, picking-map,
+mapper creation, sketch/highlight/support preparation and post-mapper installation
+preserve the committed Document object, evaluated state, history lists, selection
+and picking data. Exact file bytes remain unchanged after saving a rejected edit.
+Successful edits and expected unresolved descendants retain normal Undo/Redo and
+save/reopen behavior. Operation Apply is tested with regeneration and matching
+surface tessellation disabled: it adopts its evaluated preview after final display
+preparation. Cancel restores retained meshes while meshing is unavailable.
+
+Sequential baseline/revised Properties and Undo/Redo measurements, source/harness
+fingerprints, real shaded-body framebuffer checks and process memory observations
+are recorded in [the implementation report](docs/atomic-document-display-042.md)
+and `docs/benchmarks/atomic-042-{baseline,revised}.json`. No timing thresholds enter
+CI. The guarantees exclude native crashes, graphics-driver failure and arbitrary
+external mutation of the live Document without the window staging boundary;
+see the report for callback, preference and long-history limits.
+
+Final sequential comparison (three samples, 5/20/50 features) verified exactly one
+regeneration/surface build/edge build per Properties edit and per Undo/Redo in both
+versions. Revised adoption medians were below 0.03 ms. Properties totals were
+80.9→87.2, 395.7→402.3 and 1588.6→1511.9 ms; small-model Undo/Redo increased about
+27/28 ms. These real UI/software-GL samples include fixed mapper/publication and
+refresh costs and ordinary shared-host variation; no speedup or universal latency
+guarantee is claimed. Full breakdowns and the fixed-overhead follow-up are in the
+report. Matching shaded-body pixel counts and current source/harness SHA-256
+fingerprints were checked before committing the raw data.
+
+### PR #42 pre-merge follow-up — hidden stereo and circle input
+
+2026-10-31. Existing branch baseline:
+`a267f7ede52a31ac949043ba62aee7364e32b074`; main comparison:
+`d2d556f8edc2e88a1a7b4b987eef4abe1d31cb26`.
+
+A controlled Qt key **3** on both sources toggled native VTK `StereoRender`
+from 0 to 1, with type RedBlue. The background framebuffer pixel changed from
+(23,31,41) to (31,0,31), and every framebuffer green component became zero.
+Native actor count stayed constant. A second 3 restored normal rendering.
+Seven-sample software-GL render medians were 7.53→19.84→6.89 ms on old #42 and
+8.02→20.74→7.56 ms on main. This is a confirmed pre-existing shortcut hazard,
+not proof of a shader or geometry failure. The user's exact Join/focus/keypress
+sequence was not available.
+
+The narrow change consumes unclaimed viewport key 3 after construction numeric
+routing and on release. The corrected probe stayed stereo-off with identical
+normal background through both presses (6.62 / 6.68 / 6.99 ms). Native scene,
+renderer framework, actor styling and all transaction mechanisms are retained.
+No circle conversion or label change was justified: both input modes and actual
+OCCT geometry matched all tested values, including Radius 4.99999 and Diameter
+9.99998. See [full findings and raw probe data](docs/viewport-circle-followup-042.md).
+
+Focused command under TCP-Xvfb:
+
+```sh
+DISPLAY=127.0.0.1:75 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/pytest tests/test_viewport_circle_followup_042.py tests/test_dimension_focus.py tests/test_precision.py tests/test_atomic_updates_042.py -q
+```
+
+**84 passed**, 16 upstream warnings, 39.99 s. This exercises the real Qt key route,
+actual framebuffer, three/four-body Join/cancel/rejection/recovery, interrupted
+previews, layer/actor identities, picking maps, subsequent navigation, circle
+preview/native radius/extruded bounds/volume/Properties/save/reopen, numeric 3,
+mode reset and typed/Tab/click entry. Existing snapping tests remain enabled.
+
+Full command on the same real X11/software-GL display:
+
+```sh
+DISPLAY=127.0.0.1:75 QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=1 .venv/bin/pytest -q
+```
+
+**829 passed, 0 failed, 0 skipped**, 165 upstream warnings, **252.67 s**.
+All original 802 tests remain, with 27 follow-up cases. `pip check`, compilation
+and whitespace checks pass. No dependencies were changed. Runtime prerequisites
+were restored in the re-created workspace; the previous branch was re-cloned.
+
+Before the fix, the initial follow-up matrix returned 19 passed / 1 failed because
+the key-3 regression enabled stereo. During test development, its new framebuffer
+brightness check was adjusted to detect the existing dim blue/green isometric
+solid palette while excluding background/axes; stereo-state and exact framebuffer
+invariance assertions were retained. No existing test was removed or weakened.
+The controlled multi-body Join flows did not reproduce purple by themselves.
+No actor/resource leak was established, so no speculative cleanup/refactor was
+introduced. Remaining limits are the user's uncaptured original event sequence,
+unreproduced circle mismatch and unavailable original model/NVIDIA desktop.

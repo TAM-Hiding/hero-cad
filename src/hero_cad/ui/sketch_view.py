@@ -106,6 +106,7 @@ class SketchView:
         return max(self.viewport.GetRenderWindow().GetSize()[1], 1)/(2*camera.GetParallelScale())
 
     def world_path(self, feature, entity, count):
+        """Existing current-view query; candidate preparation uses its own cache."""
         key = (feature.parameters.frame, entity, count)
         previous = self._path_cache.get(entity.id)
         if previous is None or previous[0] != key:
@@ -113,47 +114,83 @@ class SketchView:
             self._path_cache[entity.id] = (key, path)
         return self._path_cache[entity.id][1]
 
-    def prepare_display(self):
-        """Refresh quality bands before rendering, never recursively render here."""
+    def prepare_features(self, features, *, reset_preview=False, finish=False):
+        """Build changed sketch layers off-scene, without modifying live caches."""
+        from vtkmodules.vtkRenderingCore import vtkPolyDataMapper
+        features = tuple(features)
+        feature = None if finish else next((f for f in features if f.id == self.active_id), None)
+        active_id = self.active_id if feature else None
+        keep = {e.id for f in features for e in f.parameters.entities}
+        entity_ids = set() if finish else self.entity_ids.intersection(keep)
+        cache = self._path_cache
+        attrs, layers = {}, []
+        def world_path(f, e, n):
+            nonlocal cache
+            key = (f.parameters.frame, e, n)
+            previous = cache.get(e.id)
+            if previous is None or previous[0] != key:
+                if cache is self._path_cache:
+                    cache = cache.copy()
+                cache[e.id] = (key, tuple(f.parameters.frame.to_world(p) for p in display_points(e, n)))
+            return cache[e.id][1]
+        def layer(name, actor, paths):
+            mesh = paths_mesh(paths)
+            mapper = vtkPolyDataMapper()
+            mapper.ScalarVisibilityOff()
+            mapper.SetInputData(mesh)
+            layers.append((name, actor, mapper, bool(paths)))
         ppm = self.pixels_per_mm
-        context = bool(self.feature)
         profiles = getattr(self.viewport, 'profiles', None)
-        scope = self.active_id or (profiles.scope_id if profiles and profiles.active else None)
-        visible = tuple(f for f in self.features if f.sketch_visible or f.id == scope)
+        scope = None if finish else active_id or (profiles.scope_id if profiles and profiles.active else None)
+        visible = tuple(f for f in features if f.sketch_visible or f.id == scope)
         rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
         key = (visible, tuple(count for _, _, count in rows))
         if key != self._display_key:
-            self.mapper.SetInputData(paths_mesh([self.world_path(f, e, n) for f, e, n in rows]))
-            self.mapping = [(f.id, e.id) for f, e, _ in rows]
-            self.actor.SetVisibility(bool(rows))
-            self._display_key = key
-        profiles = getattr(self.viewport, 'profiles', None)
-        scope = self.active_id or (profiles.scope_id if profiles and profiles.active else None)
+            layer('mapper', self.actor, [world_path(f, e, n) for f, e, n in rows])
+            attrs['mapping'] = [(f.id, e.id) for f, e, _ in rows]
+            attrs['_display_key'] = key
         foreground_key = (key, scope)
         if foreground_key != self._foreground_key:
-            paths = [self.world_path(f,e,n) for f,e,n in rows if f.id == scope]
-            self.foreground_mapper.SetInputData(paths_mesh(paths))
-            self.foreground_actor.SetVisibility(bool(paths))
-            self._foreground_key = foreground_key
-        for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor):
-            self.viewport.sketch_foreground(actor, bool(self.active_id))
-        highlight_key = (key, self.active_id, frozenset(self.entity_ids))
+            layer('foreground_mapper', self.foreground_actor, [world_path(f,e,n) for f,e,n in rows if f.id == scope])
+            attrs['_foreground_key'] = foreground_key
+        highlight_key = (key, active_id, frozenset(entity_ids))
         if highlight_key != self._highlight_key:
-            paths = [self.world_path(f, e, n) for f, e, n in rows if e.id in self.entity_ids and (not self.active_id or f.id == self.active_id)]
-            self.highlight_mapper.SetInputData(paths_mesh(paths))
-            self.highlight_actor.SetVisibility(bool(paths))
-            self._highlight_key = highlight_key
+            layer('highlight_mapper', self.highlight_actor,
+                  [world_path(f,e,n) for f,e,n in rows if e.id in entity_ids and (not active_id or f.id == active_id)])
+            attrs['_highlight_key'] = highlight_key
         tool = self.controller.tool
-        preview_entity = tool.preview_entity if tool else None
-        preview = self.controller.preview
+        preview_entity = tool.preview_entity if tool and not reset_preview else None
+        preview = self.controller.preview if not reset_preview else ()
         count = segment_count(preview_entity, ppm)
-        preview_key = (self.feature.parameters.frame if self.feature else None, self.active_id, preview_entity, count, preview if preview_entity is None else ())
+        preview_key = (feature.parameters.frame if feature else None, active_id, preview_entity, count, preview if preview_entity is None else ())
         if preview_key != self._preview_key:
             path = display_points(preview_entity, count) if preview_entity else preview
-            paths = [[self.feature.parameters.frame.to_world(p) for p in path]] if self.feature and path else []
-            self.preview_mapper.SetInputData(paths_mesh(paths))
-            self.preview_actor.SetVisibility(bool(paths))
-            self._preview_key = preview_key
+            layer('preview_mapper', self.preview_actor, [[feature.parameters.frame.to_world(p) for p in path]] if feature and path else [])
+            attrs['_preview_key'] = preview_key
+        if cache is not self._path_cache or any(k not in keep for k in cache):
+            attrs['_path_cache'] = {k: v for k, v in cache.items() if k in keep}
+        return attrs, layers
+
+    def install_display(self, prepared):
+        attrs, layers = prepared
+        for name, actor, mapper, visible in layers:
+            actor.SetMapper(mapper)
+            actor.SetVisibility(visible)
+            setattr(self, name, mapper)
+        self.__dict__.update(attrs)
+
+    def display_state(self):
+        attrs = {name: getattr(self, name) for name in ('mapping', '_path_cache', '_display_key', '_foreground_key', '_highlight_key', '_preview_key')}
+        layers = [(name, actor, getattr(self, name), bool(actor.GetVisibility())) for name,actor in
+                  (('mapper', self.actor), ('foreground_mapper', self.foreground_actor),
+                   ('highlight_mapper', self.highlight_actor), ('preview_mapper', self.preview_actor))]
+        return attrs, layers
+
+    def prepare_display(self):
+        """Refresh quality bands before rendering, never recursively render here."""
+        self.install_display(self.prepare_features(self.features))
+        for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor):
+            self.viewport.sketch_foreground(actor, bool(self.active_id))
 
     def enter(self, identifier):
         self.viewport.profiles.clear()

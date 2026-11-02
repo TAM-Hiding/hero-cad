@@ -1,5 +1,6 @@
 """OCCT display, bounded orthographic camera and transient subshape selection."""
 from math import dist, isfinite, radians, tan
+from dataclasses import dataclass
 from itertools import product
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QMouseEvent
@@ -19,6 +20,16 @@ from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE
 from hero_cad.ui.display_geometry import (
     Selection, edge_mesh, selected_mesh, subshapes, tessellate,
 )
+
+
+@dataclass(frozen=True)
+class PreparedSolid:
+    mapper: object
+    edge_mapper: object
+    faces: list
+    edges: list
+    normals: list
+    span: float
 
 
 class Viewport(QVTKRenderWindowInteractor):
@@ -132,22 +143,51 @@ class Viewport(QVTKRenderWindowInteractor):
             self.sketch_renderer.RemoveActor(actor)
             destination.AddActor(actor)
 
-    def set_shape(self, shape, fit=False):
-        # Build display data before replacing current mappings.
-        surface, wire = tessellate(shape), edge_mesh(shape)
-        self.faces = subshapes(shape, TopAbs_FACE)
-        self.planar_normals = []
-        for face in self.faces:
+    def prepare_shape(self, shape, *, surface=None):
+        """Prepare meshes, picking maps and detached mappers; publish nothing."""
+        surface = tessellate(shape) if surface is None else surface
+        wire = edge_mesh(shape)
+        faces, edges = subshapes(shape, TopAbs_FACE), subshapes(shape, TopAbs_EDGE)
+        normals = []
+        for face in faces:
             try:
-                self.planar_normals.append(planar_view_target(face, (0, 0, 0)).normal)
+                normals.append(planar_view_target(face, (0, 0, 0)).normal)
             except ValueError:
                 pass
-        self.edges = subshapes(shape, TopAbs_EDGE)
-        self.mapper.SetInputData(surface)
-        self.edge_mapper.SetInputData(wire)
-        self.apply_display_mode()
+        mapper, edge_mapper = vtkPolyDataMapper(), vtkPolyDataMapper()
+        for item, mesh in ((mapper, surface), (edge_mapper, wire)):
+            item.ScalarVisibilityOff()
+            item.SetInputData(mesh)
+        edge_mapper.SetResolveCoincidentTopologyToPolygonOffset()
+        edge_mapper.SetRelativeCoincidentTopologyLineOffsetParameters(0, -1)
         bounds = surface.GetBounds()
-        self.model_span = max(dist(bounds[::2], bounds[1::2]), 0.001) if surface.GetNumberOfPoints() else self.model_span
+        span = max(dist(bounds[::2], bounds[1::2]), 0.001) if surface.GetNumberOfPoints() else self.model_span
+        return PreparedSolid(mapper, edge_mapper, faces, edges, normals, span)
+
+    def solid_state(self):
+        return PreparedSolid(self.mapper, self.edge_mapper, getattr(self, 'faces', []),
+                             getattr(self, 'edges', []), self.planar_normals, self.model_span)
+
+    def install_shape(self, prepared):
+        """Swap references only; no geometry conversion, render or Qt signals."""
+        self.actor.SetMapper(prepared.mapper)
+        self.edge_actor.SetMapper(prepared.edge_mapper)
+        self.mapper, self.edge_mapper = prepared.mapper, prepared.edge_mapper
+        self.faces, self.edges = prepared.faces, prepared.edges
+        self.planar_normals, self.model_span = prepared.normals, prepared.span
+
+    def set_shape(self, shape, fit=False):
+        prepared = self.prepare_shape(shape)
+        previous = self.solid_state()
+        try:
+            self.install_shape(prepared)
+        except Exception:
+            self.install_shape(previous)
+            raise
+        self.present_shape(fit=fit)
+
+    def present_shape(self, fit=False):
+        self.apply_display_mode()
         self.clear_selection(render=False)
         if fit:
             self.renderer.ResetCamera()
@@ -607,7 +647,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.mousePressEvent(event)
 
     def keyReleaseEvent(self, event):
-        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P):
+        if event.key() in (Qt.Key_W, Qt.Key_S, Qt.Key_P, Qt.Key_3):
             event.accept()
             return
         super().keyReleaseEvent(event)
@@ -626,6 +666,11 @@ class Viewport(QVTKRenderWindowInteractor):
             if self.dimensions.begin(event.text()):
                 event.accept()
                 return
+        # VTK's native '3' shortcut toggles Red/Blue stereo for the entire
+        # framebuffer. HERO has no stereo command; numeric entry above owns 3.
+        if event.key() == Qt.Key_3:
+            event.accept()
+            return
         if event.key() in (Qt.Key_Delete, Qt.Key_Backspace):
             self.deleteRequested.emit()
             return

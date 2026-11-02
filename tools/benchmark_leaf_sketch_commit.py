@@ -68,13 +68,17 @@ def main():
                 setattr(owner, name, timed)
                 return original
             import hero_cad.document as module
-            wrap(w.document, 'add_entity', 'document')
-            wrap(w.document, '_regenerate', 'regeneration')
+            # Staged edits run on a Document copy. Class instrumentation follows
+            # that candidate instead of binding the callback to the live model.
+            original_insert = wrap(Document, 'add_entity', 'document')
+            original_regenerate = wrap(Document, '_regenerate', 'regeneration')
             wrap(w, 'display_solids', 'display')
             original_sketch = wrap(module, 'make_sketch', 'sketch')
             start = perf_counter()
             w.entity_created(Line(0, 60, 1, 61))
             total = (perf_counter()-start)*1000
+            Document.add_entity = original_insert
+            Document._regenerate = original_regenerate
             module.make_sketch = original_sketch
             # Restore the bound window method (avoid nested instrumentation).
             del w.display_solids

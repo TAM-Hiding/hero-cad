@@ -5,7 +5,6 @@ import re
 from PySide6.QtCore import Qt, QTimer, QSignalBlocker, QSize
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
-from hero_cad.document import Document
 from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
 from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
@@ -29,6 +28,8 @@ class OperationPanel(QDockWidget):
         self.quick_mode = False
         self.chamfer_parameters = None
         self.candidate = None
+        self.preview_surface = None
+        self._base_display = None
         self._form_hint = None
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
@@ -111,6 +112,7 @@ class OperationPanel(QDockWidget):
         self.escape.activated.connect(self.cancel)
         self.layout_controls()
         self.hide()
+        window.auto_hide_sketches.toggled.connect(self.invalidate)
 
     def open(self, *, source=None, bodies=(), feature=None, quick=False):
         self.cancel()
@@ -237,11 +239,13 @@ class OperationPanel(QDockWidget):
             had_preview = bool(self.actor.GetVisibility())
             self.preview_timer.stop()
             self.candidate = None
+            self.preview_surface = None
+            self.mapper.SetInputData(None)
             self.actor.VisibilityOff()
             self.apply_button.setEnabled(False)
             self.feedback_text('Shared equal distance. Preview or Apply to evaluate all selected edges.')
             if had_preview:
-                self.window.display_solids()
+                self.restore_display()
             try:
                 self.input_distance()
             except ValueError as error:
@@ -255,6 +259,8 @@ class OperationPanel(QDockWidget):
         had_preview = bool(self.actor.GetVisibility())
         self.preview_timer.stop()
         self.candidate = None
+        self.preview_surface = None
+        self.mapper.SetInputData(None)
         self.tools_label.setText('Extruded sketch profile' if self.source else ', '.join(
             self.window.body_label(i) for i in self.bodies if i != self.target.currentData()))
         self.apply_button.setEnabled(False)
@@ -263,7 +269,7 @@ class OperationPanel(QDockWidget):
         self.direction.setEnabled(bool(self.source) and self.operation.currentData() == 'cut' and self.extent.currentData() == 'through_all')
         self.actor.VisibilityOff()
         if not self.quick_mode or had_preview:
-            self.window.display_solids()
+            self.restore_display()
             self.window.viewport.sketch.update(self.window.viewport.sketch.features)
             self.window.viewport.GetRenderWindow().Render()
         if self.quick_mode:
@@ -401,25 +407,37 @@ class OperationPanel(QDockWidget):
             features = tuple(feature if f.id == self.edit_id else f for f in d.features)
             if not self.edit_id:
                 features += (feature,)
-            candidate = Document(features=features)
+            if (feature.type == 'extrude' and not self.edit_id
+                    and self.window.auto_hide_sketches.isChecked()):
+                features = tuple(replace(f, sketch_visible=False) if f.id == feature.parameters.sketch_id else f for f in features)
+            candidate = d.candidate()
+            candidate.set_features(features)
             if not candidate.statuses[feature.id].valid:
                 raise ValueError(candidate.statuses[feature.id].error)
             # Preview every resulting body; no old opaque target underneath.
-            shapes = [candidate.solid_shapes[i] for i in candidate.active_body_ids
-                      if self.window.show_base_box.isChecked() or candidate.feature(i).type != 'box']
-            self.mapper.SetInputData(tessellate(compound(shapes)))
+            bodies = tuple(i for i in candidate.solid_shapes if i in candidate.active_body_ids
+                           and (self.window.show_base_box.isChecked() or candidate.feature(i).type != 'box'))
+            mesh = tessellate(compound(candidate.solid_shapes[i] for i in bodies))
+            self.mapper.SetInputData(mesh)
+            if self._base_display is None:
+                v = self.window.viewport
+                self._base_display = (d, d.features, self.window.show_base_box.isChecked(), v.solid_state(),
+                                      v.selection, v.selections, v.highlight_mapper.GetInput(), v.highlight_actor.GetVisibility())
             self.window.viewport.set_shape(compound(()))
             self.actor.VisibilityOn()
             self.window.viewport.clamp_zoom()
             self.window.viewport.GetRenderWindow().Render()
             self.candidate,self.baseline = candidate,d.features
+            self.preview_surface = (bodies, mesh)
             unresolved = sum(not s.valid for s in candidate.statuses.values())
             self.feedback_text(f'Result preview · {len(candidate.active_body_ids)} current body/bodies · {volume(candidate.shape):.9g} mm³'
                                   + (f' · {unresolved} unresolved dependent feature(s); see browser after Apply' if unresolved else ''))
             self.apply_button.setEnabled(True)
             return True
         except Exception as error:
-            self.window.display_solids()
+            self.preview_surface = None
+            self.mapper.SetInputData(None)
+            self.restore_display()
             self.feedback_text(str(error))
             self.window.statusBar().showMessage(str(error),6000)
             return False
@@ -431,20 +449,25 @@ class OperationPanel(QDockWidget):
             return False
         feature = self.definition()
         try:
-            features = self.candidate.features
-            if (feature.type == 'extrude' and not any(f.id == feature.id for f in self.baseline)
-                    and self.window.auto_hide_sketches.isChecked()):
-                features = tuple(replace(f, sketch_visible=False)
-                                 if f.id == feature.parameters.sketch_id else f for f in features)
-            self.window.document.set_features(features)
+            prepared = self.window.prepare_document_display(self.candidate, fit=True, preview_surface=self.preview_surface, finish_sketch=True)
+            self.window.publish_document_display(self.candidate, prepared)
         except Exception as error:
+            from hero_cad.features import FeatureError
+            self.window.document.last_failure = FeatureError('display', str(error), stage=getattr(error, 'stage', None) or 'display_preparation')
+            self.candidate = self.preview_surface = None
+            self.mapper.SetInputData(None)
+            self.apply_button.setEnabled(False)
+            self.actor.VisibilityOff()
+            self.restore_display()
             self.feedback_text(str(error))
             return False
         self.preview_timer.stop()
         self.active = False
         self.candidate = None
+        self.preview_surface = self._base_display = None
         self.apply_button.setEnabled(False)
         self.actor.VisibilityOff()
+        self.mapper.SetInputData(None)
         self.hide()
         w = self.window
         if w.viewport.sketch.active_id:
@@ -457,20 +480,44 @@ class OperationPanel(QDockWidget):
         w.viewport.setFocus(Qt.OtherFocusReason)
         return True
 
-    def cancel(self, *_):
+    def restore_display(self):
+        """Restore retained valid mappings without calling a failing mesher again."""
+        saved, self._base_display = self._base_display, None
+        if saved is None:
+            return
+        w, v = self.window, self.window.viewport
+        doc, definitions, checked, solid, selection, selections, highlight, highlighted = saved
+        if w.document is doc and doc.features is definitions and checked == w.show_base_box.isChecked():
+            v.install_shape(solid)
+            v.selection, v.selections = selection, selections
+            v.highlight_mapper.SetInputData(highlight)
+            v.highlight_actor.SetVisibility(highlighted)
+            v.apply_display_mode()
+            v.selectionChanged.emit(selection)
+            v.clamp_zoom()
+            v.GetRenderWindow().Render()
+        else:
+            w.display_solids()
+
+    def cancel(self, *_, restore=True):
         self.open_timer.stop()
         self.preview_timer.stop()
         self.actor.VisibilityOff()
         was_active,self.active = self.active,False
         self.candidate = None
+        self.preview_surface = None
+        self.mapper.SetInputData(None)
         self.apply_button.setEnabled(False)
         self.hide()
         if was_active:
             self.window.profile_action.setChecked(False)
             self.window.viewport.profiles.set_mode(False)
-            self.window.display_solids()
-            self.window.viewport.sketch.update(self.window.viewport.sketch.features)
-            self.window.viewport.GetRenderWindow().Render()
+            if restore:
+                self.restore_display()
+                self.window.viewport.sketch.update(self.window.viewport.sketch.features)
+                self.window.viewport.GetRenderWindow().Render()
+            else:
+                self._base_display = None
             self.window.update_actions()
             self.window.activateWindow()
             self.window.viewport.setFocus(Qt.OtherFocusReason)

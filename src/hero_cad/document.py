@@ -16,6 +16,35 @@ from hero_cad.chamfers import edge_reference, resolve_edges, make_chamfer, tange
 
 
 class Document:
+    # Candidate publication copies evaluated state and the existing history,
+    # never widgets, persisted metadata or a second set of feature definitions.
+    _evaluation_fields = ('features', 'shape', 'sketch_shapes', 'statuses', 'solid_shapes',
+                          'active_body_ids', '_regenerated_features', 'face_maps',
+                          'face_lineages', 'source_faces', 'last_failure', '_undo', '_redo')
+
+    def candidate(self):
+        """Stage an ordinary edit using the same evaluator and rejection policy.
+
+        Native shapes/maps are read-only inputs until existing mutators replace
+        them. Only history lists require copying; no geometry is regenerated here.
+        """
+        from copy import copy
+        result = copy(self)
+        result._undo, result._redo = self._undo[:], self._redo[:]
+        result._candidate_owner = self
+        result._candidate_baseline = self._publication_token()
+        return result
+
+    def _publication_token(self):
+        return (self.features, tuple(self._undo), tuple(self._redo), self.path, self._saved_features)
+
+    def adopt_candidate(self, candidate):
+        """Publish already evaluated state once; do not regenerate on adoption."""
+        if (getattr(candidate, '_candidate_owner', None) is not self
+                or candidate._candidate_baseline != self._publication_token()):
+            raise ValueError('Document changed; prepare the operation again')
+        self.__dict__ = {**self.__dict__, **{name: getattr(candidate, name) for name in self._evaluation_fields}}
+
     def __init__(self, parameters=None, *, features=None):
         self.features = tuple(features) if features is not None else (Feature('box', parameters or BoxParameters()),)
         self.shape, self.sketch_shapes, self.statuses, self.solid_shapes = self._regenerate(self.features)

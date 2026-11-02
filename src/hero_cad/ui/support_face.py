@@ -3,27 +3,22 @@ from hero_cad.attachments import resolve_snapshot, resolve_supported_face, refer
 from hero_cad.ui.display_geometry import selected_mesh
 
 
-def update_support_face(window):
-    v, doc = window.viewport, window.document
-    actor = v.support_actor
-    actor.VisibilityOff()
-    sketch = v.sketch.feature
+def prepare_support_face(window, document, sketch, faces, surface, checked, *, force=False):
+    """Resolve/extract into candidate data without changing the live overlay."""
+    v, doc = window.viewport, document
     if not v.sketch_face_enabled or sketch is None or not sketch.parameters.attachment:
-        return
+        return None, False, None
     reference = sketch.parameters.attachment
     if not doc.statuses[sketch.id].valid:
-        return
+        return None, False, None
     definitions = {f.id: f for f in doc.features}
     if reference.parent_id not in definitions:
-        return
-    # Immutable authoritative definitions up to the support owner invalidate the
-    # presentation when relevant geometry changes, but not on leaf sketch edits.
+        return None, False, None
     parent_index = next(i for i, f in enumerate(doc.features) if f.id == reference.parent_id)
-    key = (doc, reference, doc.features[:parent_index + 1], window.show_base_box.isChecked())
-    if getattr(v, '_support_key', None) == key:
-        actor.SetVisibility(v._support_available)
-        return
-    v._support_key, v._support_available = key, False
+    owner = getattr(doc, '_candidate_owner', doc)
+    key = (owner, reference, doc.features[:parent_index + 1], checked)
+    if not force and getattr(v, '_support_key', None) == key:
+        return key, v._support_available, v.support_mapper.GetInput()
     if reference.snapshot is not None:
         result = resolve_snapshot(reference, doc.solid_shapes, doc.face_lineages)
         face = result.face if result.state == ResolutionState.RESOLVED else None
@@ -35,10 +30,18 @@ def update_support_face(window):
         token = reference.face if parent.type == 'box' else reference_key(reference)
         face = doc.face_maps.get(parent.id, {}).get(token)
     if face is None:
-        return
-    index = next((i for i, candidate in enumerate(v.faces) if candidate.IsSame(face)), None)
+        return key, False, None
+    index = next((i for i, candidate in enumerate(faces) if candidate.IsSame(face)), None)
     if index is None:
-        return  # Hidden/historical support has no displayed triangles; never substitute.
-    v.support_mapper.SetInputData(selected_mesh(v.mapper.GetInput(), 'face_id', index))
-    v._support_available = True
-    actor.VisibilityOn()
+        return key, False, None  # Hidden/historical support: never substitute.
+    return key, True, selected_mesh(surface, 'face_id', index)
+
+
+def update_support_face(window):
+    v = window.viewport
+    key, available, mesh = prepare_support_face(window, window.document, v.sketch.feature,
+                                               v.faces, v.mapper.GetInput(), window.show_base_box.isChecked())
+    if available and mesh is not v.support_mapper.GetInput():
+        v.support_mapper.SetInputData(mesh)
+    v._support_key, v._support_available = key, available
+    v.support_actor.SetVisibility(available)

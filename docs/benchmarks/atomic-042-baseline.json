@@ -1,0 +1,434 @@
+{
+  "environment": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "qt_platform": "xcb",
+    "software_gl": "1",
+    "samples": 3,
+    "harness_sha256": "7200441e11a5141be144bbe4ba192e18f9f6cbb036a5fc4ab37804e0a80a0737",
+    "ocp": "7.9.3.1",
+    "qt": "6.8.3",
+    "vtk": "9.6.2",
+    "logical_cpus": 9,
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "source_sha256": {
+      "document.py": "e5d80d36a50906a8aa50dbe9c1f7fadd2536cd62894338bfd46ebf8f35324b53",
+      "features.py": "736fae95369d145bfe620673fea1ad4168fed110abd6bcc9ab723abb31551f8d",
+      "ui/main_window.py": "ec49057dd4abfd2fa22081336bd7e5845486e1f518c4c87d503b94808641c06b",
+      "ui/viewport.py": "17d0f34396bbea82f9d2f255b49ddf8aae52f38f3088710ef6162ea2ec3d45c0",
+      "ui/sketch_view.py": "1093ca42c55a3dd5f0fe57272f962988e968763b3d7b66399a475f55046d20db",
+      "ui/support_face.py": "4c76c1f7725e2d1fbc4d13743a6aba703d7eb47ce0f0fdfe2d1361d38e9316b2",
+      "ui/operation_panel.py": "e19a319966b751610d67bd9ecc33145f80279e00830f0cd0371cfd046a98ec07"
+    }
+  },
+  "cases": [
+    {
+      "features": 5,
+      "median_ms": {
+        "total": 80.87044499961848,
+        "regeneration": 31.261935999737034,
+        "tessellation_conversion": 19.517139000072348,
+        "edge_mesh": 0.7755950000500889,
+        "display_mesh_preparation": 20.292734000122437,
+        "candidate_publication": 0.0
+      },
+      "calls_per_edit": {
+        "total": [
+          0,
+          0,
+          0
+        ],
+        "regeneration": [
+          1,
+          1,
+          1
+        ],
+        "tessellation_conversion": [
+          1,
+          1,
+          1
+        ],
+        "edge_mesh": [
+          1,
+          1,
+          1
+        ],
+        "display_mesh_preparation": [
+          0,
+          0,
+          0
+        ],
+        "candidate_publication": [
+          0,
+          0,
+          0
+        ]
+      },
+      "history": {
+        "undo": {
+          "median_ms": {
+            "total": 93.80021000015404,
+            "regeneration": 30.62547600029575,
+            "tessellation_conversion": 19.902964000266365,
+            "edge_mesh": 0.8129900002131762,
+            "display_mesh_preparation": 20.703836000393494,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "redo": {
+          "median_ms": {
+            "total": 93.94753700007641,
+            "regeneration": 31.364277000193397,
+            "tessellation_conversion": 19.96210700008305,
+            "edge_mesh": 0.8069210002759064,
+            "display_mesh_preparation": 20.709130000341247,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "peak_rss_mib": 599.30859375,
+      "viewport_size": [
+        672,
+        708
+      ],
+      "body_pixels": 1418,
+      "framebuffer_nonblank": true
+    },
+    {
+      "features": 20,
+      "median_ms": {
+        "total": 395.7226739998987,
+        "regeneration": 226.45929099962814,
+        "tessellation_conversion": 119.65382400012459,
+        "edge_mesh": 2.6750289998744847,
+        "display_mesh_preparation": 122.31936799980758,
+        "candidate_publication": 0.0
+      },
+      "calls_per_edit": {
+        "total": [
+          0,
+          0,
+          0
+        ],
+        "regeneration": [
+          1,
+          1,
+          1
+        ],
+        "tessellation_conversion": [
+          1,
+          1,
+          1
+        ],
+        "edge_mesh": [
+          1,
+          1,
+          1
+        ],
+        "display_mesh_preparation": [
+          0,
+          0,
+          0
+        ],
+        "candidate_publication": [
+          0,
+          0,
+          0
+        ]
+      },
+      "history": {
+        "undo": {
+          "median_ms": {
+            "total": 412.2255099996437,
+            "regeneration": 220.4365819998202,
+            "tessellation_conversion": 124.83251799994832,
+            "edge_mesh": 2.635290999933204,
+            "display_mesh_preparation": 127.42885099987689,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "redo": {
+          "median_ms": {
+            "total": 450.06194100005814,
+            "regeneration": 235.3701550000551,
+            "tessellation_conversion": 136.1563339996792,
+            "edge_mesh": 2.8427470001588517,
+            "display_mesh_preparation": 139.28529199938566,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "peak_rss_mib": 632.33203125,
+      "viewport_size": [
+        672,
+        708
+      ],
+      "body_pixels": 3282,
+      "framebuffer_nonblank": true
+    },
+    {
+      "features": 50,
+      "median_ms": {
+        "total": 1588.5873329998503,
+        "regeneration": 964.6147180001208,
+        "tessellation_conversion": 541.0391860000345,
+        "edge_mesh": 6.2928889997238,
+        "display_mesh_preparation": 547.2222829998827,
+        "candidate_publication": 0.0
+      },
+      "calls_per_edit": {
+        "total": [
+          0,
+          0,
+          0
+        ],
+        "regeneration": [
+          1,
+          1,
+          1
+        ],
+        "tessellation_conversion": [
+          1,
+          1,
+          1
+        ],
+        "edge_mesh": [
+          1,
+          1,
+          1
+        ],
+        "display_mesh_preparation": [
+          0,
+          0,
+          0
+        ],
+        "candidate_publication": [
+          0,
+          0,
+          0
+        ]
+      },
+      "history": {
+        "undo": {
+          "median_ms": {
+            "total": 1623.4128229998532,
+            "regeneration": 983.2362140000441,
+            "tessellation_conversion": 540.3706350002722,
+            "edge_mesh": 6.589076000182104,
+            "display_mesh_preparation": 546.605007999915,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "redo": {
+          "median_ms": {
+            "total": 1589.4546119998267,
+            "regeneration": 947.3117360003016,
+            "tessellation_conversion": 526.7361269998219,
+            "edge_mesh": 6.8555800003196055,
+            "display_mesh_preparation": 533.5917070001415,
+            "candidate_publication": 0.0
+          },
+          "calls": {
+            "total": [
+              0,
+              0,
+              0
+            ],
+            "regeneration": [
+              1,
+              1,
+              1
+            ],
+            "tessellation_conversion": [
+              1,
+              1,
+              1
+            ],
+            "edge_mesh": [
+              1,
+              1,
+              1
+            ],
+            "display_mesh_preparation": [
+              0,
+              0,
+              0
+            ],
+            "candidate_publication": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      },
+      "peak_rss_mib": 749.5390625,
+      "viewport_size": [
+        672,
+        708
+      ],
+      "body_pixels": 5840,
+      "framebuffer_nonblank": true
+    }
+  ]
+}
