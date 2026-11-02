@@ -6,7 +6,7 @@ from PySide6.QtGui import QColor, QIcon, QPixmap, QPainter
 from PySide6.QtWidgets import QApplication, QStyle
 
 
-def feature_icon(feature, status='valid'):
+def feature_icon(feature, status='valid', palette=None):
     color = None
     if feature.type == 'sketch':
         color = '#E6A04B'
@@ -15,14 +15,15 @@ def feature_icon(feature, status='valid'):
             feature.parameters.operation)
     elif feature.type == 'chamfer':
         color = '#B59BDE'
-    return _color_icon(color, status)
+    status_color = palette.overrides().get('history.'+status) if palette is not None else None
+    return _color_icon(color, status, status_color)
 
 
-@lru_cache(maxsize=24)
-def _color_icon(color, status='valid'):
-    if color is None and status == 'valid':
+@lru_cache(maxsize=128)
+def _color_icon(color, status='valid', status_color=None):
+    if color is None and status == 'valid' and status_color is None:
         return QIcon()  # Keep the theme's existing neutral presentation.
-    pixmap = QPixmap(4 if status == 'valid' else 22, 14)
+    pixmap = QPixmap(4 if status == 'valid' and status_color is None else 22, 14)
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     if color:
@@ -32,6 +33,9 @@ def _color_icon(color, status='valid'):
                   else QStyle.SP_DialogCancelButton)
         painter.setOpacity(1 if status == 'unresolved' else .5)
         painter.drawPixmap(7, 0, QApplication.style().standardIcon(symbol).pixmap(14, 14))
+    if status_color:
+        painter.setPen(QColor(status_color))
+        painter.drawText(7, 0, 15, 14, Qt.AlignCenter, {'valid':'✓', 'unresolved':'!', 'blocked':'×'}[status])
     painter.end()
     icon = QIcon()
     # Keep operation identity intact under the native selection highlight.

@@ -397,3 +397,17 @@ Cut/Join. One connected resulting body remains mandatory. Classification is shar
 within a multi-profile evaluation; no scheduler/cache framework is added.
 Preview/Apply use the existing PR42 candidate/prepared-display publication and
 preview-surface reuse. See [limits and evidence](docs/MULTI_PROFILE_EXTRUSION.md).
+
+## Work Order #044 — experimental palette laboratory
+
+palette.py contains a bounded appearance-role registry and strict complete JSON
+format. Optional color overrides and the Custom switch use the existing Preferences/
+QSettings catalogue; validated batches publish once to the appearance bridge.
+ui/palette_controller.py repaints scoped existing styles, actors, guides and browser
+icons without document mutation, mesh preparation, profile clearing or history
+rebuilding. ui/palette_editor.py is a removable modeless editor. Native/contextual
+fallbacks remain unchanged when no override exists; JSON override metadata preserves
+them during round-trip. Existing renderer callbacks consult overrides so lighting,
+opacity and quality rules stay authoritative. Guide recoloring is independent of
+guide mesh generation. No theming framework, renderer/document schema rewrite,
+new dependency or body-specific color state. See docs/UI_PALETTE_044.md.

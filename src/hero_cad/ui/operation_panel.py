@@ -250,7 +250,7 @@ class OperationPanel(QDockWidget):
             try:
                 self.input_distance()
             except ValueError as error:
-                self.feedback_text(str(error))
+                self.feedback_text(str(error), role='error')
             else:
                 self.apply_button.setEnabled(True)
             self.layout_controls()
@@ -277,14 +277,18 @@ class OperationPanel(QDockWidget):
             try:
                 self.input_distance()
             except ValueError as error:
-                self.feedback_text(str(error))
+                self.feedback_text(str(error), role='error')
             else:
                 self.apply_button.setEnabled(True)
                 self.preview_timer.start()
 
-    def feedback_text(self, text):
+    def feedback_text(self, text, role='warning'):
+        self.feedback.setProperty('paletteDiagnostic', role)
         self.feedback.setText(text)
         self.feedback.setToolTip(text)
+        controller = getattr(self.window, 'palette_controller', None)
+        if controller is not None:
+            controller.apply_diagnostic()
         if self.quick_mode:
             self.layout_controls()
 
@@ -365,7 +369,7 @@ class OperationPanel(QDockWidget):
         try:
             self.input_distance()
         except ValueError as error:
-            self.feedback_text(str(error))
+            self.feedback_text(str(error), role='error')
             self.focus_distance()
             return False
         if self.candidate is None or self.window.document.features != self.baseline:
@@ -443,7 +447,7 @@ class OperationPanel(QDockWidget):
             self.preview_surface = None
             self.mapper.SetInputData(None)
             self.restore_display()
-            self.feedback_text(str(error))
+            self.feedback_text(str(error), role='error')
             self.window.statusBar().showMessage(str(error),6000)
             return False
 
@@ -464,7 +468,7 @@ class OperationPanel(QDockWidget):
             self.apply_button.setEnabled(False)
             self.actor.VisibilityOff()
             self.restore_display()
-            self.feedback_text(str(error))
+            self.feedback_text(str(error), role='error')
             return False
         self.preview_timer.stop()
         self.active = False

@@ -88,20 +88,7 @@ class ViewGuides:
         # In face-edit context, opaque foreground lattice lines can otherwise
         # erase coincident source curves on a parallel plane behind the plate.
         context = bool(sketch and sketch.feature)
-        color = self.COLORS[self.color]
-        opacity = .4 if context else 1.
-        if self.fade_xray and v.xray_mode != 'Off':
-            opacity *= .6
-        pixels = self.spacing * max(v.height(), 1)/(2*camera.GetParallelScale())
-        self.effective_opacity = opacity
-        # Precompose guide colors once, rather than alpha-blending every crossing.
-        # Opaque guide fragments retain ordinary depth testing and cannot accumulate.
-        background = v.renderer.GetBackground()
-        for actor, rgb, strength in (
-                (self.grid_actor, color, opacity),
-                (self.minor_actor, tuple(c*.65 for c in color), opacity*min(1., max(.15, pixels/4)))):
-            actor.GetProperty().SetColor(*(background[i]*(1-strength)+rgb[i]*strength for i in range(3)))
-            actor.GetProperty().SetOpacity(1.)
+        self.apply_colors()
         visible = bool(frame) and self.grid_visible
         self.grid_actor.SetVisibility(visible)
         self.minor_actor.SetVisibility(visible)
@@ -141,6 +128,29 @@ class ViewGuides:
         if self.scale_visible:
             self.update_labels(frame, center, half)
 
+    def apply_colors(self):
+        """Recolor existing buffers/labels without reconstructing guide geometry."""
+        v = self.viewport
+        sketch = getattr(v, 'sketch', None)
+        context = bool(sketch and sketch.feature)
+        color = v.palette_rgb('grid.major', self.COLORS[self.color])
+        opacity = .4 if context else 1.
+        if self.fade_xray and v.xray_mode != 'Off':
+            opacity *= .6
+        pixels = self.spacing * max(v.height(), 1)/(2*v.renderer.GetActiveCamera().GetParallelScale())
+        self.effective_opacity = opacity
+        # Precompose guide colors once, rather than alpha-blending every crossing.
+        # Opaque guide fragments retain ordinary depth testing and cannot accumulate.
+        background = v.renderer.GetBackground()
+        for actor, rgb, strength in (
+                (self.grid_actor, color, opacity),
+                (self.minor_actor, v.palette_rgb('grid.minor', tuple(c*.65 for c in self.COLORS[self.color])), opacity*min(1., max(.15, pixels/4)))):
+            actor.GetProperty().SetColor(*(background[i]*(1-strength)+rgb[i]*strength for i in range(3)))
+            actor.GetProperty().SetOpacity(1.)
+        for label in self.labels:
+            label.GetTextProperty().SetColor(*v.palette_rgb('grid.labels', self.COLORS[self.color]))
+            label.GetTextProperty().SetBackgroundColor(*background)
+
     def update_labels(self, frame, center, half):
         """Bounded 2D labels anchored in exact local coordinates, never pickable."""
         v = self.viewport
@@ -178,14 +188,14 @@ class ViewGuides:
                     label.UseBoundsOff()
                     label.GetTextProperty().SetFontSize(13)
                     label.GetTextProperty().SetFontFamilyToArial()
-                    label.GetTextProperty().SetBackgroundColor(.09, .12, .16)
+                    label.GetTextProperty().SetBackgroundColor(*v.renderer.GetBackground())
                     label.GetTextProperty().SetBackgroundOpacity(.65)
                     v.renderer.AddViewProp(label)
                     self.labels.append(label)
                 label = self.labels[slot]
                 label.SetInput(text)
                 label.SetDisplayPosition(round(x), round(y))
-                label.GetTextProperty().SetColor(*self.COLORS[self.color])
+                label.GetTextProperty().SetColor(*v.palette_rgb('grid.labels', self.COLORS[self.color]))
                 label.GetTextProperty().SetOpacity(.95 * (.6 if self.fade_xray and v.xray_mode != 'Off' else 1.))
                 label.VisibilityOn()
                 self.label_data.append((axis, value, tuple(local), box))

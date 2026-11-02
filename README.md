@@ -339,3 +339,12 @@ picking references and Undo/Redo history remain available; correct the pending
 input or use Undo to discard it. Expected unresolved downstream features remain
 supported. See [transaction boundaries, validation and limits](docs/atomic-document-display-042.md).
 Saved-document versions and reference matching are unchanged.
+
+### Experimental palette laboratory
+
+**Settings → Experimental → UI Palette** opens a modeless RGB editor with live
+panel, control, sketch, viewport, X-Ray and diagnostic colors. Compare HERO Default
+and saved Custom, reset individual/category/all colors, and import/export a strict
+JSON palette. Colors persist in application preferences, never in part files.
+Lighting, opacity preferences, geometry, profile selections and history are
+preserved. See [controls, screenshots, format and limits](docs/UI_PALETTE_044.md).
