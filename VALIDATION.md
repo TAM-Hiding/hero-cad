@@ -1577,3 +1577,74 @@ The controlled multi-body Join flows did not reproduce purple by themselves.
 No actor/resource leak was established, so no speculative cleanup/refactor was
 introduced. Remaining limits are the user's uncaptured original event sequence,
 unreproduced circle mismatch and unavailable original model/NVIDIA desktop.
+
+## Work Order #043 — multi-profile selection and extrusion
+
+Baseline: latest main `789270069d353003dbb5e3038707ef28a5687491` after
+merged #42. Branch: `multi-profile-extrusion-043`. The scope/body/selection/schema
+limitations were recorded in docs/MULTI_PROFILE_EXTRUSION.md before implementation.
+No dependency, classifier, renderer or body architecture replacement.
+
+The existing ProfileView now holds a same-sketch set; Shift toggles and one orange
+actor contains every selected region. The existing extrusion feature accepts exact
+immutable additional region references and evaluates all tools through the existing
+validated Cut/Join path. V15 stores only the necessary additional records; legacy
+single-profile writes and loaders retain their previous formats. Region-scoped
+cap ancestry preserves distinct boss/pocket supports. Candidate preview and Apply
+use #42 unchanged, including no second regeneration at Apply and restoration of
+retained display buffers on cancellation/failure. New Body and Intersect reject
+multiple regions clearly. No profiles are consumed.
+
+New tests: tests/test_multi_profile_extrusion.py (15 cases) and
+tests/test_multi_profile_ui.py (8 cases). They cover the work order A–L matrix,
+including real mouse modifiers, all-six framebuffer highlights before/after zoom,
+coincident/cross-sketch refusal, exact native volume/bounds/validity, nested holes,
+mixed primitives and line loops, signed Join caps/attachments, Through All,
+all-or-nothing invalid operations and injected display preparation failure,
+one-step history, v15 malformed-record rejection/save/reopen, dimension/reorder
+regeneration, deletion protection, unresolved line recovery, source sketch reuse,
+preview cancellation and reuse without another evaluation, and invalid direct
+Properties distance edits preserving the last accepted multi-profile result. All original tests are
+retained unchanged, including legacy documents and single-profile operations.
+
+Initial focused testing caught a real recovery issue: moving shared classification
+outside extrude_region initially bypassed ProfileError when a line network opened.
+The multi-profile branch now translates that failure through the same established
+recoverable diagnostic path. Test development also accounted for existing Cancel/
+Undo mode-clearing conventions and regeneration replacing transient OCCT face
+objects; persistent references, not old native object handles, are checked.
+Final review also identified the existing extrusion direct-edit unresolved path;
+for multi-profile features, failed direct edits now reject atomically (as chamfers
+already do), while unchanged features invalidated upstream retain recovery and
+single-profile behavior is unchanged. Separate backend and UI regressions cover it.
+
+Commands/results:
+
+- `QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/test_document.py -q`:
+  **23 passed**.
+- `.venv/bin/python -m compileall -q src tests/test_multi_profile_extrusion.py tests/test_multi_profile_ui.py tools/benchmark_multi_profile_043.py`: pass.
+- `.venv/bin/pip check`: **No broken requirements found**. No dependency changes.
+- `git diff --check`: pass.
+- Final focused run: `DISPLAY=127.0.0.1:84 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest tests/test_multi_profile_extrusion.py tests/test_multi_profile_ui.py tests/test_document.py -q`: **46 passed**, 3 upstream warnings, **20.39 s**.
+- Initial full run before the final direct-edit guard: **850 passed**, 168 upstream warnings, **507.88 s**.
+- Final full suite including both direct-edit regressions: **852 passed, 0 failed, 0 skipped**, 168 upstream warnings, **439.65 s**.
+
+The full suite uses an isolated TCP-listening Xvfb because this hosted workspace
+blocks X11 Unix sockets. Final invocation: `Xvfb :85 -screen 0 1280x1024x24 -listen tcp
+-nolisten unix -ac`, then `DISPLAY=127.0.0.1:85 LIBGL_ALWAYS_SOFTWARE=1
+QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`; the server is terminated after the run.
+This exercises real software OpenGL rather than Qt offscreen's blank GL fallback.
+Manual Linux desktop/GPU/high-DPI validation is not claimed.
+
+Performance: `.venv/bin/python tools/benchmark_multi_profile_043.py --output
+docs/benchmarks/multi-profile-043.json`, five samples per case, no thresholds.
+Six separate 3 mm circular-pocket Cuts: median operation 480.50 ms, regeneration
+143.42 ms, final display preparation 95.58 ms; 6 extrusion/8 total feature entries.
+One six-profile Cut: 120.77 / 118.03 / 91.58 ms respectively; 1 extrusion/3 total
+entries. Both kernel-valid, volume **23773.80532894155 mm³**. The major reduction
+is avoiding repeated upstream evaluation over six separate commits. This is not
+a promise of a native Boolean speedup. Final display preparation includes the
+actual surface/edge/picking/normal/mapper preparation once per final result;
+intermediate previews, frame presentation and interaction are excluded. Raw
+samples, environment and harness hash are in the report. No performance assertion
+is added to CI. Follow-up options and unsupported operations are in the scope doc.

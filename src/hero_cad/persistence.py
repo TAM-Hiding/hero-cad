@@ -1,6 +1,6 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
-from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, Feature
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, ProfileReference, Feature
 from hero_cad.chamfers import EdgeReference
 from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport, FaceSnapshot
 
@@ -27,6 +27,12 @@ def serialize(features):
                     version = max(version, 14)
                     parameters['edges'] = [serialize_edge(edge) for edge in edges]
             if feature.type == 'extrude':
+                additional = parameters.pop('additional_profiles')
+                if additional:
+                    version = max(version, 15)
+                    parameters['additional_profiles'] = [
+                        {'outer_id': p.outer_id, 'hole_ids': list(p.hole_ids), 'line_ids': list(p.line_ids)}
+                        for p in feature.parameters.additional_profiles]
                 version = max(version, 8 if feature.parameters.line_ids else 6 if feature.parameters.operation != 'new' else 4)
                 if feature.parameters.line_ids:
                     parameters['line_ids'] = list(feature.parameters.line_ids)
@@ -48,6 +54,8 @@ def serialize(features):
             if sketch.attachment:
                 version = max(version, 8 if sketch.attachment.segment == 'line' else 7 if sketch.attachment.face == 'evaluated' else 5)
                 parameters['attachment'] = asdict(sketch.attachment)
+                if sketch.attachment.face in ('start', 'end') and sketch.attachment.boundary_id is not None:
+                    version = max(version, 15)
                 if sketch.attachment.snapshot is None:
                     parameters['attachment'].pop('snapshot')
                 else:
@@ -74,7 +82,7 @@ def deserialize(data):
     if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -140,6 +148,9 @@ def deserialize(data):
                         raise ValueError('Invalid persisted ancestry support')
                     attachment['support'] = FaceSupport(**{**support, 'origins': tuple(support['origins']),
                                                            'anchor': tuple(support['anchor'])})
+                if (version < 15 and attachment['face'] in ('start', 'end')
+                        and attachment['boundary_id'] is not None):
+                    raise ValueError('Profile-scoped caps require document version 15')
                 if version < 7 and parameters['attachment']['face'] == 'evaluated':
                     raise ValueError('Evaluated face references require document version 7')
                 if version < 8 and parameters['attachment']['segment'] == 'line':
@@ -161,6 +172,9 @@ def deserialize(data):
                 expected += ('operation', 'target_id', 'extent', 'direction')
             if line_profile:
                 expected += ('line_ids',)
+            multiple = version >= 15 and isinstance(parameters, dict) and 'additional_profiles' in parameters
+            if multiple:
+                expected += ('additional_profiles',)
             fields(parameters, expected)
             if not isinstance(parameters['hole_ids'], list):
                 raise ValueError('Profile holes must be a list')
@@ -169,6 +183,17 @@ def deserialize(data):
                 if not isinstance(parameters['line_ids'], list) or not parameters['line_ids']:
                     raise ValueError('Line-profile membership must be a nonempty list')
                 values['line_ids'] = tuple(parameters['line_ids'])
+            if multiple:
+                records = parameters['additional_profiles']
+                if not isinstance(records, list) or not 1 <= len(records) <= 255:
+                    raise ValueError('Additional profiles must be a nonempty list')
+                additional = []
+                for record in records:
+                    fields(record, ('outer_id', 'hole_ids', 'line_ids'))
+                    if not isinstance(record['hole_ids'], list) or not isinstance(record['line_ids'], list):
+                        raise ValueError('Profile boundary references must be lists')
+                    additional.append(ProfileReference(record['outer_id'], tuple(record['hole_ids']), tuple(record['line_ids'])))
+                values['additional_profiles'] = tuple(additional)
             value = ExtrudeParameters(**values)
         elif item['type'] == 'boolean' and version >= 6:
             fields(parameters, ('operation', 'target_id', 'tool_ids'))

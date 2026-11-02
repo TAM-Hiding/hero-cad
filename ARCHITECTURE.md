@@ -381,3 +381,19 @@ mappings rather than remeshing. Transient failures extend existing FeatureError/
 FeatureStatus diagnostics. No geometry algorithm, schema, dependency scheduler or
 renderer framework changes. See [the scope and remaining callback/external-mutation
 limits](docs/atomic-document-display-042.md).
+
+
+## Work Order #043 — multiple material regions, one extrusion
+
+ProfileView retains a same-sketch region tuple and one combined orange highlight;
+its existing single-selection accessor serves existing availability/signals.
+The classifier, geometry authority and picking/occlusion rules are unchanged.
+Immutable ProfileReference records extend ExtrudeParameters with canonical
+additional_profiles. Minimal v15 serialization stores exact outer/hole/line IDs;
+single-profile records retain their previous schema. Profile-scoped cap ancestry
+uses the outer UUID to distinguish prism caps while preserving legacy cap keys.
+One feature evaluates all selected prisms and the existing validated multi-tool
+Cut/Join. One connected resulting body remains mandatory. Classification is shared
+within a multi-profile evaluation; no scheduler/cache framework is added.
+Preview/Apply use the existing PR42 candidate/prepared-display publication and
+preview-surface reuse. See [limits and evidence](docs/MULTI_PROFILE_EXTRUSION.md).

@@ -127,6 +127,14 @@ def feature_history_text(document, identifier):
         identifiers.extend(p.hole_ids or ('None',))
         identifiers.append(f'Line member IDs ({len(p.line_ids)}):')
         identifiers.extend(p.line_ids or ('None',))
+        if p.additional_profiles:
+            lines.append(f'Selected material regions: {len(p.profiles)}')
+            for profile in p.additional_profiles:
+                identifiers.append(f'Additional outer boundary ID: {profile.outer_id}')
+                identifiers.append(f'Hole boundary IDs ({len(profile.hole_ids)}):')
+                identifiers.extend(profile.hole_ids or ('None',))
+                identifiers.append(f'Line member IDs ({len(profile.line_ids)}):')
+                identifiers.extend(profile.line_ids or ('None',))
     elif feature.type == 'boolean':
         lines.extend([f'Operation: {p.operation.title()}', f'Target: {reference_label(p.target_id)}', 'Tools:'])
         lines.extend(reference_label(ref) for ref in p.tool_ids)

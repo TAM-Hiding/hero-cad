@@ -1,0 +1,89 @@
+{
+  "environment": {
+    "python": "3.12.14",
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "ocp": "7.9.3.1",
+    "qt": "6.8.3",
+    "vtk": "9.6.2",
+    "samples": 5,
+    "harness_sha256": "8b8a4259d34d485c268cc432adf5bcc8cef9f9a4ba592e232249e805db23dfd0"
+  },
+  "cases": {
+    "individual": {
+      "median_ms": {
+        "operation_ms": 480.5043059999434,
+        "regeneration_ms": 143.42367699998704,
+        "display_preparation_ms": 95.5753679999134
+      },
+      "samples_ms": [
+        {
+          "operation_ms": 480.5043059999434,
+          "regeneration_ms": 148.19173799992313,
+          "display_preparation_ms": 96.87834300007125
+        },
+        {
+          "operation_ms": 519.2033309999715,
+          "regeneration_ms": 143.42367699998704,
+          "display_preparation_ms": 99.20141600002808
+        },
+        {
+          "operation_ms": 481.5974279999864,
+          "regeneration_ms": 138.65444800001114,
+          "display_preparation_ms": 95.5753679999134
+        },
+        {
+          "operation_ms": 454.3061190000799,
+          "regeneration_ms": 141.7431800000486,
+          "display_preparation_ms": 86.30775299991456
+        },
+        {
+          "operation_ms": 478.09731999996075,
+          "regeneration_ms": 146.5775300000587,
+          "display_preparation_ms": 90.45652899999368
+        }
+      ],
+      "total_feature_count": 8,
+      "extrusion_feature_count": 6,
+      "valid": true,
+      "volume_mm3": 23773.80532894155
+    },
+    "multi_profile": {
+      "median_ms": {
+        "operation_ms": 120.77419500008091,
+        "regeneration_ms": 118.02923300001567,
+        "display_preparation_ms": 91.58195800000613
+      },
+      "samples_ms": [
+        {
+          "operation_ms": 126.88879700010602,
+          "regeneration_ms": 120.31972800002677,
+          "display_preparation_ms": 92.33500999994249
+        },
+        {
+          "operation_ms": 120.45131999991554,
+          "regeneration_ms": 119.51290800004699,
+          "display_preparation_ms": 91.58195800000613
+        },
+        {
+          "operation_ms": 116.83688199991593,
+          "regeneration_ms": 118.02923300001567,
+          "display_preparation_ms": 96.66751799989015
+        },
+        {
+          "operation_ms": 120.77419500008091,
+          "regeneration_ms": 117.76248599994688,
+          "display_preparation_ms": 85.7644809999556
+        },
+        {
+          "operation_ms": 122.89387999999235,
+          "regeneration_ms": 115.8106029999999,
+          "display_preparation_ms": 86.29977900000085
+        }
+      ],
+      "total_feature_count": 3,
+      "extrusion_feature_count": 1,
+      "valid": true,
+      "volume_mm3": 23773.80532894155
+    }
+  }
+}

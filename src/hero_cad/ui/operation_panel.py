@@ -5,7 +5,7 @@ import re
 from PySide6.QtCore import Qt, QTimer, QSignalBlocker, QSize
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
-from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
+from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters, ProfileReference
 from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
 from hero_cad.ui.display_geometry import tessellate
@@ -114,12 +114,13 @@ class OperationPanel(QDockWidget):
         self.hide()
         window.auto_hide_sketches.toggled.connect(self.invalidate)
 
-    def open(self, *, source=None, bodies=(), feature=None, quick=False):
+    def open(self, *, source=None, bodies=(), feature=None, quick=False, profiles=()):
         self.cancel()
         self.chamfer_parameters = None
         self.quick_distance.setAccessibleName('Extrusion distance in millimeters')
         self.quick_distance.setToolTip('Signed millimeters: + follows the sketch normal; − reverses direction')
         self.quick_mode = False
+        self.profile_references = (feature.parameters.profiles if feature and feature.type == 'extrude' else tuple(profiles))
         self.source, self.bodies, self.edit_id = source, tuple(bodies), feature.id if feature else None
         self.active = False
         self.operation.clear()
@@ -261,7 +262,7 @@ class OperationPanel(QDockWidget):
         self.candidate = None
         self.preview_surface = None
         self.mapper.SetInputData(None)
-        self.tools_label.setText('Extruded sketch profile' if self.source else ', '.join(
+        self.tools_label.setText(f'Extruded sketch profiles: {len(self.profile_references) or 1}' if self.source else ', '.join(
             self.window.body_label(i) for i in self.bodies if i != self.target.currentData()))
         self.apply_button.setEnabled(False)
         self.feedback_text('Preview updated values before Apply. Signed distance: + follows the sketch normal, − reverses it.')
@@ -382,12 +383,16 @@ class OperationPanel(QDockWidget):
             raise ValueError('Select an available target body for this operation.')
         if self.source:
             from hero_cad.profiles import resolve_region
-            line_ids = (self.window.document.feature(self.edit_id).parameters.line_ids if self.edit_id else
-                        resolve_region(self.window.document.feature(self.source[0]).parameters,
-                                       self.source[1], self.source[2]).line_ids)
-            p = ExtrudeParameters(*self.source,self.input_distance(),op,
+            references = self.profile_references
+            if not references:
+                region = resolve_region(self.window.document.feature(self.source[0]).parameters,
+                                        self.source[1], self.source[2])
+                references = (ProfileReference(region.outer_id, region.hole_ids, region.line_ids),)
+            first = references[0]
+            p = ExtrudeParameters(self.source[0], first.outer_id, first.hole_ids, self.input_distance(), op,
                                   None if op == 'new' else target,
-                                  self.extent.currentData() if op == 'cut' else 'distance',self.direction.currentData(), line_ids)
+                                  self.extent.currentData() if op == 'cut' else 'distance', self.direction.currentData(),
+                                  first.line_ids, references[1:])
             refs = (p.sketch_id,) + ((p.target_id,) if p.target_id else ())
             return Feature('extrude',p,refs,self.feature_id)
         tools = tuple(i for i in self.bodies if i != target)

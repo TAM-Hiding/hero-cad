@@ -590,7 +590,7 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mouseReleaseEvent(event)
             if not self._context_dragged and (event.position().toPoint()-start).manhattanLength() < QApplication.startDragDistance():
                 if self.profiles.active:
-                    self.profiles.pick(*self.display_position(event))
+                    self.profiles.pick(*self.display_position(event), context=True)
                     if self.profiles.selection:
                         self.profileContextRequested.emit(event.globalPosition().toPoint())
                 else:
@@ -624,7 +624,7 @@ class Viewport(QVTKRenderWindowInteractor):
             self._right_press = None
         if click and event.button() == Qt.LeftButton:
             if self.profiles.active:
-                self.profiles.pick(*self.display_position(event))
+                self.profiles.pick(*self.display_position(event), additive=additive)
             elif self.sketch.active_id or self.sketch.hit(*self.display_position(event)):
                 self.sketch.pick(*self.display_position(event), additive=additive)
             else:

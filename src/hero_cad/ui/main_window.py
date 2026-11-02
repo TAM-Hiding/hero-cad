@@ -1363,7 +1363,10 @@ class MainWindow(QMainWindow):
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         sketch_id,region = selected
-        self.operation_panel.open(source=(sketch_id,region.outer_id,region.hole_ids), quick=True)
+        from hero_cad.features import ProfileReference
+        profiles = tuple(ProfileReference(r.outer_id, r.hole_ids, r.line_ids)
+                         for _, r in self.viewport.profiles.selections)
+        self.operation_panel.open(source=(sketch_id,region.outer_id,region.hole_ids), quick=True, profiles=profiles)
 
     def focus_parameters(self):
         self.property_tabs.setCurrentIndex(0)
