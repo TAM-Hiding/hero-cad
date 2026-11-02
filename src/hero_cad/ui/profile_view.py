@@ -8,7 +8,7 @@ class ProfileView:
         self.viewport = viewport
         self.active = False
         self.scope_id = None
-        self.selection = None
+        self.selections = ()
         self.cache = {}
         self.mapper, self.actor = viewport.add_actor((1., .65, .15))
         self.actor.GetProperty().SetOpacity(.3)
@@ -19,8 +19,18 @@ class ProfileView:
         self.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
         self.actor.VisibilityOff()
 
+    @property
+    def selection(self):
+        """First region retained for existing command availability/signals."""
+        return self.selections[0] if self.selections else None
+
+    @selection.setter
+    def selection(self, value):
+        self.selections = (value,) if value else ()
+
     def clear(self):
-        self.selection = None
+        self.selections = ()
+        self.mapper.SetInputData(None)
         self.actor.VisibilityOff()
         self.viewport.profilePicked.emit(None)
 
@@ -36,8 +46,9 @@ class ProfileView:
                                            else 'Select Profile: visible regions. Select a sketch in the browser to access hidden profiles.')
         self.viewport.GetRenderWindow().Render()
 
-    def pick(self, x, y):
-        self.clear()
+    def pick(self, x, y, *, additive=False, context=False):
+        if not additive and not context:
+            self.clear()
         v = self.viewport
         candidates, errors = [], []
         renderer = v.renderer
@@ -81,13 +92,26 @@ class ProfileView:
             v.viewFeedback.emit(errors[0] if errors else 'No unambiguous material region here. Holes, overlapping/touching loops and open line chains cannot be filled; select its sketch in the browser then Select Profile, or edit the sketch.')
         else:
             _, sketch_id, region = candidates[0]
-            self.selection = (sketch_id, region)
-            self.mapper.SetInputData(tessellate(region.face))
+            if additive and self.selection and self.selection[0] != sketch_id:
+                v.viewFeedback.emit('Select profiles from one sketch. Click without Shift to switch sketches.')
+                v.GetRenderWindow().Render()
+                return
+            key = (sketch_id, region.outer_id)
+            present = any((sid, r.outer_id) == key for sid, r in self.selections)
+            if context:
+                if not present:
+                    self.selections = ((sketch_id, region),)
+            elif present:
+                self.selections = tuple((sid, r) for sid, r in self.selections if (sid, r.outer_id) != key)
+            else:
+                self.selections += ((sketch_id, region),)
+            from hero_cad.geometry import compound
+            self.mapper.SetInputData(tessellate(compound(tuple(r.face for _, r in self.selections))))
             # Keep the orange material region readable through the new
             # translucent body context; model-view highlighting stays subtle.
             v.sketch_foreground(self.actor, bool(scope))
             self.actor.GetProperty().SetOpacity(.6 if scope else .3)
-            self.actor.VisibilityOn()
+            self.actor.SetVisibility(bool(self.selections))
             v.profilePicked.emit(self.selection)
-            v.viewFeedback.emit(f'Material profile selected · {len(region.hole_ids)} hole(s) · Extrude… creates a new body')
+            v.viewFeedback.emit(f'{len(self.selections)} material profile(s) selected · Shift-click adds/removes · Extrude…')
         v.GetRenderWindow().Render()

@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, Feature, FeatureError, FeatureStatus
 from hero_cad.geometry import make_box, make_sketch, compound
-from hero_cad.profiles import extrude_region, resolve_region, ProfileError
+from hero_cad.profiles import extrude_region, resolve_region, regions, ProfileError
 from hero_cad.persistence import deserialize, serialize
 from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
@@ -128,9 +128,10 @@ class Document:
                     raise ValueError('Operation inputs must be earlier solid features')
                 blocked = next((ref for ref in feature.references if ref in statuses and not statuses[ref].valid), None)
                 if blocked:
-                    if (existing is not None and feature.type == 'chamfer'
+                    if (existing is not None and (feature.type == 'chamfer' or
+                            feature.type == 'extrude' and feature.parameters.additional_profiles)
                             and (feature.id not in existing or feature != self.feature(feature.id))):
-                        raise OperationError('Cannot commit chamfer: target body is unresolved')
+                        raise OperationError(f"Cannot commit {'chamfer' if feature.type == 'chamfer' else 'multi-profile extrusion'}: target body is unresolved")
                     statuses[feature.id] = FeatureStatus(False, f'Unresolved dependency {blocked}: {statuses[blocked].error}', blocked_by=blocked)
                 else:
                     try:
@@ -168,12 +169,30 @@ class Document:
                                 p = feature.parameters
                                 if p.extent == 'through_all':
                                     p = replace(p, distance=through_distance(source.parameters.frame, solids[p.target_id], p.direction))
-                                result, faces = extrude_region(source.parameters, p, with_faces=True)
-                                source_faces[feature.id] = faces
-                                lineage = primitive_lineage(feature.id, faces)
+                                if p.additional_profiles and p.operation in ('new', 'intersect'):
+                                    raise OperationError('Multiple profiles support Cut or Join only; New Body requires one connected solid and Intersect requires one profile')
+                                try:
+                                    available = regions(source.parameters) if p.additional_profiles else None
+                                except ValueError as error:
+                                    if any(ref.line_ids for ref in p.profiles):
+                                        raise ProfileError(f'Unresolved line profile: {error}') from error
+                                    raise
+                                tools, tool_lineages, sources = [], [], {}
+                                for ref in p.profiles:
+                                    tool_parameters = replace(p, outer_id=ref.outer_id, hole_ids=ref.hole_ids,
+                                                              line_ids=ref.line_ids, additional_profiles=())
+                                    tool, tool_faces = extrude_region(source.parameters, tool_parameters, with_faces=True, available=available)
+                                    if p.additional_profiles:
+                                        tool_faces = {(face, ref.outer_id if face in ('start', 'end') else boundary, segment): shape
+                                                      for (face, boundary, segment), shape in tool_faces.items()}
+                                    sources.update(tool_faces)
+                                    tools.append(tool)
+                                    tool_lineages.append(primitive_lineage(feature.id, tool_faces))
+                                source_faces[feature.id] = sources
+                                result, faces, lineage = tools[0], sources, tool_lineages[0]
                                 if p.operation != 'new':
-                                    result, lineage = combine(p.operation, solids[p.target_id], [result],
-                                                              lineages=[lineages[p.target_id], lineage])
+                                    result, lineage = combine(p.operation, solids[p.target_id], tools,
+                                                              lineages=[lineages[p.target_id], *tool_lineages])
                                     faces = evaluated_faces(lineage)
                             solids[feature.id], face_maps[feature.id] = result, faces
                             lineages[feature.id] = lineage
@@ -186,7 +205,8 @@ class Document:
                         # Direct distance edits must not replace a valid model
                         # with failed output. Upstream invalidation and accepted
                         # history restoration instead preserve unresolved features.
-                        if (existing is not None and feature.type == 'chamfer'
+                        if (existing is not None and (feature.type == 'chamfer' or
+                                feature.type == 'extrude' and feature.parameters.additional_profiles)
                                 and feature != self.feature(feature.id)):
                             raise
                         statuses[feature.id] = FeatureStatus(False, str(error), diagnostic_stage=getattr(error, 'stage', None))
@@ -330,6 +350,17 @@ class Document:
         entities = tuple(entity if e.id == entity.id else e for e in feature.parameters.entities)
         self.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=entities)))
 
+    def add_multi_extrusion(self, sketch_id, profiles, distance=10.0, **options):
+        """One history transaction, using exact existing classifier references."""
+        refs = tuple(profiles)
+        if not refs:
+            raise ValueError('Select at least one material profile')
+        p = ExtrudeParameters(sketch_id, refs[0].outer_id, refs[0].hole_ids, distance,
+                              line_ids=refs[0].line_ids, additional_profiles=refs[1:], **options)
+        feature = Feature('extrude', p, (sketch_id,) + ((p.target_id,) if p.target_id else ()))
+        self.set_features(self.features + (feature,))
+        return feature.id
+
     def add_extrusion(self, sketch_id, outer_id, hole_ids=(), distance=10.0, *,
                       operation='new', target_id=None, extent='distance', direction=1):
         parameters = ExtrudeParameters(sketch_id, outer_id, tuple(sorted(hole_ids)), distance,
@@ -412,7 +443,8 @@ class Document:
                 raise ValueError(f'Cannot delete: {feature.type} {feature.id} references the selected feature')
             if feature.type == 'extrude' and feature.id not in feature_ids:
                 p = feature.parameters
-                if any((p.sketch_id, identifier) in entity_keys for identifier in (p.outer_id, *p.hole_ids, *p.line_ids)):
+                if any((p.sketch_id, identifier) in entity_keys for ref in p.profiles
+                       for identifier in (ref.outer_id, *ref.hole_ids, *ref.line_ids)):
                     raise ValueError('Cannot delete: extrusion references the selected profile boundary')
         candidate = []
         for feature in self.features:

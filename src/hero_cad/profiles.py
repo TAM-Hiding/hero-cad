@@ -110,16 +110,16 @@ def regions(sketch):
     return tuple(result)
 
 
-def resolve_region(sketch, outer_id, hole_ids):
-    region = next((r for r in regions(sketch) if r.outer_id == outer_id), None)
+def resolve_region(sketch, outer_id, hole_ids, *, available=None):
+    region = next((r for r in (regions(sketch) if available is None else available) if r.outer_id == outer_id), None)
     if region is None or region.hole_ids != tuple(sorted(hole_ids)):
         raise ValueError('Selected profile topology changed or is ambiguous; delete the extrusion and reselect its material region. Holes will not be filled silently.')
     return region
 
 
-def extrude_region(sketch, parameters, *, with_faces=False):
+def extrude_region(sketch, parameters, *, with_faces=False, available=None):
     try:
-        region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids)
+        region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids, available=available)
     except ValueError as error:
         if parameters.line_ids:
             raise ProfileError(f'Unresolved line profile: {error}') from error

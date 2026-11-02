@@ -279,6 +279,10 @@ class FaceReference:
             valid_id(self.boundary_id)
             if self.segment not in ('edge0', 'edge1', 'edge2', 'edge3', 'tangent0', 'tangent1', 'line'):
                 raise ValueError('Unsupported boundary segment')
+        elif self.face in ('start', 'end') and self.boundary_id is not None:
+            valid_id(self.boundary_id)
+            if self.segment is not None:
+                raise ValueError('Profile caps do not have boundary segments')
         elif self.face == 'evaluated':
             if (self.boundary_id is not None or not isinstance(self.segment, str)
                     or len(self.segment) != 64 or any(c not in '0123456789abcdef' for c in self.segment)):
