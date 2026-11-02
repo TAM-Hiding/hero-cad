@@ -61,6 +61,7 @@ class Viewport(QVTKRenderWindowInteractor):
         self.xray_mode = 'Off'
         self.sketch_xray = True
         self.sketch_opacity = .35
+        self.xray_opacity = .85
         self.sketch_face_enabled = True
         self.contrast_mode = 'Auto'
         self.planar_normals = []
@@ -336,7 +337,7 @@ class Viewport(QVTKRenderWindowInteractor):
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
         # Editing owns opacity; explicit model X-Ray resumes after Finish.
-        opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (.85 if explicit else 1.)
+        opacity = (self.sketch_opacity if self.sketch_xray else 1.) if editing else (self.xray_opacity if explicit else 1.)
         self.actor.GetProperty().SetOpacity(opacity)
         self.edge_actor.GetProperty().SetOpacity(opacity)
         contrast = self.high_contrast()

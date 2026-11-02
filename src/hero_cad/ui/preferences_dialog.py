@@ -64,7 +64,7 @@ class PreferencesDialog(QDialog):
                 note.setWordWrap(True)
                 form.addRow(note)
             if category == 'Viewport':
-                note = QLabel('Navigation bindings are unchanged: Shift-right drag pans;\nShift-right double-click aligns to a planar face.')
+                note = QLabel('Sketch editing uses Sketch X-Ray opacity when enabled; otherwise solids are opaque.\nOutside sketch editing, Orange/Celadon use General X-Ray opacity; Off is opaque.\nOpacity changes preserve the selected X-Ray color mode.\n\nNavigation: Shift-right drag pans; Shift-right double-click aligns to a planar face.')
                 note.setWordWrap(True)
                 form.addRow(note)
             scroll = QScrollArea()
@@ -82,6 +82,11 @@ class PreferencesDialog(QDialog):
         self.restore_button.clicked.connect(self.restore_category)
         buttons.addButton(self.restore_button, QDialogButtonBox.ResetRole)
         layout.addWidget(buttons)
+        # Enter in a numeric editor must not invoke an implicit category reset
+        # (or close the live editor). Explicit clicks/Space still activate buttons.
+        for button in buttons.buttons():
+            button.setAutoDefault(False)
+            button.setDefault(False)
         preferences.changed.connect(self.update_control)
         self.update_enabled()
 

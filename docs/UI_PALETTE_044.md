@@ -150,3 +150,12 @@ Future refinements: use exported experiments to choose permanent defaults, then
 simplify/remove the editor; assess larger real parts before adding any throttling;
 consider separate mixed-selection highlight actors only as a dedicated later task.
 Per-body colors, materials, new modeling tools and layout changes remain out of scope.
+
+
+## Opacity follow-up and separate font report
+
+See [the PR 44 opacity correction](XRAY_OPACITY_044.md) for independent Sketch and
+General X-Ray opacity, numeric-entry repair and persistence. The RGB registry and
+palette JSON format are unchanged. The user's separate report of font-color
+controls being overridden is recorded for later investigation; it is intentionally
+not included in this opacity patch.
