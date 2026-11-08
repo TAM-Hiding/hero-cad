@@ -153,12 +153,12 @@ directory when accessible. Subsequent Open and Save As dialogs prefer the curren
 document's directory, then the last directory used for a successful save or open.
 That preference survives restarts.
 
-Save As uses Qt's widget-based file dialog so the filename field has keyboard
-focus and only the basename is selected. Type a new name over `Untitled` (or the
-current basename) and press Enter. Qt adds `.hcad` when you enter a filename
-without a suffix and confirms replacement of an existing file. Explicit
-case variants such as `.HCAD` are preserved. Open uses the platform file
-dialog when available.
+Open and Save As share Qt's widget-based file dialog and follow HERO's dialog
+and control colors. In Save As, the filename field has keyboard focus and
+only the basename is selected. Type a new name over `Untitled` (or the current
+basename) and press Enter. Qt adds `.hcad` when you enter a filename without a
+suffix and confirms replacement of an existing file. Explicit case variants
+such as `.HCAD` are preserved. In Open, double-click a document to load it.
 
 The title's `*` marks unsaved changes. New, Open and Close offer Save, Discard
 or Cancel. Canceled dialogs and failed loads retain the active document.

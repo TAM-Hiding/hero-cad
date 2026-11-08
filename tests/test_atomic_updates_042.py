@@ -3,7 +3,7 @@ from dataclasses import replace
 from math import pi
 from types import SimpleNamespace
 import pytest
-from PySide6.QtWidgets import QMessageBox, QFileDialog
+from PySide6.QtWidgets import QMessageBox
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.TopAbs import TopAbs_EDGE
 from hero_cad.document import Document
@@ -215,7 +215,7 @@ def test_other_update_paths_keep_committed_state_when_display_fails(qtbot, monke
     if action == 'open':
         path = tmp_path/'replacement.hcad'
         Document(BoxParameters(width=65)).save(path)
-        monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
+        monkeypatch.setattr(w, 'select_document_open_path', lambda *a: str(path))
     before = snapshot(w)
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: None)
     monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.Discard)

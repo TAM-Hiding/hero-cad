@@ -5,7 +5,7 @@ from dataclasses import fields as data_fields, replace
 from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize, QStandardPaths
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
-    QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
+    QComboBox, QLabel, QSpinBox, QStackedWidget, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
     QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView, QTabWidget, QPlainTextEdit,
 )
@@ -22,7 +22,7 @@ from hero_cad.ui.tool_island import ToolIsland
 from hero_cad.history_inspection import feature_history_text, first_failure
 from hero_cad.ui.feature_icons import feature_icon
 from hero_cad.persistence import DOCUMENT_EXTENSION
-from hero_cad.ui.document_dialog import DOCUMENT_FILTER, SaveDocumentDialog
+from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
 
 
 LAST_DOCUMENT_DIRECTORY = 'documents/last_directory'
@@ -848,13 +848,10 @@ class MainWindow(QMainWindow):
         self.preferences.sync()
 
     def select_document_save_path(self, directory, filename):
-        dialog = SaveDocumentDialog(self, directory, filename)
-        try:
-            if dialog.exec():
-                return dialog.selectedFiles()[0]
-            return None
-        finally:
-            dialog.deleteLater()
+        return SaveDocumentDialog(self, directory, filename).select_path()
+
+    def select_document_open_path(self, directory):
+        return DocumentDialog(self, directory).select_path()
 
     def save_document(self, checked=False, *, save_as=False):
         path = self.document.path
@@ -906,8 +903,7 @@ class MainWindow(QMainWindow):
         self.refresh(fit=True)
 
     def open_document(self):
-        selected, _ = QFileDialog.getOpenFileName(
-            self, "Open HERO-CAD document", str(self.document_directory()), DOCUMENT_FILTER)
+        selected = self.select_document_open_path(self.document_directory())
         if not selected:
             return
         try:

@@ -170,7 +170,6 @@ def test_plate_hole_and_profile_highlight_render(qtbot, monkeypatch):
 
 
 def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkeypatch, tmp_path):
-    from PySide6.QtWidgets import QFileDialog
     w = window(qtbot)
     sid = enter(w)
     circle = Circle(60, 0, 3)
@@ -189,7 +188,7 @@ def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkey
     w.document.save(path)
     w.new_document()
     assert w.show_base_box.isChecked() and w.show_base_box.isEnabled()
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *args: str(path))
     w.open_document()
     assert not w.show_base_box.isChecked() and w.show_base_box.isEnabled()
     assert volume(w.document.solid_shapes[eid]) == pytest.approx(45*pi)

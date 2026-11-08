@@ -1,4 +1,4 @@
-"""The stock Qt Save As dialog, with predictable filename editing."""
+"""Stock Qt document dialogs with shared appearance and file filtering."""
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -11,17 +11,31 @@ from hero_cad.persistence import DOCUMENT_EXTENSION, require_document_extension
 DOCUMENT_FILTER = f'HERO-CAD documents (*{DOCUMENT_EXTENSION} *.[hH][cC][aA][dD])'
 
 
-class SaveDocumentDialog(QFileDialog):
-    def __init__(self, parent, directory, filename):
+class DocumentDialog(QFileDialog):
+    def __init__(self, parent, directory, *, saving=False):
         super().__init__(parent)
-        # Native GTK/portal dialogs do not expose their filename editor to Qt.
         self.setOption(QFileDialog.Option.DontUseNativeDialog)
-        self.setWindowTitle('Save HERO-CAD document')
-        self.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
-        self.setFileMode(QFileDialog.FileMode.AnyFile)
+        self.setObjectName('heroDocumentDialog')
+        action = 'Save' if saving else 'Open'
+        self.setWindowTitle(f'{action} HERO-CAD document')
+        self.setAcceptMode(QFileDialog.AcceptSave if saving else QFileDialog.AcceptOpen)
+        self.setFileMode(QFileDialog.AnyFile if saving else QFileDialog.ExistingFile)
         self.setNameFilter(DOCUMENT_FILTER)
-        self.setDefaultSuffix(DOCUMENT_EXTENSION[1:])
         self.setDirectory(str(directory))
+
+    def select_path(self):
+        try:
+            if self.exec():
+                return self.selectedFiles()[0]
+            return None
+        finally:
+            self.deleteLater()
+
+
+class SaveDocumentDialog(DocumentDialog):
+    def __init__(self, parent, directory, filename):
+        super().__init__(parent, directory, saving=True)
+        self.setDefaultSuffix(DOCUMENT_EXTENSION[1:])
         self.selectFile(filename)
         self._filename_edit = self.findChild(QLineEdit, 'fileNameEdit')
 

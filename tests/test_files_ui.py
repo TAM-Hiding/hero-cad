@@ -27,7 +27,7 @@ def test_save_pending_open_undo_and_precision(qtbot, monkeypatch, tmp_path):
     assert w.fields['width'].value() == 65.125 and '*' not in w.windowTitle()
     precise = Document(BoxParameters(width=12.3456789))
     precise.save(path)
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *a: str(path))
     w.open_action.trigger()
     assert not w.has_pending_edits()
     assert w.save_document()
@@ -56,7 +56,7 @@ def test_cancel_and_failed_open_preserve_document(qtbot, monkeypatch, tmp_path):
     assert not w.close()
     path = tmp_path / 'bad.hcad'
     path.write_text('{')
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *a: str(path))
     errors = []
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: errors.append(a))
     w.open_document()
@@ -95,7 +95,7 @@ def test_open_current_file_after_save_prompt_uses_saved_changes(qtbot, monkeypat
     path = tmp_path / 'part.hcad'
     w.document.save(path)
     w.fields['width'].setValue(75)
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *a: str(path))
     monkeypatch.setattr(QMessageBox, 'question', lambda *a: QMessageBox.Save)
     w.open_document()
     assert w.document.parameters.width == 75
@@ -316,7 +316,7 @@ def test_unsupported_open_leaves_active_document(qtbot, tmp_path, monkeypatch, s
     bad = tmp_path / ('Bad' + suffix)
     bad.write_text(payload)
     warnings = []
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(bad), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *args: str(bad))
     monkeypatch.setattr(QMessageBox, 'warning', lambda *args: warnings.append(args[-1]))
     monkeypatch.setattr(QMessageBox, 'question', lambda *args: pytest.fail('Prompted before validating the file'))
     w.open_document()
@@ -415,7 +415,7 @@ import sys
 from pathlib import Path
 from OCP.BRepCheck import BRepCheck_Analyzer
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QApplication
 from hero_cad.booleans import bounds
 from hero_cad.geometry import volume
 from hero_cad.persistence import serialize
@@ -425,13 +425,11 @@ app = QApplication([])
 window = MainWindow(settings=QSettings(sys.argv[1], QSettings.IniFormat))
 project_file, extrusion = Path(sys.argv[2]), sys.argv[3]
 
-def choose_file(parent, title, directory, file_filter):
-    assert title == 'Open HERO-CAD document'
-    assert '*.hcad' in file_filter
-    assert Path(directory) == project_file.parent
-    return str(project_file), file_filter
+def choose_file(directory):
+    assert directory == project_file.parent
+    return str(project_file)
 
-QFileDialog.getOpenFileName = choose_file
+window.select_document_open_path = choose_file
 window.open_document()
 assert window.document.path == project_file
 assert not window.document.dirty and not window.document.can_undo
@@ -467,15 +465,49 @@ def test_open_updates_directory_and_current_document_has_priority(qtbot, tmp_pat
     opened = tmp_path / 'Opened'
     opened.mkdir()
     destination = opened / 'Another.hcad'
-    Document().save(destination)
+    Document(BoxParameters(width=67)).save(destination)
 
-    def choose_file(parent, title, directory, file_filter):
-        assert directory == str(current)
-        return str(destination), file_filter
+    (opened / 'Legacy.starcad').write_text('old document')
 
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', choose_file)
+    from PySide6.QtCore import Qt, QTimer
+    from PySide6.QtWidgets import QApplication, QLineEdit, QListView
+
+    def choose_file():
+        dialog = QApplication.activeModalWidget()
+        try:
+            assert isinstance(dialog, QFileDialog)
+            assert dialog.windowTitle() == 'Open HERO-CAD document'
+            assert dialog.testOption(QFileDialog.DontUseNativeDialog)
+            assert dialog.fileMode() == QFileDialog.ExistingFile
+            assert '*.hcad' in dialog.nameFilters()[0]
+            assert dialog.directory().absolutePath() == str(current)
+            editor = dialog.findChild(QLineEdit, 'fileNameEdit')
+            editor.setFocus()
+            editor.setText(str(opened))
+            qtbot.keyClick(editor, Qt.Key_Return)
+            assert dialog.directory().absolutePath() == str(opened)
+
+            dialog.setViewMode(QFileDialog.List)
+            view = dialog.findChild(QListView, 'listView')
+            model = view.model()
+            root = view.rootIndex()
+            qtbot.waitUntil(lambda: model.rowCount(root) > 0)
+            files = {model.index(row, 0, root).data(): model.index(row, 0, root)
+                     for row in range(model.rowCount(root))}
+            assert 'Legacy.starcad' not in files
+            index = files[destination.name]
+            view.scrollTo(index)
+            position = view.visualRect(index).center()
+            qtbot.mouseClick(view.viewport(), Qt.LeftButton, pos=position)
+            qtbot.mouseDClick(view.viewport(), Qt.LeftButton, pos=position)
+            assert not dialog.isVisible()
+        finally:
+            if dialog and dialog.isVisible():
+                dialog.reject()
+
+    QTimer.singleShot(0, choose_file)
     w.open_document()
-    assert w.document.path == destination
+    assert w.document.path == destination and w.document.parameters.width == 67
     assert w.preferences.value(LAST_DOCUMENT_DIRECTORY) == str(opened)
     w.new_document()
 
@@ -485,3 +517,87 @@ def test_open_updates_directory_and_current_document_has_priority(qtbot, tmp_pat
 
     monkeypatch.setattr(w, 'select_document_save_path', cancel_save)
     assert not w.save_document()
+
+
+def test_document_dialogs_share_palette_and_contrast_without_changing_file(qtbot, tmp_path):
+    from PySide6.QtGui import QColor, QPalette
+    from PySide6.QtWidgets import QLabel, QLineEdit, QListView, QDialogButtonBox
+    from hero_cad.palette import CONTRAST, ENABLED, PREFIX
+    from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
+
+    w = window(qtbot)
+    path = tmp_path / 'Adapter.hcad'
+    w.document.save(path)
+    original = path.read_bytes()
+    dialogs = (DocumentDialog(w, tmp_path), SaveDocumentDialog(w, tmp_path, path.name))
+    def cancel_button(dialog):
+        return dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.Cancel)
+
+    def button_fill(dialog):
+        image = cancel_button(dialog).grab().toImage()
+        return image.pixelColor(5, image.height() // 2)
+
+    defaults = []
+    for dialog in dialogs:
+        qtbot.addWidget(dialog)
+        assert dialog.testOption(QFileDialog.DontUseNativeDialog)
+        dialog.show()
+        qtbot.waitExposed(dialog)
+        defaults.append(button_fill(dialog))
+    assert defaults[0] == defaults[1]
+
+    colors = {
+        'dialogs.background': '#182839',
+        'ui.text': '#202D3A',
+        'controls.input': '#1D334B',
+        'controls.input_text': '#25364C',
+        'controls.normal': '#34254C',
+        'controls.text': '#392747',
+        'controls.selection': '#59353C',
+        'controls.selection_text': '#623741',
+        'controls.focus': '#E6B680',
+    }
+
+    for mode in ('Manual', 'Automatic'):
+        w.preference_store.set_many({**{PREFIX+key: value for key, value in colors.items()},
+                                     ENABLED: True, CONTRAST: mode})
+        for dialog in dialogs:
+            dialog.activateWindow()
+            qtbot.waitUntil(dialog.isActiveWindow)
+            label = dialog.findChild(QLabel, 'fileNameLabel')
+            editor = dialog.findChild(QLineEdit, 'fileNameEdit')
+            view = dialog.findChild(QListView, 'listView')
+            button = cancel_button(dialog)
+            editor.setFocus()
+            qtbot.waitUntil(editor.hasFocus)
+            editor.setText('Adapter.hcad')
+            editor.selectAll()
+
+            def foreground(key):
+                return QColor(colors[key] if mode == 'Manual' else '#FFFFFF')
+
+            assert dialog.palette().color(QPalette.Window) == QColor(colors['dialogs.background'])
+            assert label.palette().color(QPalette.WindowText) == foreground('ui.text')
+            assert editor.palette().color(QPalette.Base) == QColor(colors['controls.input'])
+            assert editor.palette().color(QPalette.Text) == foreground('controls.input_text')
+            assert button.palette().color(QPalette.Button) == QColor(colors['controls.normal'])
+            assert button.palette().color(QPalette.ButtonText) == foreground('controls.text')
+            for widget in (editor, view):
+                assert widget.palette().color(QPalette.Highlight) == QColor(colors['controls.selection'])
+                assert widget.palette().color(QPalette.HighlightedText) == foreground('controls.selection_text')
+
+            # Sample the painted input border, selected text area and button fill.
+            image = editor.grab().toImage()
+            assert image.pixelColor(image.width() // 2, 0) == QColor(colors['controls.focus'])
+            assert QColor(colors['controls.selection']).rgb() in {
+                image.pixel(x, image.height() // 2) for x in range(image.width())}
+        # Qt's button style shades the fill. Check the actual color changes
+        # from the default and that the two dialogs paint it the same way.
+        fills = [button_fill(dialog) for dialog in dialogs]
+        assert fills != defaults and fills[0] == fills[1]
+
+    for dialog in dialogs:
+        dialog.reject()
+    assert not w.document.dirty and w.document.path == path
+    w.document.save(path)
+    assert path.read_bytes() == original

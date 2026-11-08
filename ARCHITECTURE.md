@@ -164,11 +164,12 @@ and exact `hero-cad` JSON marker. The feature schemas and their version
 numbers are unchanged. Work Order #046 supersedes the filename and marker
 conventions described in the historical PR #18 section below.
 
-Save As uses a widget-based `QFileDialog`. The native GTK or portal dialog
-owns its filename control and Qt does not expose a portable API to set its
-focus and selection. HERO-CAD sets focus and selects the basename in Qt's
-`fileNameEdit` when the dialog is shown. The suffix is applied before Qt
-checks for an existing destination. Open retains the platform dialog.
+Open and Save As share a widget-based `QFileDialog`, with a common document
+filter and inherited HERO dialog and control styles. The palette controller
+applies selection colors to document file views and filename fields. Save As
+sets focus and selects the basename in Qt's `fileNameEdit` when the dialog
+is shown. The suffix is applied before Qt checks for an existing destination.
+Open uses Qt's existing-file mode and its built-in keyboard and mouse navigation.
 The last successful document directory is stored in application settings
 under `documents/last_directory`.
 See the [Qt 6.8 QFileDialog API](https://doc.qt.io/qt-6.8/qfiledialog.html)

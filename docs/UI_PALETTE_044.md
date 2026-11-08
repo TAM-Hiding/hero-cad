@@ -73,6 +73,13 @@ property (native buttons versus HERO Tools versus orange operation controls).
 Unset overrides preserve those contextual defaults. An explicit global control
 color applies consistently to existing and subsequently created controls.
 
+The Open and Save As document choosers use the same Qt widget style. They
+follow the dialog background, general text, input and button colors, and
+keyboard focus settings. The existing selection color and text settings
+also apply to filename selection and file lists. Automatic contrast adjusts
+foregrounds for readability, while Manual uses the requested text colors.
+Window decorations and system file icons come from the desktop theme.
+
 ## Portable JSON and validation
 
 Export Palette writes UTF-8 JSON using QSaveFile (atomic replacement). Import

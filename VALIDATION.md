@@ -1933,3 +1933,30 @@ The initial full run exposed 14 old-marker assertions across those three
 persistence modules. Their expected marker was updated and the entire suite
 was rerun. Desktop coverage uses Qt xcb and software OpenGL. Live GTK/portal
 and hardware rendering require separate desktop validation.
+
+
+### PR #46 follow-up — Shared Open and Save As appearance
+
+Open now uses the same Qt widget-based document chooser as Save As. The
+existing HERO dialog and control rules supply dialog background, general
+text, input and button colors, and visible focus. The palette controller
+also applies the existing selection colors to the file lists and filename
+fields. Automatic and Manual contrast use the same foreground rules in
+both dialogs. Desktop window decorations and system file icons follow
+the active desktop theme.
+
+The real-widget checks navigate by keyboard, filter out a legacy file, and
+double-click an `.hcad` row to load the selected model and update the
+remembered directory. They also cover basename selection and both Cancel
+paths. Palette checks compare actual widget roles, the painted focus
+border, selection fill and button appearance. Saving the same document
+after palette edits reproduces the original file bytes.
+
+- Focused suite **101 passed** with 18 upstream warnings in 56.63 s.
+- Full suite **921 passed** with 194 upstream warnings in 397.85 s.
+- `git diff --check` passed.
+
+The focused command used the same Xvfb environment as above and selected
+`test_files_ui.py`, `test_extrusion_ui.py`, `test_history_inspector_ui.py`,
+`test_atomic_updates_042.py`, `test_palette_ui.py`, and
+`test_sketch_appearance_045.py` under `tests/`.
