@@ -5,6 +5,7 @@ import re
 
 PREFIX = 'palette/v1/'
 ENABLED = PREFIX+'enabled'
+CONTRAST = PREFIX+'text_contrast'
 
 
 @dataclass(frozen=True)
@@ -28,30 +29,30 @@ category('Windows', (
     ('dialogs.background', 'Dialog backgrounds', None),
     ('operation.background', 'Operation / numeric popup surface', '#B87743'),
     ('operation.surround', 'Operation window surround', '#874923'),
-    ('operation.text', 'Operation label text', '#241C16'),
+    ('operation.text', 'Operation / numeric-popup labels', '#241C16'),
     ('ui.border', 'Panel borders', '#566D72'),
-    ('ui.heading', 'Panel headings', None),
-    ('ui.text', 'Normal interface text', None),
-    ('ui.secondary', 'Secondary interface text', '#BED3D0'),
+    ('ui.heading', 'Panel / tab headings', None),
+    ('ui.text', 'General interface text (non-controls)', None),
+    ('ui.secondary', 'Secondary hints / property info', '#BED3D0'),
 ))
 category('Controls', (
     ('controls.normal', 'Normal buttons', None),
     ('controls.active', 'Active buttons', '#865227'),
     ('controls.hover', 'Hovered buttons', '#425960'),
-    ('controls.disabled', 'Disabled buttons', '#29353C'),
+    ('controls.disabled', 'Disabled controls', '#29353C'),
     ('controls.text', 'Button text', None),
     ('controls.active_text', 'Active button text', '#FFE2B4'),
-    ('controls.disabled_text', 'Disabled button text', '#7E9094'),
+    ('controls.disabled_text', 'Disabled control text', '#7E9094'),
     ('controls.selection', 'Selected browser entries', None),
     ('controls.selection_text', 'Selected browser text', None),
     ('controls.input', 'Input backgrounds', None),
-    ('controls.input_text', 'Input text', None),
+    ('controls.input_text', 'Enabled input text', None),
     ('controls.input_border', 'Input borders', '#53666D'),
     ('controls.focus', 'Keyboard focus ring', '#D9B590'),
 ))
 category('Sketch', (
-    ('sketch.normal', 'Normal sketch entities', '#52B8E0'),
-    ('sketch.active', 'Active sketch entities', '#66D9F2'),
+    ('sketch.normal', 'Normal / reference sketch lines', '#52B8E0'),
+    ('sketch.active', 'Active sketch lines', '#66D9F2'),
     ('sketch.selected', 'Selected sketch entities', '#FFA626'),
     ('sketch.profile', 'Selected material profile fill', '#FFA626'),
     ('sketch.preview', 'Construction preview guides', '#A6F2B2'),
@@ -85,6 +86,14 @@ category('History & Diagnostics', (
     ('diagnostics.warning', 'Warning messages', '#E6A04B'),
     ('history.selection', 'Selected history text', None),
 ))
+# Original PR44 exports have all 55 base roles; extensions are optional in v1.
+BASE_COLORS = frozenset(COLORS)
+MODE_COLORS = {f'sketch.{mode}.{role}':f'sketch.{role}'
+               for mode in ('orange', 'celadon') for role in ('normal', 'active', 'selected')}
+for key, base in MODE_COLORS.items():
+    mode = key.split('.')[1].title()
+    COLORS[key] = Color('Sketch', mode+' X-Ray · '+COLORS[base].label, None)
+COLORS['sketch.finish'] = Color('Sketch', 'Finish Sketch Highlight', '#E6A04B')
 CATEGORIES = tuple(dict.fromkeys(c.category for c in COLORS.values()))
 
 
@@ -99,7 +108,7 @@ def rgb(value):
     return tuple(int(value[i:i+2], 16)/255 for i in (1, 3, 5))
 
 
-def decode_palette(text):
+def decode_palette(text, *, include_contrast=False):
     """Strict complete v1 snapshots; validate everything before publishing anything."""
     def unique(pairs):
         result = {}
@@ -111,21 +120,29 @@ def decode_palette(text):
     if len(text) > 65536:
         raise ValueError('Palette file exceeds 64 KiB')
     data = json.loads(text, object_pairs_hook=unique)
-    if (not isinstance(data, dict) or set(data) not in ({'format', 'version', 'colors'}, {'format', 'version', 'colors', 'overrides'})
+    required = {'format', 'version', 'colors'}
+    if (not isinstance(data, dict) or not required.issubset(data)
+            or not set(data).issubset(required | {'overrides', 'text_contrast'})
             or data['format'] != 'hero-ui-palette' or type(data['version']) is not int or data['version'] != 1):
-        raise ValueError('Expected hero-ui-palette version 1 with format, version and colors')
-    if not isinstance(data['colors'], dict) or set(data['colors']) != set(COLORS):
-        raise ValueError('Palette must contain every known color and no unknown properties')
+        raise ValueError('Expected hero-ui-palette version 1 with known fields')
+    if (not isinstance(data['colors'], dict) or not BASE_COLORS.issubset(data['colors'])
+            or not set(data['colors']).issubset(COLORS)):
+        raise ValueError('Palette must contain every original color and no unknown properties')
+    text_contrast = data.get('text_contrast', 'Automatic')
+    if text_contrast not in ('Automatic', 'Manual'):
+        raise ValueError('Text contrast must be Automatic or Manual')
     colors = {key:hex_color(value) for key, value in data['colors'].items()}
-    overrides = data.get('overrides', list(COLORS))
-    if (not isinstance(overrides, list) or any(not isinstance(key, str) or key not in COLORS for key in overrides)
+    overrides = data.get('overrides', list(colors))
+    if (not isinstance(overrides, list) or any(not isinstance(key, str) or key not in colors for key in overrides)
             or len(set(overrides)) != len(overrides)):
         raise ValueError('Overrides must be unique known color property names')
-    return {key:value if key in overrides else None for key,value in colors.items()}
+    result = {key:colors.get(key) if key in overrides else None for key in COLORS}
+    return (result, text_contrast) if include_contrast else result
 
 
-def encode_palette(colors, overrides=None):
-    data = {'format':'hero-ui-palette', 'version':1, 'colors':dict(sorted(colors.items()))}
+def encode_palette(colors, overrides=None, *, text_contrast='Automatic'):
+    data = {'format':'hero-ui-palette', 'version':1, 'colors':dict(sorted(colors.items())),
+            'text_contrast':text_contrast}
     if overrides is not None:
         data['overrides'] = sorted(overrides)
     text = json.dumps(data, indent=2)+'\n'

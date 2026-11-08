@@ -4,7 +4,7 @@ from PySide6.QtGui import QColor, QValidator
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QTabWidget, QScrollArea, QWidget, QFormLayout, QPushButton, QLineEdit,
     QColorDialog, QFileDialog, QMessageBox)
-from hero_cad.palette import COLORS, CATEGORIES, ENABLED
+from hero_cad.palette import COLORS, CATEGORIES, ENABLED, CONTRAST, MODE_COLORS
 from hero_cad.ui.palette_controller import readable
 
 
@@ -29,7 +29,7 @@ class PaletteEditor(QDialog):
         self.setMinimumSize(480, 380)
         layout = QVBoxLayout(self)
         note = QLabel('Live appearance only · CAD geometry and history stay unchanged.\n'
-                      'RGB colors only. Low-contrast control text/focus is adjusted for readability.')
+                      'RGB only · Inherit follows global sketch colors · Keyboard focus stays protected.')
         note.setWordWrap(True)
         layout.addWidget(note)
         row = QHBoxLayout()
@@ -39,19 +39,48 @@ class PaletteEditor(QDialog):
         self.preset.currentIndexChanged.connect(lambda i:controller.preset(i == 1))
         row.addWidget(self.preset, 1)
         layout.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel('Text Contrast'))
+        self.text_contrast = QComboBox()
+        self.text_contrast.addItems(('Automatic', 'Manual'))
+        self.text_contrast.setAccessibleName('Text Contrast')
+        self.text_contrast.currentTextChanged.connect(controller.set_contrast)
+        row.addWidget(self.text_contrast, 1)
+        layout.addLayout(row)
+        self.contrast_info = QLabel()
+        self.contrast_info.setWordWrap(True)
+        layout.addWidget(self.contrast_info)
         self.tabs = QTabWidget()
-        self.fields, self.swatches = {}, {}
+        self.fields, self.swatches, self.inheritance = {}, {}, {}
         for name in CATEGORIES:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             page = QWidget()
             form = QFormLayout(page)
-            for key, spec in COLORS.items():
+            keys = list(COLORS)
+            if name == 'Sketch':
+                first = ['sketch.normal', 'sketch.active', 'sketch.selected', *MODE_COLORS]
+                keys = first + [key for key in keys if key not in first]
+            for key in keys:
+                spec = COLORS[key]
                 if spec.category != name:
                     continue
+                if name == 'Sketch' and key in ('sketch.normal', 'sketch.orange.normal', 'sketch.celadon.normal', 'sketch.profile'):
+                    title = {'sketch.normal':'Global sketch colors', 'sketch.orange.normal':'Orange X-Ray',
+                             'sketch.celadon.normal':'Celadon X-Ray', 'sketch.profile':'Profile fill, guides & Finish Sketch'}[key]
+                    heading = QLabel(title)
+                    heading.setProperty('paletteRole', 'heading')
+                    form.addRow(heading)
                 controls = QWidget()
                 line = QHBoxLayout(controls)
                 line.setContentsMargins(0, 0, 0, 0)
+                if key in MODE_COLORS:
+                    choice = QComboBox()
+                    choice.addItems(('Inherit', 'Custom'))
+                    choice.setAccessibleName(spec.label+' inheritance')
+                    choice.currentIndexChanged.connect(lambda index, key=key:self.choose_inheritance(key, index))
+                    self.inheritance[key] = choice
+                    line.addWidget(choice)
                 swatch = QPushButton('Pick…')
                 swatch.setAccessibleName(spec.label+' color picker')
                 swatch.setFixedWidth(66)
@@ -68,7 +97,8 @@ class PaletteEditor(QDialog):
                 reset.clicked.connect(lambda checked=False, key=key:controller.reset((key,)))
                 line.addWidget(swatch); line.addWidget(field, 1); line.addWidget(reset)
                 self.fields[key], self.swatches[key] = field, swatch
-                form.addRow(spec.label, controls)
+                label = COLORS[MODE_COLORS[key]].label if key in MODE_COLORS else spec.label
+                form.addRow(label, controls)
             scroll.setWidget(page)
             self.tabs.addTab(scroll, name)
         layout.addWidget(self.tabs, 1)
@@ -94,13 +124,39 @@ class PaletteEditor(QDialog):
         colors = self.controller.colors()
         with QSignalBlocker(self.preset):
             self.preset.setCurrentIndex(1 if self.controller.store.get(ENABLED) else 0)
+        with QSignalBlocker(self.text_contrast):
+            self.text_contrast.setCurrentText(self.controller.store.get(CONTRAST))
+        if self.controller.store.get(CONTRAST) == 'Manual':
+            self.contrast_info.setText('Manual: explicit text RGB is used; low contrast is allowed. Focus rings remain protected.')
+            self.contrast_info.setToolTip('Swatch labels and Finish Sketch text are derived for legibility; they have no separate text role.')
+        else:
+            changes = sorted(self.controller.adjustments)
+            self.contrast_info.setText(f'Automatic: {len(changes)} foreground adjustment(s). Hover here for requested → displayed colors.')
+            self.contrast_info.setToolTip('\n'.join(f'{a} → {b} on {bg}' for a,b,bg in changes) or 'No foreground substitutions.')
+        overrides = self.controller.overrides()
         for key, field in self.fields.items():
+            if key in self.inheritance:
+                custom = key in overrides
+                with QSignalBlocker(self.inheritance[key]):
+                    self.inheritance[key].setCurrentIndex(1 if custom else 0)
+                field.setEnabled(custom)
+                self.swatches[key].setEnabled(custom)
+                field.setToolTip('Custom RGB override' if custom else 'Inherited from '+COLORS[MODE_COLORS[key]].label)
             # Preserve an unfinished hex edit while the user types.
             if field.hasFocus() and not field.hasAcceptableInput():
                 continue
-            field.setText(colors[key])
+            if field.text() != colors[key]:
+                field.setText(colors[key])
             color = colors[key]
-            self.swatches[key].setStyleSheet('background-color:'+color+';color:'+readable('#FFFFFF',color)+';')
+            style = 'background-color:'+color+';color:'+readable('#FFFFFF',color)+';'
+            if self.swatches[key].styleSheet() != style:
+                self.swatches[key].setStyleSheet(style)
+
+    def choose_inheritance(self, key, index):
+        if index == 0:
+            self.controller.reset((key,))
+        else:
+            self.controller.set_color(key, self.controller.colors()[key])
 
     def edit_hex(self, key, text):
         if self.fields[key].hasAcceptableInput():

@@ -411,3 +411,17 @@ them during round-trip. Existing renderer callbacks consult overrides so lightin
 opacity and quality rules stay authoritative. Guide recoloring is independent of
 guide mesh generation. No theming framework, renderer/document schema rewrite,
 new dependency or body-specific color state. See docs/UI_PALETTE_044.md.
+
+## Work Order #045 — bounded palette refinements
+
+Six optional mode sketch roles inherit original globals in the same existing
+palette catalogue/controller. The viewport style callback recolors the same three
+sketch actors; profile fill remains separate. Mode changes only recolor existing
+guides, preserving meshes/selection. Automatic/Manual foreground policy is a hidden
+Preferences choice; focus protection remains independent. Scoped pseudo-state text
+rules override existing operation rules at equal specificity, and the editor reports
+Automatic substitutions. The original Finish Sketch QAction's toolbar widget gets
+an enabled-state style, without completion changes. V1 accepts its 55 original
+required roles plus optional extensions and contrast metadata, preserving legacy
+override masks; exports contain current effective colors and explicit masks.
+No renderer, document, history or theme-system replacement. See docs/SKETCH_APPEARANCE_045.md.

@@ -1795,3 +1795,92 @@ edge outlines/operation-preview opacity remain separate from shaded-body opacity
 The user's exact desktop event history and NVIDIA GPU were not captured; the
 reproduction verifies the matching conditional Qt default-button mechanism on
 both code revisions. No other hypothetical opacity or font fix was introduced.
+
+## Work Order #045 — sketch contexts, text contrast and Finish Sketch
+
+Baseline: merged #44 main `e7c644691f753f9654c31ad260c28a27b2150fd9`.
+Branch: sketch-appearance-045. Scope is appearance only; no changes to geometry,
+references, document schema, modeling tools, opacity preferences or tool-island
+configuration. Existing registry/controller/editor and header QAction are reused.
+
+Before implementation, docs/SKETCH_APPEARANCE_045.md recorded the existing actor/
+stylesheet/default/import boundaries. The complete supplied hero-palette.json was
+read once and copied as a 2534-byte representative fixture preserving its 55 RGB
+values and original override metadata; it is not a default palette. Its explicit
+ui.text black on a dark main background demonstrates Automatic substitution to
+white. Separately, an original-main real-widget probe reported the requested green
+button text through QPalette, while captured focused Apply glyphs painted legacy
+#241C16 on #D9B590. This confirmed a pseudo-state stylesheet precedence problem
+that palette() inspection alone missed. General/secondary/header/control/operation
+roles intentionally have different scopes, now documented/labeled explicitly.
+
+The six optional Orange/Celadon normal/active/selected keys inherit global sketch
+roles; absent overrides preserve exact pre-existing actor colors. Off uses globals.
+Mode switches recolor existing actors/guides, not their geometry. Material profile
+fill is independent. Editor swatches/disabled fields show effective inherited RGB;
+Custom stores an explicit color and Inherit removes it. Automatic/Manual text
+contrast persists separately, with visible Automatic adjustment details. Manual
+respects supported explicit foregrounds, including actual focused operation glyphs;
+focus protection remains. The original Finish QAction's QToolButton has a default
+HERO orange fill, configurable highlight, contrasting text, hover fill and focus
+border. It disables/hides through the unchanged existing completion path.
+
+V1 remains readable with its original 55 mandatory roles; six context keys,
+Finish highlight and text_contrast metadata are optional. Missing new fields inherit/
+default, while unknown/invalid/missing-original keys still reject atomically.
+Exports include effective colors and explicit masks; legacy metadata is not flattened.
+Reset/restore/persistence and PR44 sketch/general opacity behavior remain intact.
+
+Tests and commands:
+
+- Initial existing palette/opacity/preferences matrix: **52 passed**, 14 upstream
+  warnings, **32.79 s**.
+- Focused new contexts plus existing palette/opacity matrix: **51 passed**,
+  26 upstream warnings, **43.03 s** (before the final section-heading assertion).
+- New focused cases including that assertion: **16 passed**, 12 upstream warnings,
+  **15.47 s**.
+- Initial complete suite: **903 passed**, 194 upstream warnings, **777.77 s**.
+- Final focused boundary matrix: **18 passed**, 12 upstream warnings, **19.01 s**.
+- Final complete suite: 905 passed, 194 warnings in 852.19s (0:14:12).
+- `.venv/bin/pip check`: No broken requirements found; no dependency changes.
+- `.venv/bin/python -m compileall -q src tests/test_sketch_appearance_045.py tools/preview_sketch_045.py`: pass.
+- `git diff --check`: pass.
+
+Test development corrected a focused-button activation setup: a separately active
+modeless editor must be hidden and the operation window activated before asserting
+focused painting. The pixel assertion was retained and passes. Final review found
+that QColor.lighter produces no hover change at RGB extremes. The derived Finish
+hover now blends toward the contrasting foreground; black/white regressions check
+contrast and real hovered pixels. Moving the X11 cursor off before reentering avoids
+successive test windows opening under an unchanged cursor. No existing test was
+removed or weakened.
+
+Final full command uses `Xvfb :120 -screen 0 1600x1100x24 -listen tcp -nolisten
+unix -ac`, then `DISPLAY=127.0.0.1:120 LIBGL_ALWAYS_SOFTWARE=1
+QT_QPA_PLATFORM=xcb .venv/bin/pytest -q`. TCP X11 is required because this hosted
+workspace blocks Unix display sockets. Servers are stopped after their runs.
+Real software OpenGL is used; desktop NVIDIA/high-DPI testing is not claimed.
+Runtime packages/venv were restored after workspace maintenance; no dependencies
+or license decisions were changed.
+
+18 new regression cases cover A–L: inheritance, black/white Orange and cyan/orange
+Celadon, repeated transitions with face-attached/source entity/profile selection,
+deselect/reselect and Finish/reenter, preserved sketch/general opacity, automatic
+and exact manual widget text including focused glyphs and role-specific headings,
+inputs and secondary labels, original Finish QAction behavior and hover/focus
+including black/white extremes, persistence in a fresh process/window, supplied
+v1 compatibility/metadata, strict atomic malformed import rejection and active
+preview-candidate preservation. Geometry/display spies and native buffer/state
+snapshots verify no regeneration, B-rep/solid-display rebuild, history/dirty/selection
+mutation or unrelated refresh during appearance changes.
+
+Screenshot/performance harness: `.venv/bin/python tools/preview_sketch_045.py`,
+under the same software GL/TCP-Xvfb environment. Actual Normal, Orange, Celadon and
+editor screenshots were visually inspected and committed in docs/images. On a box
+and two face sketches (4 entities), editor-open medians including event processing/
+redraw were **38.31 ms** per mode switch (12 samples) and **33.57 ms** per context
+color change (10 samples). **0 geometry evaluations, 0 solid-display preparations**;
+feature/history/serialization/mesh/entity/profile selection identities unchanged.
+No timing assertions. Raw samples/environment: docs/benchmarks/sketch-045.json.
+Limitations, role scope, inheritance, optional v1 additions and future readability
+tradeoffs are documented in docs/SKETCH_APPEARANCE_045.md.

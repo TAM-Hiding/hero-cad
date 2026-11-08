@@ -307,7 +307,7 @@ class Viewport(QVTKRenderWindowInteractor):
             raise ValueError('Unknown X-Ray mode')
         self.xray_mode = mode
         self.apply_solid_style()
-        self.sketch.guides.update()
+        self.sketch.guides.apply_colors()
         self.xrayChanged.emit(mode)
         self.GetRenderWindow().Render()
 
@@ -333,7 +333,20 @@ class Viewport(QVTKRenderWindowInteractor):
     def palette_rgb(self, key, fallback):
         return self.palette_colors.get(key, fallback)
 
+    def apply_sketch_style(self):
+        # Same existing actors/buffers; mode-specific colors fall back to globals.
+        s = getattr(self, 'sketch', None)
+        if s is None:
+            return
+        mode = self.xray_mode.lower()
+        for role, actor, fallback in (('normal', s.actor, (.32,.72,.88)),
+                                      ('active', s.foreground_actor, (.4,.85,.95)),
+                                      ('selected', s.highlight_actor, (1.,.65,.15))):
+            color = self.palette_rgb('sketch.'+role, fallback)
+            actor.GetProperty().SetColor(*self.palette_rgb(f'sketch.{mode}.{role}', color))
+
     def apply_solid_style(self):
+        self.apply_sketch_style()
         editing = bool(getattr(self, 'sketch', None) and self.sketch.active_id)
         explicit = self.xray_mode != 'Off'
         # Editing owns opacity; explicit model X-Ray resumes after Finish.
