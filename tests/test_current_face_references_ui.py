@@ -45,7 +45,7 @@ def test_repeated_modified_cylinder_caps_enable_toolbar_and_island(qtbot,tmp_pat
     sid=select_and_enter(w,qtbot,(0,-11,0))
     w.finish_sketch();before=d.features
     w.undo();w.redo();assert d.features==before
-    d.save(tmp_path/'cylinder-ui.starcad')
+    d.save(tmp_path/'cylinder-ui.hcad')
     w.document=type(d).load(d.path);w.refresh(fit=True);v.orient('Top')
     select_and_enter(w,qtbot,(0,-11,10))
 

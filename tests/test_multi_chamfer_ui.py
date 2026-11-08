@@ -106,7 +106,7 @@ def test_manual_slot_preview_failure_cancel_commit_properties_and_persistence(qt
     w.undo();assert doc.feature(cid).parameters.distance==.5
     w.undo();assert doc.features==original
     w.redo();w.redo();assert doc.feature(cid).parameters.distance==1
-    doc.save(tmp_path/'ui-multi.starcad');loaded=Document.load(doc.path)
+    doc.save(tmp_path/'ui-multi.hcad');loaded=Document.load(doc.path)
     assert loaded.features==doc.features and loaded.statuses[cid].valid
     v.orient('Top');v.set_selection_mode('face')
     for point,kind in [((16,6.5,19.5),GeomAbs_Plane),((25.5,10,19.5),GeomAbs_Cone),((4,4,20),GeomAbs_Plane)]:

@@ -53,7 +53,7 @@ def test_slot_fin_boundary_valid_geometry_or_atomic_classified_failure(distance,
             assert BRepCheck_Analyzer(doc.shape).IsValid()
             assert 0 < volume(doc.shape) < original
             assert tessellate(doc.shape).GetNumberOfCells() > 0
-    doc.save(tmp_path/'boundary.starcad')
+    doc.save(tmp_path/'boundary.hcad')
     reopened = Document.load(doc.path)
     assert reopened.features == doc.features and reopened.statuses == doc.statuses
     assert volume(reopened.shape) == pytest.approx(volume(doc.shape))
@@ -62,7 +62,7 @@ def test_slot_fin_boundary_valid_geometry_or_atomic_classified_failure(distance,
 def test_failed_distance_edit_keeps_last_valid_history_and_serialization(tmp_path):
     doc, target, _, _, refs = slot_fin()
     cid = doc.add_chamfer(target, refs, .999)
-    doc.save(tmp_path/'accepted.starcad')
+    doc.save(tmp_path/'accepted.hcad')
     contents = doc.path.read_bytes()
     before = state(doc)
     stacks = doc._undo[:], doc._redo[:]
@@ -119,7 +119,7 @@ def test_upstream_edits_preserve_or_explicitly_invalidate_fin_witnesses(change, 
         assert doc.statuses[cut].blocked_by == cid
         assert cid not in doc.solid_shapes and cut not in doc.solid_shapes
         assert 'Failure stage: Edge Resolution' in feature_history_text(doc, cid)
-    doc.save(tmp_path/'references.starcad')
+    doc.save(tmp_path/'references.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses
     doc.undo()
@@ -140,7 +140,7 @@ def test_removed_support_face_blocks_attached_sketch_without_substitution(tmp_pa
     before = doc.features
     doc.update_entity(sid, replace(slot, radius=.4))
     assert not doc.statuses[cid].valid and doc.statuses[child].blocked_by == cid
-    doc.save(tmp_path/'missing-face.starcad')
+    doc.save(tmp_path/'missing-face.hcad')
     loaded = Document.load(doc.path)
     assert loaded.statuses == doc.statuses
     doc.undo()

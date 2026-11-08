@@ -134,7 +134,7 @@ No manually edited legacy file is necessary.
 All colors/inheritance and text contrast use existing Preferences/QSettings keys
 under palette/v1; None means no explicit color. Opacity and unrelated preferences
 are unchanged. Individual/category reset affects only its colors; whole-palette
-reset also restores Automatic contrast. No appearance data enters .starcad files.
+reset also restores Automatic contrast. No appearance data enters .hcad files.
 
 ## Screenshots, evidence and limits
 

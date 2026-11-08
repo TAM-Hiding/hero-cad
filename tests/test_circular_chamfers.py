@@ -91,7 +91,7 @@ def test_native_curved_chamfer_geometry_history_edit_undo_persistence(kind,z,tmp
     assert target in doc.active_body_ids and cid not in doc.solid_shapes
     doc.redo(); doc.redo()
     assert doc.feature(cid) == changed
-    doc.save(tmp_path/f'{kind}-{z}.starcad')
+    doc.save(tmp_path/f'{kind}-{z}.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses
     assert volume(loaded.solid_shapes[cid]) == pytest.approx(old_volume-removed(1))
@@ -112,7 +112,7 @@ def test_circular_reference_upstream_changes_unresolved_and_undo_recovery(tmp_pa
         doc.update_entity(sid,changed)
         assert not doc.statuses[cid].valid and cid not in doc.solid_shapes
         assert 'missing or changed' in doc.statuses[cid].error
-        doc.save(tmp_path/'unresolved.starcad')
+        doc.save(tmp_path/'unresolved.hcad')
         loaded=Document.load(doc.path)
         assert not loaded.statuses[cid].valid and loaded.feature(cid).parameters.edge == ref
         doc.undo()

@@ -49,7 +49,7 @@ def test_six_cuts_one_feature_history_save_reopen_and_reuse(tmp_path, distance, 
     accepted = d.features
     d.undo(); assert d.features == before
     d.redo(); assert d.features == accepted
-    d.save(tmp_path/'six.starcad')
+    d.save(tmp_path/'six.hcad')
     loaded = Document.load(d.path)
     assert loaded.features == accepted
     assert_solid(loaded, eid, expected)
@@ -88,7 +88,7 @@ def test_four_joined_bosses_and_region_scoped_cap_attachments(tmp_path, distance
                             source_faces=d.source_faces, bodies=d.solid_shapes)
         attached = d.add_face_sketch(ref)
         assert d.statuses[attached].valid
-    d.save(tmp_path/'bosses.starcad')
+    d.save(tmp_path/'bosses.hcad')
     loaded = Document.load(d.path)
     assert loaded.features == d.features and all(s.valid for s in loaded.statuses.values())
 
@@ -138,7 +138,7 @@ def test_line_loop_in_multi_feature_unresolved_and_recovers(tmp_path):
     d.update_entity(sid, replace(lines[0], x2=10))
     assert not d.statuses[eid].valid and eid not in d.solid_shapes
     assert d.active_body_ids == frozenset((target,))
-    d.save(tmp_path/'unresolved.starcad')
+    d.save(tmp_path/'unresolved.hcad')
     loaded = Document.load(d.path)
     assert not loaded.statuses[eid].valid
     loaded.update_entity(sid, lines[0])

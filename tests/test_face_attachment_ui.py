@@ -69,7 +69,7 @@ def test_box_right_click_actual_face_create_exact_circle_reenter(qtbot,name,tmp_
     assert current.entities == (circle,)
     coincident(current.frame,w.document.face_maps[box_id][name])
     assert v.sketch.origin_actor.GetPosition() == current.frame.origin
-    w.document.save(tmp_path/'box.starcad')
+    w.document.save(tmp_path/'box.hcad')
     assert Document.load(w.document.path).features == w.document.features
 
 

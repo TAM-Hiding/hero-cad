@@ -108,7 +108,7 @@ def test_adaptive_mesh_reuse_precision_and_picking(qtbot, tmp_path, plane):
     v.GetRenderWindow().SetSize(width, height)
     sketch.prepare_display()
     assert sketch.mapper.GetInput().GetNumberOfPoints() == points_before_resize
-    path = tmp_path/'same-precision.starcad'
+    path = tmp_path/'same-precision.hcad'
     before = w.document.features
     w.document.save(path)
     assert Document.load(path).features == before

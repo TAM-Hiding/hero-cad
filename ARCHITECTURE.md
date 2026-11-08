@@ -5,7 +5,7 @@
 - `features.py`: immutable feature definitions, box parameters, stable UUIDs and regeneration status/errors.
 - `sketch.py`: immutable line/rectangle/circle/slot/sketch parameters and canonical local-to-world plane frames.
 - `document.py`: ordered regeneration, transactional edits, saved state and undo/redo snapshots.
-- `persistence.py`: strict versioned JSON serialization and legacy migration.
+- `persistence.py`: native document identity and strict versioned JSON serialization.
 - `geometry.py`: OCCT solids and analytic sketch lines, circular edges, rectangle wires and tangent slot wires; kernel validity checks.
 - `tools.py`: UI-independent construction state machines, latched Shift mode, preview/completion/cancellation.
 - `ui/main_window.py`: browser, contextual actions, numeric properties and file lifecycle.
@@ -156,6 +156,23 @@ Existing operation overlap failures retain parameters with an invalid status and
 `ui/operation_panel.py` is a modeless dock. It builds a separate candidate Document for preview, renders candidate current bodies in orange instead of the old solid model, and commits exactly one validated feature transaction on Apply. Changed fields invalidate preview; Cancel restores the current display without history changes. References are explicit, target/tool names are shown, and a baseline feature snapshot prevents committing a stale candidate. Current/historical body labels, Combine actions and operation editing integrate with browser/properties. Preview regeneration is synchronous; tool membership editing beyond the originally selected Combine set is deferred.
 
 V6 persists Boolean definitions and operation extrusion parameters; ordinary old-style documents continue saving v3/v4/v5 as appropriate. Legacy v1–v5 defaults to New Body. Strict IDs/dependency validation, atomic saves, Undo/Redo and size/count limits remain. Display modes are session state. CAD Wireframe draws genuine edge meshes, Mesh Debug deliberately draws surface triangulation, and face picking temporarily uses the original surface representation without rendering it. Geometry refresh reapplies the selected mode; sketch visibility routes through the same state. W/S/P Qt events cannot invoke inherited VTK representation changes. No fillets, chamfers, direct Push/Pull, export, constraints, topology naming or new primitives.
+
+## Native documents and file dialogs
+
+HERO-CAD identifies native documents by the case-insensitive `.hcad` extension
+and exact `hero-cad` JSON marker. The feature schemas and their version
+numbers are unchanged. Work Order #046 supersedes the filename and marker
+conventions described in the historical PR #18 section below.
+
+Save As uses a widget-based `QFileDialog`. The native GTK or portal dialog
+owns its filename control and Qt does not expose a portable API to set its
+focus and selection. HERO-CAD sets focus and selects the basename in Qt's
+`fileNameEdit` when the dialog is shown. The suffix is applied before Qt
+checks for an existing destination. Open retains the platform dialog.
+The last successful document directory is stored in application settings
+under `documents/last_directory`.
+See the [Qt 6.8 QFileDialog API](https://doc.qt.io/qt-6.8/qfiledialog.html)
+for widget mode, default suffixes and overwrite confirmation.
 
 ## PR #18 — HERO-CAD identity migration
 

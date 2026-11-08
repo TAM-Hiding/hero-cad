@@ -67,7 +67,7 @@ def test_unresolved_and_blocked_are_distinct_from_historical():
 def test_inspection_is_read_only_and_never_regenerates(monkeypatch, tmp_path):
     doc, box, sketch, _, _ = chain()
     doc.set_sketch_visibility(sketch, False)
-    doc.save(tmp_path / 'history.starcad')
+    doc.save(tmp_path / 'history.hcad')
     before = dict(doc.__dict__)
     stacks = list(doc._undo), list(doc._redo)
     def forbidden(*args, **kwargs):
@@ -111,7 +111,7 @@ def test_signed_distance_precision_and_history_reopen(tmp_path):
     doc.undo()
     assert feature_history_text(doc, extrusion) == before
     doc.redo()
-    doc.save(tmp_path / 'history.starcad')
+    doc.save(tmp_path / 'history.hcad')
     assert feature_history_text(Document.load(doc.path), extrusion) == feature_history_text(doc, extrusion)
 
 
@@ -183,7 +183,7 @@ def test_new_body_to_join_reports_downstream_faces_and_cuts_without_repair(tmp_p
     assert all(s.valid for s in doc.statuses.values())
     doc.redo()
     assert [feature_history_text(doc, f.id) for f in doc.features] == failed
-    doc.save(tmp_path / 'joined-history.starcad')
+    doc.save(tmp_path / 'joined-history.hcad')
     loaded = Document.load(doc.path)
     assert [feature_history_text(loaded, f.id) for f in loaded.features] == failed
     assert loaded.feature(attached).parameters.attachment == attachment

@@ -79,7 +79,7 @@ def test_cylinder_hole_slots_repeat_both_caps_edits_reload_history(annular,plane
     assert all(s.valid for s in d.statuses.values())
     assert all(d.feature(sid).parameters.attachment==ref for sid,ref in sketches)
     before=d.features;d.undo();d.redo();assert d.features==before
-    d.save(tmp_path/(plane+str(annular)+'.starcad'))
+    d.save(tmp_path/(plane+str(annular)+'.hcad'))
     loaded=Document.load(d.path)
     assert loaded.features==d.features and all(s.valid for s in loaded.statuses.values())
     for z in (0,14):
@@ -122,7 +122,7 @@ def test_explicit_face_without_any_history_uses_checked_snapshot(monkeypatch,tmp
     payload['version']=9
     with pytest.raises(ValueError,match='version 10'):
         deserialize(payload)
-    d.save(tmp_path/'snapshot.starcad')
+    d.save(tmp_path/'snapshot.hcad')
     loaded=Document.load(d.path)
     # The geometry is the same when known ancestry becomes available again.
     assert loaded.features==d.features and loaded.statuses[sid].valid
@@ -136,7 +136,7 @@ def test_explicit_face_without_any_history_uses_checked_snapshot(monkeypatch,tmp
     assert d.feature(sid).parameters==old and sid not in d.sketch_shapes
     d.undo();assert d.statuses[sid].valid
     d.redo();assert not d.statuses[sid].valid
-    d.save(tmp_path/'snapshot-missing.starcad')
+    d.save(tmp_path/'snapshot-missing.hcad')
     assert not Document.load(d.path).statuses[sid].valid
 
 

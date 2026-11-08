@@ -139,9 +139,9 @@ def test_loop_identity_reorder_reversal_regeneration_and_v8_persistence(tmp_path
     d.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=reverse)))
     assert d.statuses[eid].valid and d.feature(eid).parameters.outer_id == r.outer_id
     assert volume(d.solid_shapes[eid]) == pytest.approx(300)
-    d.save(tmp_path/'polygon.starcad')
+    d.save(tmp_path/'polygon.hcad')
     payload = json.loads(d.path.read_text())
-    assert payload['version'] == 8 and payload['format'] == 'star-cad'
+    assert payload['version'] == 8 and payload['format'] == 'hero-cad'
     assert payload['features'][-1]['parameters']['line_ids'] == sorted(e.id for e in lines)
     assert Document.load(d.path).features == d.features
     for mutate in (lambda p: p.update(version=7),
@@ -166,7 +166,7 @@ def test_individual_vertex_edits_can_open_then_reclose_profile_without_stale_sol
     # Deletion protection retains all source line IDs even while unresolved.
     with pytest.raises(ValueError, match='profile boundary'):
         d.delete(entities=((sid, lines[2].id),))
-    d.save(tmp_path/'open.starcad')
+    d.save(tmp_path/'open.hcad')
     reopened = Document.load(d.path)
     assert not reopened.statuses[eid].valid and reopened.feature(eid).parameters == d.feature(eid).parameters
     d.update_entity(sid, replace(lines[1], x1=14))

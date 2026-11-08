@@ -110,7 +110,7 @@ def test_properties_success_is_one_evaluation_one_mesh_and_normal_history(qtbot,
     assert bounds(doc.solid_shapes[eid]) == pytest.approx((55,65,-5,5,0,11), abs=1e-7)
     assert w.viewport.mapper.GetInput().GetBounds()[5] == pytest.approx(11)
     assert w.viewport.selection is None and not w.viewport.selections
-    doc.save(tmp_path/'edited.starcad')
+    doc.save(tmp_path/'edited.hcad')
     reopened = Document.load(doc.path)
     assert reopened.features == doc.features and reopened.statuses == doc.statuses
     w.undo()
@@ -123,7 +123,7 @@ def test_properties_success_is_one_evaluation_one_mesh_and_normal_history(qtbot,
 def test_properties_display_failure_preserves_model_selection_stacks_and_file(qtbot, monkeypatch, tmp_path, stage):
     import hero_cad.ui.viewport as module
     w, _, _, _ = fixture(qtbot)
-    w.document.save(tmp_path/'original.starcad')
+    w.document.save(tmp_path/'original.hcad')
     contents = w.document.path.read_bytes()
     before = snapshot(w)
     errors = []
@@ -213,7 +213,7 @@ def test_other_update_paths_keep_committed_state_when_display_fails(qtbot, monke
         w.viewport.setFocus()
         w.browser.setCurrentItem(w.browser_items[('extrude', eid)])
     if action == 'open':
-        path = tmp_path/'replacement.starcad'
+        path = tmp_path/'replacement.hcad'
         Document(BoxParameters(width=65)).save(path)
         monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a: (str(path), ''))
     before = snapshot(w)
@@ -247,7 +247,7 @@ def test_upstream_edit_can_commit_expected_unresolved_dependents(qtbot, tmp_path
     assert doc.statuses[downstream].blocked_by == cid
     assert cid not in doc.solid_shapes and downstream not in doc.solid_shapes
     assert w.viewport.mapper.GetInput().GetNumberOfCells() > 0
-    doc.save(tmp_path/'unresolved.starcad')
+    doc.save(tmp_path/'unresolved.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses
     w.undo()
@@ -329,7 +329,7 @@ def test_ui_save_after_canceling_failed_properties_keeps_file_and_stacks(qtbot, 
     import hero_cad.ui.viewport as module
     w, _, _, _ = fixture(qtbot)
     doc = w.document
-    doc.save(tmp_path/'valid.starcad')
+    doc.save(tmp_path/'valid.hcad')
     original = doc.path.read_bytes()
     stacks = doc._undo[:], doc._redo[:]
     monkeypatch.setattr(QMessageBox, 'warning', lambda *a: None)

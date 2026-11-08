@@ -128,7 +128,7 @@ def test_invalidated_side_preserves_parameters_blocks_downstream_and_recovers(tm
     assert not d.statuses[downstream].valid
     assert d.feature(sid).parameters == old
     assert sid not in d.sketch_shapes and downstream not in d.solid_shapes
-    d.save(tmp_path/'unresolved.starcad')
+    d.save(tmp_path/'unresolved.hcad')
     reopened = Document.load(d.path)
     assert not reopened.statuses[sid].valid and reopened.feature(sid).parameters == old
     assert not reopened.dirty
@@ -146,7 +146,7 @@ def test_v5_roundtrip_chain_and_reference_validation(tmp_path):
     circle = Circle(1,2,.5)
     d.add_entity(sid,circle)
     downstream = d.add_extrusion(sid,circle.id,distance=2)
-    d.save(tmp_path/'attached.starcad')
+    d.save(tmp_path/'attached.hcad')
     assert json.loads(d.path.read_text())['version'] == 5
     other = Document.load(d.path)
     assert other.features == d.features and not other.dirty
@@ -210,7 +210,7 @@ def test_compound_angle_attachment_exact_plane_and_downstream(monkeypatch,tmp_pa
         coincident(p.frame,d.face_maps[p.attachment.parent_id][key])
     d.set_box(BoxParameters(50,25,30))
     coincident(d.feature(sid).parameters.frame,d.face_maps[d.features[0].id]['+Z'])
-    d.save(tmp_path/'angle.starcad')
+    d.save(tmp_path/'angle.hcad')
     assert Document.load(d.path).features == d.features
 
 
@@ -224,5 +224,5 @@ def test_cap_depth_reversal_preserves_local_frame_without_mirroring(tmp_path):
     after = d.feature(sid).parameters.frame
     assert after.u == before.u and after.v == before.v and after.normal == before.normal
     assert after.origin == (0,0,-10) and d.feature(sid).parameters.entities == (circle,)
-    d.save(tmp_path/'reversed.starcad')
+    d.save(tmp_path/'reversed.hcad')
     assert Document.load(d.path).feature(sid).parameters.frame == after

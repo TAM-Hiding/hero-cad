@@ -42,7 +42,7 @@ def test_history_savepoint_and_branch(tmp_path):
     edited = BoxParameters(width=12.345)
     document.set_box(edited)
     assert document.dirty and document.can_undo
-    document.save(tmp_path / 'part.starcad')
+    document.save(tmp_path / 'part.hcad')
     assert not document.dirty
     document.undo()
     assert document.parameters == original and document.dirty and document.can_redo
@@ -59,7 +59,7 @@ def test_history_savepoint_and_branch(tmp_path):
 def test_file_round_trip_rebuilds_geometry(tmp_path):
     document = Document()
     document.set_box(BoxParameters(12.3456789, 23.456, 34.567))
-    path = tmp_path / 'part.starcad'
+    path = tmp_path / 'part.hcad'
     document.save(path)
     loaded = Document.load(path)
     assert loaded.parameters == document.parameters
@@ -70,17 +70,17 @@ def test_file_round_trip_rebuilds_geometry(tmp_path):
 
 
 @pytest.mark.parametrize('contents', [
-    'null', '{', '{"format":"star-cad","format":"star-cad"}',
-    '{"format":"star-cad","version":2,"units":"mm","box":{}}',
-    '{"format":"star-cad","version":true,"units":"mm","box":{}}',
-    '{"format":"star-cad","version":1,"units":"in","box":{}}',
-    '{"format":"star-cad","version":1,"units":"mm","box":{"width":NaN,"depth":2,"height":3}}',
-    '{"format":"star-cad","version":1,"units":"mm","box":{"width":true,"depth":2,"height":3}}',
-    '{"format":"star-cad","version":1,"units":"mm","box":{"width":"3","depth":2,"height":3}}',
+    'null', '{', '{"format":"hero-cad","format":"hero-cad"}',
+    '{"format":"hero-cad","version":2,"units":"mm","box":{}}',
+    '{"format":"hero-cad","version":true,"units":"mm","box":{}}',
+    '{"format":"hero-cad","version":1,"units":"in","box":{}}',
+    '{"format":"hero-cad","version":1,"units":"mm","box":{"width":NaN,"depth":2,"height":3}}',
+    '{"format":"hero-cad","version":1,"units":"mm","box":{"width":true,"depth":2,"height":3}}',
+    '{"format":"hero-cad","version":1,"units":"mm","box":{"width":"3","depth":2,"height":3}}',
     ' ' * 65537,
 ])
 def test_invalid_files_rejected(tmp_path, contents):
-    path = tmp_path / 'bad.starcad'
+    path = tmp_path / 'bad.hcad'
     path.write_text(contents)
     with pytest.raises(ValueError):
         Document.load(path)
@@ -89,7 +89,7 @@ def test_invalid_files_rejected(tmp_path, contents):
 def test_failed_save_preserves_file_path_and_dirty_state(tmp_path, monkeypatch):
     import hero_cad.document as module
     document = Document()
-    path = tmp_path / 'part.starcad'
+    path = tmp_path / 'part.hcad'
     document.save(path)
     original = path.read_bytes()
     document.set_box(BoxParameters(width=50))
@@ -102,7 +102,7 @@ def test_failed_save_preserves_file_path_and_dirty_state(tmp_path, monkeypatch):
     assert document.path == path and document.dirty
     assert list(tmp_path.iterdir()) == [path]
     with pytest.raises(OSError):
-        document.save(tmp_path / 'another.starcad')
+        document.save(tmp_path / 'another.hcad')
     assert document.path == path and document.dirty
 
 
@@ -123,7 +123,7 @@ def test_failed_undo_preserves_history(monkeypatch):
 def test_failed_flush_does_not_replace_existing_file(tmp_path, monkeypatch):
     import hero_cad.document as module
     document = Document()
-    path = tmp_path / 'part.starcad'
+    path = tmp_path / 'part.hcad'
     document.save(path)
     original = path.read_bytes()
     document.set_box(BoxParameters(depth=35))

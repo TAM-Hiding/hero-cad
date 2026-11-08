@@ -18,7 +18,7 @@ cover physical interaction and the preferred appearance on the actual GPU.
    -Y, so a negative distance cuts into the box along +Y. Preview, inspect,
    then Apply. Also try Through All with negative direction.
 6. Verify the dovetail channel traverses the block and stays one valid solid.
-   Save/reopen the `.starcad` file. Change block depth and use Through All;
+   Save/reopen the `.hcad` file. Change block depth and use Through All;
    the channel must continue through it. Undo/Redo edits and operations.
 7. Repeat in a new document with New Body and a signed distance. Both positive
    and negative distances should produce the standalone dovetail prism.
@@ -77,7 +77,7 @@ cover physical interaction and the preferred appearance on the actual GPU.
 - Open older v1–v7 documents and check existing geometry, attachments and
   Booleans. Documents containing line-profile extrusions or line-side references
   now save as v8; older app versions cannot open these. The extension remains
-  `.starcad`, and sketch/extrusion dimensions remain analytically exact.
+  `.hcad`, and sketch/extrusion dimensions remain analytically exact.
 
 ## Documented limits
 

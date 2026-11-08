@@ -75,7 +75,7 @@ def test_box_chamfer_geometry_edit_history_and_persistence(tmp_path):
     assert doc.active_body_ids == {target} and volume(doc.shape) == pytest.approx(24000)
     doc.redo()
     assert volume(doc.shape) == pytest.approx(23940)
-    doc.save(tmp_path/'chamfer.starcad')
+    doc.save(tmp_path/'chamfer.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses
     assert volume(loaded.shape) == pytest.approx(volume(doc.shape))
@@ -125,7 +125,7 @@ def test_edge_matching_survives_regeneration_and_conservative_upstream_edits(tmp
     assert doc.statuses[cid].valid
     assert volume(doc.shape) == pytest.approx(40000-80)
     assert doc.feature(cid).parameters.edge == ref  # Never rewrite the witness.
-    doc.save(tmp_path/'semantic.starcad')
+    doc.save(tmp_path/'semantic.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses[cid].valid
     doc.undo()
@@ -209,7 +209,7 @@ def test_complex_bored_solid_and_downstream_face_sketch(tmp_path):
     old = doc.shape
     doc.add_entity(attached, Circle(5,0,1))
     assert doc.shape is old
-    doc.save(tmp_path/'complex.starcad')
+    doc.save(tmp_path/'complex.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and all(s.valid for s in loaded.statuses.values())
     doc.replace_feature(replace(doc.feature(cid), parameters=replace(doc.feature(cid).parameters, distance=1.5)))

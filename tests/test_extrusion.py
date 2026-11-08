@@ -98,7 +98,7 @@ def test_references_survive_edit_order_regenerate_save_and_history(tmp_path):
     feature = d.feature(sid)
     d.replace_feature(replace(feature, parameters=replace(feature.parameters, entities=feature.parameters.entities[::-1])))
     assert volume(d.solid_shapes[eid]) == pytest.approx(expected)
-    d.save(tmp_path/'plate.starcad')
+    d.save(tmp_path/'plate.hcad')
     assert json.loads(d.path.read_text())['version'] == 4
     loaded = Document.load(d.path)
     assert loaded.features == d.features
@@ -134,7 +134,7 @@ def test_open_lines_do_not_hide_primitive_profiles_and_malformed_files_rejected(
     assert [r.outer_id for r in regions(d.feature(sid).parameters)] == [outer.id]
     d.delete(entities=[(sid, d.feature(sid).parameters.entities[-1].id)])
     eid = d.add_extrusion(sid, outer.id)
-    path = tmp_path/'solid.starcad'
+    path = tmp_path/'solid.hcad'
     d.save(path)
     good = json.loads(path.read_text())
     for mutate in (lambda x: x['features'][-1]['parameters'].update(hole_ids=['invalid']),

@@ -1884,3 +1884,52 @@ feature/history/serialization/mesh/entity/profile selection identities unchanged
 No timing assertions. Raw samples/environment: docs/benchmarks/sketch-045.json.
 Limitations, role scope, inheritance, optional v1 additions and future readability
 tradeoffs are documented in docs/SKETCH_APPEARANCE_045.md.
+
+
+## Work Order #046 — Native .hcad documents
+
+Native documents use the `.hcad` extension and the `hero-cad` JSON marker.
+The writer retains feature-based schema version selection and the reader still
+supports native-identity schemas 1–15. Tests reject the former marker and
+extension and verify that the original legacy fixtures retain their hashes.
+
+The stock Qt Save As dialog uses widget mode for filename focus and basename
+selection. Real Qt key events cover Ctrl+S, Ctrl+Shift+S, Ctrl+O, typing over
+the selected basename, Enter and Escape. The suffixless overwrite test
+declines the single prompt for the actual `.hcad` destination. Tests also
+cover case variants, invalid and blank filenames, Models folder creation,
+the reported fallback, and successful directory persistence across restarts.
+
+A separate application process reopens a schema 15 multi-profile cut from
+the remembered directory. The round trip compares serialized feature history,
+sketches, parameters and references, then checks the solid's kernel validity,
+volume and bounds. Injected fsync and replace failures retain the prior
+file bytes, leave the active document dirty, and clean up the temporary file.
+The UI replacement-failure test also checks the current path and directory
+preference. Failed and canceled Open operations retain the active document.
+
+- Focused UI and document tests, including history, atomic updates, and
+  multi-profile extrusion, passed **101 tests** in 38.06 s.
+- The evaluated-face, persistent-reference, and line-profile persistence
+  matrix passed **83 tests** in 26.86 s.
+- The full suite passed **920 tests** with 194 upstream warnings in 455.32 s.
+- `.venv/bin/pip check` and `git diff --check` passed.
+
+The full and focused UI runs used Ubuntu 24.04 and CPython 3.12 with the
+repository lockfile. The hosted workspace requires TCP X11.
+
+```sh
+Xvfb :127 -screen 0 1600x1100x24 -nolisten local -nolisten unix -listen tcp -ac
+DISPLAY=127.0.0.1:127 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q
+```
+
+The focused UI run selected `test_files_ui.py`, `test_document.py`,
+`test_rebranding.py`, `test_multi_profile_extrusion.py`,
+`test_atomic_updates_042.py`, and `test_history_inspector_ui.py` under
+`tests/`. The persistence matrix selected `test_evaluated_faces.py`,
+`test_persistent_references.py`, and `test_line_profiles.py`.
+
+The initial full run exposed 14 old-marker assertions across those three
+persistence modules. Their expected marker was updated and the entire suite
+was rerun. Desktop coverage uses Qt xcb and software OpenGL. Live GTK/portal
+and hardware rendering require separate desktop validation.

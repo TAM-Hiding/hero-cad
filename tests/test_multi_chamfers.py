@@ -62,7 +62,7 @@ def test_box_multi_chamfer_is_one_feature_with_canonical_references(count,tmp_pa
     doc.undo(); assert doc.feature(cid).parameters.distance==.5
     doc.undo(); assert doc.active_body_ids=={target}
     doc.redo();doc.redo();assert doc.feature(cid)==changed
-    doc.save(tmp_path/'multi.starcad');loaded=Document.load(doc.path)
+    doc.save(tmp_path/'multi.hcad');loaded=Document.load(doc.path)
     assert loaded.features==doc.features and loaded.statuses==doc.statuses
     assert volume(loaded.solid_shapes[cid])==pytest.approx(volume(doc.solid_shapes[cid]))
     assert serialize(doc.features)['version']==14
@@ -91,7 +91,7 @@ def test_complete_slot_or_pocket_rim_one_builder_and_editable(depth,tmp_path,mon
     assert all(key[0]=='bevel' and len(key[2])==64 for key in doc.source_faces[cid])
     doc.replace_feature(replace(doc.feature(cid),parameters=replace(doc.feature(cid).parameters,distance=1)))
     assert volume(doc.solid_shapes[cid])==pytest.approx(original-removed(1))
-    doc.save(tmp_path/'slot.starcad');loaded=Document.load(doc.path)
+    doc.save(tmp_path/'slot.hcad');loaded=Document.load(doc.path)
     assert loaded.features==doc.features and loaded.statuses[cid].valid
     assert volume(loaded.solid_shapes[cid])==pytest.approx(original-removed(1))
     doc.update_entity(sid,replace(slot,radius=4))
@@ -195,7 +195,7 @@ def test_multi_bevel_lineage_planar_attachment_and_downstream_cut(tmp_path):
     sid=doc.add_face_sketch(ref)
     assert doc.statuses[sid].valid
     assert serialize(doc.features)['version']==14
-    doc.save(tmp_path/'bevel.starcad');loaded=Document.load(doc.path)
+    doc.save(tmp_path/'bevel.hcad');loaded=Document.load(doc.path)
     assert loaded.features==doc.features and loaded.statuses[sid].valid
     # Cylinder walls keep ancestry; the unaffected outer plane supports a cut.
     for face in subshapes(doc.solid_shapes[cid],TopAbs_FACE):

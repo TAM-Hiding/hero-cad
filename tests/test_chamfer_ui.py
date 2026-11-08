@@ -68,7 +68,7 @@ def test_chamfer_preview_cancel_commit_properties_history_and_picking(qtbot, tmp
     v.pick_at(*project(v,(20,0,20)))
     assert v.selection.kind == 'edge'
     assert doc.edge_reference(v.selection.shape)[0] == cid
-    doc.save(tmp_path/'ui-chamfer.starcad')
+    doc.save(tmp_path/'ui-chamfer.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features
     assert volume(loaded.shape) == pytest.approx(23820)
@@ -229,7 +229,7 @@ def test_curved_chamfer_pick_preview_cancel_apply_properties_and_bevel_selection
     assert doc.feature(cid).parameters.distance==.5
     w.redo()
     assert doc.feature(cid).parameters.distance==1
-    doc.save(tmp_path/f'ui-{kind}.starcad')
+    doc.save(tmp_path/f'ui-{kind}.hcad')
     loaded=Document.load(doc.path)
     assert loaded.features==doc.features and loaded.statuses[cid].valid
     # Pick the conical bevel through the normal tessellation-to-OCCT face map.

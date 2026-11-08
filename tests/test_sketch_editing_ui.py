@@ -46,7 +46,7 @@ def test_interactive_circle_slot_exact_entry_and_cancel(qtbot, tmp_path, plane):
     qtbot.keyClick(v.dimensions.input, Qt.Key_Escape)
     qtbot.mouseRelease(v, Qt.LeftButton, pos=pixel(v, f.to_world((-8, -8))))
     assert w.document.features == before and not v.sketch.preview_actor.GetVisibility()
-    w.document.save(tmp_path/f'{plane}.starcad')
+    w.document.save(tmp_path/f'{plane}.hcad')
     assert Document.load(w.document.path).features == before
     w.undo()
     assert len(w.document.feature(sid).parameters.entities) == 1

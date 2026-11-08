@@ -35,7 +35,7 @@ automated kernel/Qt/Xvfb results are recorded separately in VALIDATION.md.
 4. Reenter each sketch and change one entity. Other sketches' local parameters
    must remain independent. Change cylinder radius (e.g. 10 → 12) or cut depth
    (-3 → -4); attachments should follow their own parent faces.
-5. Save as `.starcad`, reopen, reenter each sketch, Undo/Redo further edits.
+5. Save as `.hcad`, reopen, reenter each sketch, Undo/Redo further edits.
    The same faces and local dimensions must regenerate. Undo history itself
    is session-only, as before.
 
@@ -59,7 +59,7 @@ automated kernel/Qt/Xvfb results are recorded separately in VALIDATION.md.
   splitting the top. Old split-face sketches should become UNRESOLVED with
   explanatory properties, retaining their entities and last frame. Dependent
   extrusions must produce no stale solid. Undo should recover the attachments.
-- Open existing v1–v6 `.starcad` models with ordinary sketches, extrusions,
+- Open native v1–v6 `.hcad` fixtures with ordinary sketches, extrusions,
   attachments and Booleans. Regeneration, save/reopen and Undo/Redo should
   retain their established behavior. Documents with new Boolean-face sketches
   use v7; older application releases cannot open them.

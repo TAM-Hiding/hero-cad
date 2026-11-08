@@ -39,8 +39,8 @@ def test_leaf_commits_retain_coherent_solid_state_and_history(monkeypatch, tmp_p
     for _ in range(4):
         doc.redo()
     assert doc.features == accepted
-    doc.save(tmp_path/'leaf.starcad')
-    loaded = Document.load(tmp_path/'leaf.starcad')
+    doc.save(tmp_path/'leaf.hcad')
+    loaded = Document.load(tmp_path/'leaf.hcad')
     assert loaded.features == doc.features
     assert volume(loaded.shape) == pytest.approx(volume(doc.shape))
     assert BRepCheck_Analyzer(loaded.shape).IsValid()
@@ -138,7 +138,7 @@ def test_leaf_after_boolean_preserves_topology_and_reopens(tmp_path):
     counts = tuple(len(subshapes(doc.shape, kind)) for kind in (TopAbs_FACE, TopAbs_EDGE))
     doc.add_entity(sid, Circle(25, 10, 2))
     assert all(a is b for a, b in zip(solid_state(doc), state))
-    path = tmp_path/'cut-leaf.starcad'
+    path = tmp_path/'cut-leaf.hcad'
     doc.save(path)
     loaded = Document.load(path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses

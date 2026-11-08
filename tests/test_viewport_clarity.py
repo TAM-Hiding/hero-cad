@@ -24,7 +24,7 @@ def test_visibility_metadata_is_not_evaluation_and_roundtrips(tmp_path):
     assert not d.feature(sid).sketch_visible and d.feature(sid).parameters==old[1].parameters
     payload=serialize(d.features);assert payload['version']==11
     assert deserialize(payload)==d.features
-    d.save(tmp_path/'hidden.starcad');loaded=Document.load(d.path)
+    d.save(tmp_path/'hidden.hcad');loaded=Document.load(d.path)
     assert loaded.features==d.features and volume(loaded.shape)==pytest.approx(mass)
     d.undo();assert d.features==old
     d.redo();assert not d.feature(sid).sketch_visible and d.statuses[ext].valid
@@ -93,7 +93,7 @@ def test_browser_visibility_preserves_selection_and_edit_override(qtbot,tmp_path
     w.finish_sketch();assert not any(row[0]==sid for row in w.viewport.sketch.mapping)
     w.edit_sketch();toggle(qtbot,w,sid);w.finish_sketch()
     assert w.document.feature(sid).sketch_visible and any(row[0]==sid for row in w.viewport.sketch.mapping)
-    w.document.save(tmp_path/'shown.starcad');assert Document.load(w.document.path).feature(sid).sketch_visible
+    w.document.save(tmp_path/'shown.hcad');assert Document.load(w.document.path).feature(sid).sketch_visible
 
 
 @pytest.mark.parametrize('plane',['XY','XZ','YZ'])

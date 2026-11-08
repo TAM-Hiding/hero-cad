@@ -202,7 +202,7 @@ def test_circle_radius_diameter_preview_kernel_properties_and_reopen(qtbot, tmp_
     assert volume(w.document.solid_shapes[eid]) == pytest.approx(pi*radius**2*3)
     b = bounds(w.document.solid_shapes[eid])
     assert b[1]-b[0] == pytest.approx(2*radius) and b[3]-b[2] == pytest.approx(2*radius)
-    w.document.save(tmp_path/'circle.starcad')
+    w.document.save(tmp_path/'circle.hcad')
     loaded = Document.load(w.document.path)
     assert loaded.features == w.document.features
     assert loaded.feature(sid).parameters.entities[-1].radius == radius

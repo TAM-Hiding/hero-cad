@@ -69,8 +69,8 @@ def test_updates_through_creation_deletion_undo_redo_and_file_actions(qtbot, tmp
     w.redo()
     failed = w.history_inspector.toPlainText()
     assert 'Status: Unresolved' in failed
-    path = tmp_path / 'inspected.starcad'
-    monkeypatch.setattr(QFileDialog, 'getSaveFileName', lambda *a, **k: (str(path), ''))
+    path = tmp_path / 'inspected.hcad'
+    monkeypatch.setattr(w, 'select_document_save_path', lambda *a: str(path))
     assert w.save_document()
     monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a, **k: (str(path), ''))
     w.open_document()

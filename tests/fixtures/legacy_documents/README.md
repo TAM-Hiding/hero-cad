@@ -14,3 +14,6 @@ manifest.json records source commit, exact file hashes, kernel volume, active-bo
 count and feature types. Keep these fixtures byte-for-byte unchanged when changing
 branding. The internal star-cad format marker and .starcad suffix are intentional
 compatibility contracts, not stale application branding.
+
+Work Order #046 keeps these fixtures unchanged to verify rejection of the old
+identity and to exercise the retained schema readers with native-identity test copies.

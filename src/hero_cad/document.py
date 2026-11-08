@@ -7,7 +7,7 @@ import tempfile
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, Feature, FeatureError, FeatureStatus
 from hero_cad.geometry import make_box, make_sketch, compound
 from hero_cad.profiles import extrude_region, resolve_region, regions, ProfileError
-from hero_cad.persistence import deserialize, serialize
+from hero_cad.persistence import deserialize, require_document_extension, serialize
 from hero_cad.sketch import SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
 from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
@@ -480,6 +480,7 @@ class Document:
     def save(self, path):
         """Replace only after a complete, flushed file exists in the same directory."""
         path = Path(path).expanduser().absolute()
+        require_document_extension(path)
         payload = serialize(self.features)
         contents = json.dumps(payload, indent=2, allow_nan=False) + '\n'
         if len(contents.encode('utf-8')) > 4 * 1024 * 1024:
@@ -502,6 +503,7 @@ class Document:
     @classmethod
     def load(cls, path):
         path = Path(path).expanduser().absolute()
+        require_document_extension(path)
         with path.open('rb') as stream:
             contents = stream.read(4 * 1024 * 1024 + 1)
         if len(contents) > 4 * 1024 * 1024:

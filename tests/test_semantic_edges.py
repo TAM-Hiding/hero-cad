@@ -56,7 +56,7 @@ def test_primary_slot_rims_and_twelve_exterior_edges(dimension, value, tmp_path)
     doc.redo()
     assert volume(doc.shape) == pytest.approx(changed)
     assert all(s.valid for s in doc.statuses.values())
-    doc.save(tmp_path/'semantic.starcad')
+    doc.save(tmp_path/'semantic.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features and loaded.statuses == doc.statuses
     assert volume(loaded.shape) == pytest.approx(changed)

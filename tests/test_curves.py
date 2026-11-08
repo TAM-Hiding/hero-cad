@@ -77,7 +77,7 @@ def test_curve_edit_precision_history_and_legacy_v2(tmp_path):
     identifier = doc.add_sketch('YZ')
     line = Line(0, 0, 3, 4)
     doc.add_entity(identifier, line)
-    path = tmp_path/'curves.starcad'
+    path = tmp_path/'curves.hcad'
     doc.save(path)
     legacy = json.loads(path.read_text())
     legacy['version'] = 2

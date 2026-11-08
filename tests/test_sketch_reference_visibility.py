@@ -35,7 +35,7 @@ def test_settings_can_hide_only_box_without_changing_document_or_pending_fields(
     assert w.document.features == before and len(w.document._undo) == n and not w.document.dirty
     w.refresh()
     assert not w.show_base_box.isChecked() and w.viewport.mapper.GetInput().GetNumberOfCells() == 0
-    w.document.save(tmp_path/'hidden.starcad')
+    w.document.save(tmp_path/'hidden.hcad')
     assert Document.load(w.document.path).features == before
     w.show_base_box.setChecked(True)
     assert w.viewport.mapper.GetInput().GetNumberOfCells() > 0 and w.visible_volume > 0

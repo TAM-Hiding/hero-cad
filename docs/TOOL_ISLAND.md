@@ -13,7 +13,7 @@ new modeling operations and keeps the existing toolbars, menus and shortcuts.
 - **View → Floating Tool Island** hides/shows it, including after a restart.
 - Layout settings save immediately after explicit changes (dragging saves on
   release) and again on successful window close. They are not geometry,
-  `.starcad` contents, dirty state or document Undo history.
+  `.hcad` contents, dirty state or document Undo history.
 
 The default is visible, expanded, Medium, near the viewport's upper-right.
 Position is stored as viewport-local pixels. Window/dock/toolbar changes can

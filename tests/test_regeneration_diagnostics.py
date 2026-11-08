@@ -46,7 +46,7 @@ def test_independent_valid_and_failed_branches_undo_redo_and_reopen(tmp_path):
     assert 'OCCT' in feature_history_text(doc,first)
     assert 'Unresolved chamfer edge' in feature_history_text(doc,second)
     definitions = doc.features
-    doc.save(tmp_path/'failures.starcad')
+    doc.save(tmp_path/'failures.hcad')
     reopened = Document.load(doc.path)
     assert reopened.features == definitions and reopened.statuses == doc.statuses
     doc.undo(); assert doc.statuses[second].valid and first_failure(doc) == first
