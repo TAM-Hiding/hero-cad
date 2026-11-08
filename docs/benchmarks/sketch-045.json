@@ -1,0 +1,46 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "qt_platform": "xcb",
+  "software_gl": "1",
+  "feature_count": 3,
+  "entity_count": 4,
+  "palette_editor_open_during_timings": true,
+  "geometry_evaluations": 0,
+  "solid_display_preparations": 0,
+  "definitions_history_serialization_meshes_selections_unchanged": true,
+  "timings": {
+    "mode_switch_editor_open": {
+      "median_ms": 38.30771299999469,
+      "samples_ms": [
+        225.57258900019406,
+        141.78643500008548,
+        86.48663999997552,
+        33.97209100012333,
+        73.28448999987813,
+        39.05108399999335,
+        32.98905799988461,
+        29.553299999861338,
+        37.56434199999603,
+        39.606020000064746,
+        35.84035499989113,
+        37.35229900007653
+      ]
+    },
+    "context_color_editor_open": {
+      "median_ms": 33.56991800001197,
+      "samples_ms": [
+        39.9197940000704,
+        31.038347000048816,
+        31.723467999881905,
+        43.03342499997598,
+        34.82731600001898,
+        34.18237100004262,
+        32.340948999944885,
+        39.46663900001113,
+        32.95746499998131,
+        32.27739700014354
+      ]
+    }
+  }
+}

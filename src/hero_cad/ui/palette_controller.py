@@ -1,7 +1,7 @@
 """Small appearance-only bridge from Preferences to existing widgets and actors."""
 from PySide6.QtCore import QObject, Signal, QSaveFile, QIODevice
-from PySide6.QtGui import QColor, QPalette
-from hero_cad.palette import COLORS, PREFIX, ENABLED, hex_color, rgb, decode_palette, encode_palette
+from PySide6.QtGui import QPalette
+from hero_cad.palette import COLORS, PREFIX, ENABLED, CONTRAST, MODE_COLORS, hex_color, rgb, decode_palette, encode_palette
 from hero_cad.ui.feature_icons import feature_icon
 
 
@@ -32,7 +32,10 @@ class PaletteController(QObject):
                  'controls.text':QPalette.ButtonText, 'controls.selection':QPalette.Highlight,
                  'controls.selection_text':QPalette.HighlightedText, 'controls.input':QPalette.Base,
                  'controls.input_text':QPalette.Text, 'history.selection':QPalette.Highlight}
-        self.defaults = {key:spec.default or p.color(roles[key]).name().upper() for key,spec in COLORS.items()}
+        self.defaults = {key:spec.default or p.color(roles[key]).name().upper()
+                         for key,spec in COLORS.items() if key not in MODE_COLORS}
+        self.defaults.update({key:self.defaults[base] for key,base in MODE_COLORS.items()})
+        self.adjustments = set()
         self.base_styles = {widget:widget.styleSheet() for widget in (
             window, window.tool_island, window.operation_panel, window.viewport.dimensions)}
         v, s = window.viewport, window.viewport.sketch
@@ -58,7 +61,19 @@ class PaletteController(QObject):
         colors = {**self.defaults, **overrides}
         if 'ui.background' in overrides and 'dialogs.background' not in overrides:
             colors['dialogs.background'] = overrides['ui.background']
+        for key, base in MODE_COLORS.items():
+            if key not in overrides:
+                colors[key] = colors[base]
         return colors
+
+    def text_color(self, text, background):
+        result = text if self.store.get(CONTRAST) == 'Manual' else readable(text, background)
+        if result != text:
+            self.adjustments.add((text, result, background))
+        return result
+
+    def set_contrast(self, mode):
+        self.store.set(CONTRAST, mode)
 
     def set_color(self, key, value):
         if key not in COLORS:
@@ -69,21 +84,25 @@ class PaletteController(QObject):
         self.store.set(ENABLED, bool(custom))
 
     def reset(self, keys=None):
-        keys = tuple(COLORS) if keys is None else tuple(keys)
+        all_colors = keys is None
+        keys = tuple(COLORS) if all_colors else tuple(keys)
         if any(key not in COLORS for key in keys):
             raise ValueError('Unknown palette property')
-        self.store.set_many({PREFIX+key:None for key in keys})
+        values = {PREFIX+key:None for key in keys}
+        if all_colors:
+            values[CONTRAST] = 'Automatic'
+        self.store.set_many(values)
 
     def export_file(self, path):
-        data = encode_palette(self.colors(), self.overrides()).encode('utf-8')
+        data = encode_palette(self.colors(), self.overrides(), text_contrast=self.store.get(CONTRAST)).encode('utf-8')
         file = QSaveFile(str(path))
         if not file.open(QIODevice.WriteOnly) or file.write(data) != len(data) or not file.commit():
             raise OSError('Could not save palette: '+file.errorString())
 
     def import_file(self, path):
         with open(path, 'r', encoding='utf-8') as file:
-            colors = decode_palette(file.read(65537))
-        self.store.set_many({**{PREFIX+key:value for key,value in colors.items()}, ENABLED:True})
+            colors, text_contrast = decode_palette(file.read(65537), include_contrast=True)
+        self.store.set_many({**{PREFIX+key:value for key,value in colors.items()}, ENABLED:True, CONTRAST:text_contrast})
 
     def preferences_changed(self, keys):
         if any(key.startswith(PREFIX) for key in keys):
@@ -99,14 +118,14 @@ class PaletteController(QObject):
         def pair(selectors, bg, fg, base_bg, base_fg):
             if bg in o or fg in o or 'ui.text' in o:
                 background = o.get(bg, base_bg)
-                rule(selectors, ['background-color:'+background, 'color:'+readable(o.get(fg, base_fg), background)])
-        pair('QPushButton,QToolButton', 'controls.normal', 'controls.text', *fallback['button'])
-        pair('QPushButton:checked,QPushButton:pressed,QToolButton:checked,QToolButton:pressed',
-             'controls.active', 'controls.active_text', *fallback['active'])
+                rule(selectors, ['background-color:'+background, 'color:'+self.text_color(o.get(fg, base_fg), background)])
+        pair('QPushButton,QToolButton,QPushButton:focus,QToolButton:focus', 'controls.normal', 'controls.text', *fallback['button'])
         if 'controls.hover' in o:
             rule('QPushButton:hover,QToolButton:hover', ['background-color:'+o['controls.hover'],
-                 'color:'+readable(colors['controls.text'], o['controls.hover'])])
-        pair('QPushButton:disabled,QToolButton:disabled', 'controls.disabled', 'controls.disabled_text', *fallback['disabled'])
+                 'color:'+self.text_color(colors['controls.text'], o['controls.hover'])])
+        pair('QPushButton:checked,QPushButton:pressed,QToolButton:checked,QToolButton:pressed',
+             'controls.active', 'controls.active_text', *fallback['active'])
+        pair('QPushButton:disabled,QToolButton:disabled,QLineEdit:disabled,QDoubleSpinBox:disabled,QSpinBox:disabled,QComboBox:disabled', 'controls.disabled', 'controls.disabled_text', *fallback['disabled'])
         pair('QLineEdit,QDoubleSpinBox,QSpinBox,QComboBox,QPlainTextEdit,QComboBox QAbstractItemView',
              'controls.input', 'controls.input_text', *fallback['input'])
         if 'controls.input_border' in o:
@@ -119,36 +138,44 @@ class PaletteController(QObject):
 
     def apply_widgets(self, o):
         w = self.window
+        self.adjustments.clear()
         colors = self.colors()
         rules = []
         def rule(selector, declarations):
             rules.append(selector+' {'+declarations+';}')
         if 'ui.background' in o:
-            rule('QMainWindow,QMenuBar,QMenu,QToolBar,QStatusBar,QHeaderView::section,QTabBar::tab', 'background-color:'+o['ui.background']+';color:'+readable(colors['ui.text'],o['ui.background']))
+            rule('QMainWindow,QMenuBar,QMenu,QToolBar,QStatusBar,QHeaderView::section,QTabBar::tab', 'background-color:'+o['ui.background']+';color:'+self.text_color(colors['ui.text'],o['ui.background']))
         for key, scope in (('browser.background','QTreeWidget#modelBrowser'),
                            ('properties.background','QTabWidget#propertiesPanel, QTabWidget#propertiesPanel QStackedWidget, QTabWidget#propertiesPanel QStackedWidget > QWidget'),
                            ('dialogs.background','QDialog')):
             if key in o:
-                rule(scope, 'background-color:'+o[key]+';color:'+readable(colors['ui.text'], o[key]))
+                rule(scope, 'background-color:'+o[key]+';color:'+self.text_color(colors['ui.text'], o[key]))
         if 'ui.text' in o:
-            rule('QWidget', 'color:'+readable(o['ui.text'], colors['ui.background']))
+            rule('QWidget', 'color:'+self.text_color(o['ui.text'], colors['ui.background']))
+            rule('QTabWidget#propertiesPanel QLabel', 'color:'+self.text_color(o['ui.text'],colors['properties.background']))
         if 'ui.secondary' in o:
-            rule('QLabel[paletteRole="secondary"]', 'color:'+readable(o['ui.secondary'], colors['ui.background']))
+            rule('QLabel[paletteRole="secondary"]', 'color:'+self.text_color(o['ui.secondary'], colors['ui.background']))
+        if 'ui.secondary' in o:
+            rule('QTabWidget#propertiesPanel QLabel[paletteRole="secondary"]', 'color:'+self.text_color(o['ui.secondary'],colors['properties.background']))
         if 'ui.border' in o:
             rule('QDockWidget,QTabWidget::pane', 'border:1px solid '+o['ui.border'])
         if 'ui.heading' in o:
-            rule('QDockWidget::title,QHeaderView::section,QTabBar::tab', 'color:'+readable(o['ui.heading'], colors['ui.background']))
+            rule('QDockWidget::title,QHeaderView::section,QTabBar::tab,QLabel[paletteRole="heading"]', 'color:'+self.text_color(o['ui.heading'], colors['ui.background']))
         if 'controls.selection' in o or 'controls.selection_text' in o:
             bg = colors['controls.selection']
-            rule('QTreeWidget#modelBrowser', 'selection-background-color:'+bg+';selection-color:'+readable(colors['controls.selection_text'],bg))
+            rule('QTreeWidget#modelBrowser', 'selection-background-color:'+bg+';selection-color:'+self.text_color(colors['controls.selection_text'],bg))
         if 'history.selection' in o:
             rule('QPlainTextEdit#historyInspector', 'selection-background-color:'+o['history.selection']+
-                 ';selection-color:'+readable(colors['ui.text'],o['history.selection']))
+                 ';selection-color:'+self.text_color(colors['ui.text'],o['history.selection']))
         if any(key in o for key in ('ui.background','dialogs.background','ui.text')):
             dialog_background = o.get('dialogs.background', o.get('ui.background', self.defaults['dialogs.background']))
-            dialog_text = readable(colors['ui.text'], dialog_background)
+            dialog_text = self.text_color(colors['ui.text'], dialog_background)
             rule('QDialog,QDialog QWidget', 'background-color:'+dialog_background+';color:'+dialog_text)
-            rule('QDialog QTabBar::tab', 'color:'+readable(colors['ui.heading'],dialog_background))
+            rule('QDialog QTabBar::tab', 'color:'+self.text_color(colors['ui.heading'],dialog_background))
+            if 'ui.heading' in o:
+                rule('QDialog QLabel[paletteRole="heading"]', 'color:'+self.text_color(o['ui.heading'],dialog_background))
+            if 'ui.secondary' in o:
+                rule('QDialog QLabel[paletteRole="secondary"]', 'color:'+self.text_color(o['ui.secondary'],dialog_background))
         native = {'button':(colors['controls.normal'],colors['controls.text']),
                   'active':(colors['controls.active'],colors['controls.active_text']),
                   'disabled':(colors['controls.disabled'],colors['controls.disabled_text']),
@@ -174,17 +201,36 @@ class PaletteController(QObject):
             if 'ui.border' in o:
                 extra.append(scope+' {border-color:'+o['ui.border']+';}')
             if bg in o or 'ui.text' in o or bg == 'operation.background' and 'operation.text' in o:
-                text = readable(o.get('operation.text', o.get('ui.text', '#241C16')) if bg == 'operation.background' else colors['ui.text'], colors[bg])
+                text = self.text_color(o.get('operation.text', o.get('ui.text', '#241C16')) if bg == 'operation.background' else colors['ui.text'], colors[bg])
                 extra.append(scope+' QLabel {color:'+text+';}')
             if 'ui.secondary' in o:
-                extra.append(scope+' QLabel[paletteRole="secondary"] {color:'+readable(o['ui.secondary'],colors[bg])+';}')
+                extra.append(scope+' QLabel[paletteRole="secondary"] {color:'+self.text_color(o['ui.secondary'],colors[bg])+';}')
             if 'ui.heading' in o:
-                extra.append(scope+' QLabel[paletteRole="heading"] {color:'+readable(o['ui.heading'], colors[bg])+';}')
+                extra.append(scope+' QLabel[paletteRole="heading"] {color:'+self.text_color(o['ui.heading'], colors[bg])+';}')
             if widget is w.operation_panel and 'operation.surround' in o:
                 extra.append('QDockWidget#operationDialog, QDockWidget#operationDialog::title, QScrollArea#operationScroll, QWidget#operationScrollViewport {background-color:'+o['operation.surround']+';}')
             extra.append(self.controls(scope, colors, defaults))
             self.install_style(widget, extra)
         self.apply_diagnostic()
+        self.apply_finish_style(colors)
+
+    def apply_finish_style(self, colors):
+        # Style the QToolButton already owned by the original toolbar/QAction.
+        button = self.window.finish_sketch_button
+        bg = colors['sketch.finish']
+        text = readable('#FFFFFF', bg)
+        # Blend toward the contrasting foreground, including pure black/white.
+        hover = '#'+''.join(f'{round((a*.8+b*.2)*255):02X}' for a,b in zip(rgb(bg),rgb(text)))
+        hover_text = readable('#FFFFFF', hover)
+        focus = readable('#FFFFFF', bg)
+        style = f'''
+            QToolButton#finishSketchButton:enabled {{ background: {bg}; color: {text};
+                border: 1px solid {bg}; border-radius: 3px; padding: 3px 8px; font-weight: 600; }}
+            QToolButton#finishSketchButton:enabled:hover {{ background: {hover}; color: {hover_text}; }}
+            QToolButton#finishSketchButton:enabled:focus {{ border: 2px solid {focus}; }}
+        '''
+        if button.styleSheet() != style:
+            button.setStyleSheet(style)
 
     def install_style(self, widget, rules):
         extra = '\n'.join(rule for rule in rules if rule)
@@ -198,7 +244,7 @@ class PaletteController(QObject):
         panel = w.operation_panel
         role = panel.feedback.property('paletteDiagnostic')
         if role:
-            panel.feedback.setStyleSheet('color:'+readable(o['diagnostics.'+role], colors['operation.background'])+';' if 'diagnostics.'+role in o else '')
+            panel.feedback.setStyleSheet('color:'+self.text_color(o['diagnostics.'+role], colors['operation.background'])+';' if 'diagnostics.'+role in o else '')
 
     def apply(self):
         w, o = self.window, self.overrides()

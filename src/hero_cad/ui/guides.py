@@ -148,6 +148,7 @@ class ViewGuides:
             actor.GetProperty().SetColor(*(background[i]*(1-strength)+rgb[i]*strength for i in range(3)))
             actor.GetProperty().SetOpacity(1.)
         for label in self.labels:
+            label.GetTextProperty().SetOpacity(.95 * (.6 if self.fade_xray and v.xray_mode != 'Off' else 1.))
             label.GetTextProperty().SetColor(*v.palette_rgb('grid.labels', self.COLORS[self.color]))
             label.GetTextProperty().SetBackgroundColor(*background)
 

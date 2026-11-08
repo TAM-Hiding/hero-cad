@@ -219,6 +219,8 @@ class MainWindow(QMainWindow):
         self.finish_sketch_action = QAction("Finish Sketch", self)
         self.finish_sketch_action.triggered.connect(self.finish_sketch)
         self.sketch_toolbar.addAction(self.finish_sketch_action)
+        self.finish_sketch_button = self.sketch_toolbar.widgetForAction(self.finish_sketch_action)
+        self.finish_sketch_button.setObjectName('finishSketchButton')
         self.sketch_toolbar.hide()
         self.viewport.cancelRequested.connect(self.cancel_interaction)
         self.viewport.entityCreated.connect(self.entity_created)

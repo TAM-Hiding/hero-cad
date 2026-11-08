@@ -348,3 +348,12 @@ and saved Custom, reset individual/category/all colors, and import/export a stri
 JSON palette. Colors persist in application preferences, never in part files.
 Lighting, opacity preferences, geometry, profile selections and history are
 preserved. See [controls, screenshots, format and limits](docs/UI_PALETTE_044.md).
+
+### Context sketch colors and text contrast
+
+The palette Sketch tab offers optional Orange/Celadon overrides for normal,
+active and selected sketch curves. Inherit follows the existing globals; material
+profile fill stays separate. Text Contrast is Automatic by default, with visible
+substitution details, or Manual for exact supported RGB text. The header's original
+Finish Sketch action has a configurable orange highlight. Existing v1 palette
+exports remain importable. See [roles, inheritance, compatibility and screenshots](docs/SKETCH_APPEARANCE_045.md).

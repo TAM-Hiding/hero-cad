@@ -1,5 +1,10 @@
 # Experimental UI Palette Laboratory — Work Order 044
 
+PR45 extends this 55-role baseline to 62 roles with optional sketch contexts,
+Automatic/Manual text contrast and Finish Sketch emphasis. See the [current
+refinement guide](SKETCH_APPEARANCE_045.md); the historical PR44 format and timing
+details below remain useful for legacy files.
+
 Open **Settings → Experimental → UI Palette**. The modeless editor stays open
 while modeling. Five tabs expose 55 global RGB properties through a swatch/native
 color picker, #RRGGBB field and individual Reset. Complete hex values preview
