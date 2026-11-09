@@ -1960,3 +1960,35 @@ The focused command used the same Xvfb environment as above and selected
 `test_files_ui.py`, `test_extrusion_ui.py`, `test_history_inspector_ui.py`,
 `test_atomic_updates_042.py`, `test_palette_ui.py`, and
 `test_sketch_appearance_045.py` under `tests/`.
+
+
+## Work Order #047 — Clean numeric dimension formatting
+
+The shared dimension spin box formats Qt's locale-aware display string by
+removing trailing fractional zeros and an empty decimal separator. The
+base box uses 3 decimal places, manual grid spacing uses 6, and sketch and
+feature properties and operation distances use 9. Qt still controls
+typing, validation, step size, and commit behavior for each field.
+
+Real widget tests cover whole and fractional values, signed input, units,
+localized decimal separators and digits, partial keyboard input before
+commit, and stepping. The existing box round-trip test saves an untouched
+higher-precision model byte-for-byte. Extrusion and chamfer tests exercise
+the formatted controls during actual modeling operations.
+
+- Focused numeric UI and modeling tests **121 passed** with 8 upstream
+  warnings in 114.93 s.
+- Full suite **931 passed** with 194 upstream warnings in 619.73 s.
+- `pip check` and `git diff --check` passed.
+
+The full run used Ubuntu 24.04, Qt xcb and software OpenGL over TCP Xvfb.
+
+```sh
+Xvfb :128 -screen 0 1600x1100x24 -nolisten local -nolisten unix -listen tcp -ac
+DISPLAY=127.0.0.1:128 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q
+```
+
+The focused run used the same Xvfb configuration and selected
+`test_dimension_spinbox.py`, `test_files_ui.py`, `test_extrusion_ui.py`,
+`test_chamfer_ui.py`, `test_sketch_editing_ui.py`, `test_preferences_ui.py`,
+`test_precision.py`, and `test_operation_appearance.py` under `tests/`.

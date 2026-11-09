@@ -47,6 +47,7 @@ def test_chamfer_preview_cancel_commit_properties_history_and_picking(qtbot, tmp
     assert 'Chamfer 1' in w.browser_items[('chamfer',cid)].text(0)
     assert w.entity_apply.text() == 'Apply chamfer distance'
     assert w.entity_fields['distance'].value() == 2
+    assert w.entity_fields['distance'].text() == '2 mm'
     assert 'Edge identity:' in w.history_inspector.toPlainText()
     w.entity_fields['distance'].setValue(3)
     assert w.apply_dimensions()

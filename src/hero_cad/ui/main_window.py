@@ -5,7 +5,7 @@ from dataclasses import fields as data_fields, replace
 from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize, QStandardPaths
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
-    QComboBox, QLabel, QSpinBox, QStackedWidget, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
+    QComboBox, QLabel, QSpinBox, QStackedWidget, QDockWidget, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
     QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView, QTabWidget, QPlainTextEdit,
 )
@@ -23,6 +23,7 @@ from hero_cad.history_inspection import feature_history_text, first_failure
 from hero_cad.ui.feature_icons import feature_icon
 from hero_cad.persistence import DOCUMENT_EXTENSION
 from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
+from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 
 
 LAST_DOCUMENT_DIRECTORY = 'documents/last_directory'
@@ -66,7 +67,7 @@ class MainWindow(QMainWindow):
         form = QFormLayout(panel)
         self.fields = {}
         for name, label in (("width", "Width · X"), ("depth", "Depth · Y"), ("height", "Height · Z")):
-            field = QDoubleSpinBox()
+            field = DimensionSpinBox()
             field.setDecimals(3)
             field.setRange(0.001, 100000)
             field.setSuffix(" mm")
@@ -212,7 +213,7 @@ class MainWindow(QMainWindow):
         self.snap_grid_action.setToolTip("Snap construction points within 8 screen pixels to minor grid intersections")
         self.snap_origin_action.setToolTip("Prioritize the local sketch origin within 8 screen pixels, independent of grid snapping")
         self.snap_center_action.setToolTip("Snap to exact circle and slot-end centers before grid intersections, independent of grid snapping")
-        self.manual_grid_spacing = QDoubleSpinBox()
+        self.manual_grid_spacing = DimensionSpinBox()
         self.manual_grid_spacing.setDecimals(6)
         self.manual_grid_spacing.setRange(0.000001, 100000)
         self.manual_grid_spacing.setValue(1)
@@ -965,7 +966,7 @@ class MainWindow(QMainWindow):
                 if parameter.name == 'id' or (solid_operation and parameter.name != 'distance'):
                     continue
                 name = parameter.name
-                field = QDoubleSpinBox()
+                field = DimensionSpinBox()
                 field.setDecimals(9)
                 field.setRange(0.000001 if name in ('width', 'height', 'radius', 'distance') else -1000000, 1000000)
                 if extrusion:
