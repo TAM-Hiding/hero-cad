@@ -3,7 +3,7 @@ from collections import Counter
 from hero_cad.chamfers import edge_description
 
 
-TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine', 'chamfer': 'Chamfer'}
+TYPE_LABELS = {'box': 'Box', 'sketch': 'Sketch', 'extrude': 'Extrusion', 'boolean': 'Combine', 'chamfer': 'Chamfer', 'offset_plane': 'Construction Plane'}
 
 
 def first_failure(document):
@@ -41,7 +41,9 @@ def feature_history_text(document, identifier):
                 face = {'start': 'Start Face', 'end': 'End Face', 'side': 'Side Face',
                         'evaluated': 'Evaluated Planar Face'}.get(p.attachment.face, p.attachment.face)
                 return f'Supporting face · {face}'
-            return 'Sketch plane' if parent_id.startswith('plane:') else 'Sketch dependency'
+            return 'Sketch plane' if p.plane_id or parent_id.startswith('plane:') else 'Sketch dependency'
+        if child.type == 'offset_plane':
+            return 'Offset plane support'
         if child.type == 'extrude':
             if parent_id == p.sketch_id:
                 return 'Source profile sketch'
@@ -60,7 +62,10 @@ def feature_history_text(document, identifier):
              f'History position: {positions[identifier]} of {len(document.features)}',
              '', f'Status: {state}']
     identifiers = [f'Feature UUID: {identifier}']
-    if feature.type != 'sketch':
+    if feature.type == 'offset_plane':
+        lines.append('Construction plane visibility: ' + ('Shown' if feature.plane_visible else 'Hidden'))
+        lines.append('Geometry: ' + ('Planar reference' if status.valid else 'No evaluated output'))
+    elif feature.type != 'sketch':
         role = ('Current resulting body' if identifier in document.active_body_ids else
                 'Historical geometry · consumed by a later operation') if status.valid else 'No evaluated output'
         lines.append(f'Geometry: {role}')
@@ -70,7 +75,9 @@ def feature_history_text(document, identifier):
         if not status.valid:
             lines.append('Geometry: No evaluated output')
     if status.reference_state:
-        lines.append(f'{"Edge" if feature.type == "chamfer" else "Face"} reference: {status.reference_state.title()}')
+        kind = ('Edge' if feature.type == 'chamfer' else 'Plane' if feature.type == 'offset_plane'
+                or feature.type == 'sketch' and feature.parameters.plane_id else 'Face')
+        lines.append(f'{kind} reference: {status.reference_state.title()}')
     if status.error:
         lines.extend(['', 'Regeneration error:', status.error])
     if status.diagnostic_stage:
@@ -95,6 +102,10 @@ def feature_history_text(document, identifier):
     if feature.type == 'box':
         lines.extend([f'Width · X: {number(p.width)} mm', f'Depth · Y: {number(p.depth)} mm',
                       f'Height · Z: {number(p.height)} mm'])
+    elif feature.type == 'offset_plane':
+        lines.extend([f'Signed offset: {number(p.offset)} mm', f'Support: {reference_label(p.parent_id)}'])
+        if p.support_frame is not None:
+            lines.append(f'Face: {p.reference.face}')
     elif feature.type == 'sketch':
         lines.append(f'Plane: {p.plane}')
         if p.attachment:

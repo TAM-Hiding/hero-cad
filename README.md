@@ -119,6 +119,26 @@ The browser and sketch properties identify the parent and semantic face. Changin
 
 A lost semantic side marks the sketch **UNRESOLVED**, preserves its entities and last resolved frame, and suppresses its display and downstream bodies. The browser tooltip/properties explain the failed reference; unresolved sketches cannot be entered. Restoring the supported source boundary (including Undo) resolves it again. Parent deletion is blocked while dependents survive. Reassign Sketch Plane is deferred; no substitute face is chosen automatically.
 
+### Construction geometry
+
+Select an origin plane, a supported planar face, or an existing construction
+plane. Choose **Create Offset Plane** and enter a signed offset in millimetres.
+The preview follows the support normal. Zero creates a coincident plane.
+Select the resulting plane under **Construction** in the model browser and
+choose **New Sketch** to draw on it. Use **Edit Offset…** in the plane's context
+menu to move its dependent sketches and regenerate downstream features. The
+visibility column hides the plane surface while its dependents continue to
+evaluate. Delete dependent features before deleting a plane they reference.
+
+In an active sketch, use **Construction** in the toolbar to draw dashed
+reference lines and circles. **X** toggles the mode while drawing or when
+there is no compatible selection. In **Select**, **X** converts selected lines
+or circles. **Toggle Construction** in the entity context menu also converts
+them. The mode starts off each time you enter a sketch. Construction curves
+retain their geometry and can be picked, edited, or deleted. **Center Snap**
+also snaps to construction line endpoints. Construction curves are excluded
+from material profiles, including when they cross ordinary boundaries.
+
 ### Combine bodies, cut extrusion and previews
 
 Select two or more **current body** features in the browser (Ctrl/Shift), or select faces/edges on multiple visible bodies, then choose **Combine…** from the context menu or toolbar. The panel lists the target and all selected tool bodies. Choose Join, Cut or Intersect, **Preview result**, then **Apply**. For Cut, the target is the body retained; all other selected bodies are subtracted. Join accepts connected chains in any tool order. Inputs retain their UUIDs and parameters as historical features; only current resulting bodies are displayed. Unrelated bodies remain separate. Historical inputs can still be edited, but cannot be reused as current Boolean targets without removing/undoing their consuming operation.
@@ -165,7 +185,7 @@ or Cancel. Canceled dialogs and failed loads retain the active document.
 Undo history is session-only. Native `.hcad` files contain versioned JSON in
 millimetres with the format identifier `hero-cad`. They store the ordered
 feature history, sketch entities, parameters and references. Schema versions
-1–15 remain readable under the native identity. The writer selects the schema
+1–16 remain readable under the native identity. The writer selects the schema
 version required by the document's features. Numeric parameters round-trip
 at their stored precision. Former `.starcad` files and the `star-cad` format
 identifier are unsupported.

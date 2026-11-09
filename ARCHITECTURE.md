@@ -157,6 +157,32 @@ Existing operation overlap failures retain parameters with an invalid status and
 
 V6 persists Boolean definitions and operation extrusion parameters; ordinary old-style documents continue saving v3/v4/v5 as appropriate. Legacy v1–v5 defaults to New Body. Strict IDs/dependency validation, atomic saves, Undo/Redo and size/count limits remain. Display modes are session state. CAD Wireframe draws genuine edge meshes, Mesh Debug deliberately draws surface triangulation, and face picking temporarily uses the original surface representation without rendering it. Geometry refresh reapplies the selected mode; sketch visibility routes through the same state. W/S/P Qt events cannot invoke inherited VTK representation changes. No fillets, chamfers, direct Push/Pull, export, constraints, topology naming or new primitives.
 
+## Construction geometry
+
+Origin frames are canonical local coordinate systems. A face-attached sketch
+uses the semantic face resolver and stores its last resolved frame. An offset
+plane is a feature with one earlier dependency. It uses a canonical origin
+frame, an evaluated construction-plane frame, or the same semantic face resolver.
+Its frame translates the support origin by the signed offset along the normal,
+retaining U and V. Construction-plane sketches retain their parent UUID and
+evaluate their unchanged local entities in the regenerated frame. An unresolved
+face blocks the plane and its dependents through ordinary feature status. The
+document rejects forward and cyclic references before evaluation.
+
+Line and Circle carry an optional construction designation. The sketch
+evaluator, selection, and snap queries still receive the complete entity list.
+The material-region entry point filters the list before either line-cycle or
+primitive analysis. Sketch display generates dashed paths from the existing
+polylines and retains the continuous paths for picking. Plane surfaces are
+translucent viewport decoration selected through the browser. They contribute
+no solid geometry and stay outside the solid picker.
+
+Schema 16 stores offset-plane definitions, optional visibility, linked sketch
+frames, and designated lines and circles. The writer emits earlier schemas for
+documents that use only earlier features. Plane preview state and sketch
+construction mode are session-only. Visibility and construction designation
+participate in document history.
+
 ## Native documents and file dialogs
 
 HERO-CAD identifies native documents by the case-insensitive `.hcad` extension

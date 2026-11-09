@@ -1,14 +1,15 @@
 """Sketch display and planar input adapter; construction logic lives in tools.py."""
-from math import dist
+from math import dist, frexp
 from vtkmodules.vtkRenderingCore import vtkCamera
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+from hero_cad.sketch import Circle, Line
 from hero_cad.tools import ToolController, ToolEvent
 from hero_cad.ui.camera_alignment import deterministic_up
 from hero_cad.ui.display_geometry import paths_mesh
 from hero_cad.ui.guides import ViewGuides
-from hero_cad.ui.snapping import center_targets, snap_point
-from hero_cad.ui.curve_display import display_points, segment_count
+from hero_cad.ui.snapping import center_targets, construction_endpoints, snap_point
+from hero_cad.ui.curve_display import dashed_paths, display_points, segment_count
 
 
 class SketchView:
@@ -16,6 +17,7 @@ class SketchView:
         self.viewport = viewport
         self.features = ()
         self.active_id = None
+        self.construction_mode = False
         self.entity_id = None
         self.entity_ids = set()
         self.controller = ToolController()
@@ -66,6 +68,7 @@ class SketchView:
         self.highlight_actor.VisibilityOff()
         self.preview_actor.VisibilityOff()
         self.mapping = []
+        self.hit_mesh = None
         self._path_cache = {}
         self._display_key = self._highlight_key = self._preview_key = None
         self.guides = ViewGuides(viewport)
@@ -144,28 +147,43 @@ class SketchView:
         scope = None if finish else active_id or (profiles.scope_id if profiles and profiles.active else None)
         visible = tuple(f for f in features if f.sketch_visible or f.id == scope)
         rows = [(f, e, segment_count(e, ppm)) for f in visible for e in f.parameters.entities]
-        key = (visible, tuple(count for _, _, count in rows))
+        dash_scale = 2. ** (frexp(ppm)[1] - 1)
+        dash_ppm = dash_scale if any(getattr(e, 'construction', False) for _, e, _ in rows) else None
+        key = (visible, tuple(count for _, _, count in rows), dash_ppm)
+        def rendered_paths(rows):
+            for f, e, n in rows:
+                path = world_path(f, e, n)
+                if getattr(e, 'construction', False):
+                    yield from dashed_paths(path, dash_ppm)
+                else:
+                    yield path
         if key != self._display_key:
-            layer('mapper', self.actor, [world_path(f, e, n) for f, e, n in rows])
+            layer('mapper', self.actor, list(rendered_paths(rows)))
+            attrs['hit_mesh'] = paths_mesh(world_path(f, e, n) for f, e, n in rows) if dash_ppm else None
             attrs['mapping'] = [(f.id, e.id) for f, e, _ in rows]
             attrs['_display_key'] = key
         foreground_key = (key, scope)
         if foreground_key != self._foreground_key:
-            layer('foreground_mapper', self.foreground_actor, [world_path(f,e,n) for f,e,n in rows if f.id == scope])
+            layer('foreground_mapper', self.foreground_actor, list(rendered_paths(row for row in rows if row[0].id == scope)))
             attrs['_foreground_key'] = foreground_key
         highlight_key = (key, active_id, frozenset(entity_ids))
         if highlight_key != self._highlight_key:
             layer('highlight_mapper', self.highlight_actor,
-                  [world_path(f,e,n) for f,e,n in rows if e.id in entity_ids and (not active_id or f.id == active_id)])
+                  list(rendered_paths((f, e, n) for f, e, n in rows if e.id in entity_ids and (not active_id or f.id == active_id))))
             attrs['_highlight_key'] = highlight_key
         tool = self.controller.tool
         preview_entity = tool.preview_entity if tool and not reset_preview else None
         preview = self.controller.preview if not reset_preview else ()
         count = segment_count(preview_entity, ppm)
-        preview_key = (feature.parameters.frame if feature else None, active_id, preview_entity, count, preview if preview_entity is None else ())
+        dashed_preview = self.construction_mode and (
+            isinstance(preview_entity, (Line, Circle)) or preview_entity is None and self.controller.name == 'line')
+        preview_key = (feature.parameters.frame if feature else None, active_id, preview_entity, count,
+                       preview if preview_entity is None else (), dash_scale if dashed_preview and (preview or preview_entity) else None)
         if preview_key != self._preview_key:
             path = display_points(preview_entity, count) if preview_entity else preview
-            layer('preview_mapper', self.preview_actor, [[feature.parameters.frame.to_world(p) for p in path]] if feature and path else [])
+            world = [feature.parameters.frame.to_world(p) for p in path] if feature and path else []
+            paths = dashed_paths(world, dash_scale) if world and dashed_preview else [world] if world else []
+            layer('preview_mapper', self.preview_actor, paths)
             attrs['_preview_key'] = preview_key
         if cache is not self._path_cache or any(k not in keep for k in cache):
             attrs['_path_cache'] = {k: v for k, v in cache.items() if k in keep}
@@ -180,7 +198,7 @@ class SketchView:
         self.__dict__.update(attrs)
 
     def display_state(self):
-        attrs = {name: getattr(self, name) for name in ('mapping', '_path_cache', '_display_key', '_foreground_key', '_highlight_key', '_preview_key')}
+        attrs = {name: getattr(self, name) for name in ('mapping', 'hit_mesh', '_path_cache', '_display_key', '_foreground_key', '_highlight_key', '_preview_key')}
         layers = [(name, actor, getattr(self, name), bool(actor.GetVisibility())) for name,actor in
                   (('mapper', self.actor), ('foreground_mapper', self.foreground_actor),
                    ('highlight_mapper', self.highlight_actor), ('preview_mapper', self.preview_actor))]
@@ -200,6 +218,7 @@ class SketchView:
             self.saved_camera = vtkCamera()
             self.saved_camera.DeepCopy(self.viewport.renderer.GetActiveCamera())
         self.active_id = identifier
+        self.construction_mode = False
         self.set_tool('select')
         self.viewport.clear_selection(render=False)
         self.update(self.features)
@@ -220,6 +239,7 @@ class SketchView:
     def finish(self):
         self.viewport.profiles.clear()
         self.active_id = None
+        self.construction_mode = False
         self.entity_id = None
         self.entity_ids.clear()
         self.set_tool('select')
@@ -280,6 +300,7 @@ class SketchView:
         self.snap_result = snap_point(point, (x, y), project, self.guides.spacing,
                                       grid=self.guides.snap_grid, origin=self.guides.snap_origin,
                                       centers=center_targets(self.feature.parameters.entities) if self.guides.snap_center else (),
+                                      endpoints=construction_endpoints(self.feature.parameters.entities) if self.guides.snap_center else (),
                                       tolerance=8*scale)
         point = self.snap_result.point
         self.show_snap(frame)
@@ -334,13 +355,20 @@ class SketchView:
         mesh.SetPoints(points)
         mesh.SetVerts(cells)
         self.snap_mapper.SetInputData(mesh)
-        colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
-        self.snap_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.'+result.target.lower(), colors[result.target]))
+        self.apply_snap_color()
         self.snap_actor.GetProperty().SetPointSize(7 if result.target == 'GRID' else 9)
+
+    def apply_snap_color(self):
+        if self.snap_result is None or self.snap_result.target == 'FREE':
+            return
+        target = self.snap_result.target
+        role = 'CENTER' if target == 'ENDPOINT' else target
+        colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
+        self.snap_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.' + role.lower(), colors[role]))
 
     def hit(self, x, y):
         self.prepare_display()
-        hits = self.viewport.line_candidates(self.mapper.GetInput(), x, y)
+        hits = self.viewport.line_candidates(self.hit_mesh if self.hit_mesh is not None else self.mapper.GetInput(), x, y)
         hit = next((h for h in hits if (not self.active_id or self.mapping[h[2]][0] == self.active_id)
                     and (self.active_id or not self.viewport.actor.GetVisibility() or self.viewport.visible_edge(h[1]))), None)
         return self.mapping[hit[2]] if hit else None

@@ -40,6 +40,9 @@ def regions(sketch):
     Simple line cycles and primitives share the same nesting/extrusion pipeline.
     Crossings, overlaps and branch networks require explicit correction.
     """
+    ordinary = tuple(e for e in sketch.entities if not getattr(e, 'construction', False))
+    if len(ordinary) != len(sketch.entities):
+        sketch = replace(sketch, entities=ordinary)
     if len(sketch.entities) > 256:
         raise ValueError('Profile analysis supports at most 256 entities per sketch')
     loops, faces, sample, members = {}, {}, {}, {}
@@ -121,6 +124,9 @@ def extrude_region(sketch, parameters, *, with_faces=False, available=None):
     try:
         region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids, available=available)
     except ValueError as error:
+        if any(getattr(e, 'construction', False) and e.id in (parameters.outer_id, *parameters.hole_ids)
+               for e in sketch.entities):
+            raise ProfileError('Selected profile references construction geometry') from error
         if parameters.line_ids:
             raise ProfileError(f'Unresolved line profile: {error}') from error
         raise

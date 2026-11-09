@@ -64,9 +64,12 @@ class Line:
     x2: float
     y2: float
     id: str = field(default_factory=new_id)
+    construction: bool = False
 
     def __post_init__(self):
         valid_id(self.id)
+        if type(self.construction) is not bool:
+            raise ValueError("Construction designation must be boolean")
         numbers(self.x1, self.y1, self.x2, self.y2)
         if hypot(self.x2-self.x1, self.y2-self.y1) < 1e-6:
             raise ValueError('A line must have nonzero length (at least 0.000001 mm)')
@@ -131,9 +134,12 @@ class Circle:
     y: float
     radius: float
     id: str = field(default_factory=new_id)
+    construction: bool = False
 
     def __post_init__(self):
         valid_id(self.id)
+        if type(self.construction) is not bool:
+            raise ValueError("Construction designation must be boolean")
         numbers(self.x, self.y, self.radius)
         if self.radius < 1e-6:
             raise ValueError('Circle radius must be at least 0.000001 mm')
@@ -301,9 +307,14 @@ class SketchParameters:
     entities: tuple = ()
     attachment: FaceReference | None = None
     attached_frame: PlaneFrame | None = None
+    plane_id: str | None = None
 
     def __post_init__(self):
-        if self.attachment is None:
+        if self.plane_id is not None:
+            valid_id(self.plane_id)
+            if self.plane != 'CONSTRUCTION' or self.attachment is not None or type(self.attached_frame) is not PlaneFrame:
+                raise ValueError('Construction sketch requires a plane reference and frame')
+        elif self.attachment is None:
             if not isinstance(self.plane, str) or self.plane not in PLANES or self.attached_frame is not None:
                 raise ValueError('Sketch reference must be XY, XZ or YZ')
         elif type(self.attachment) is not FaceReference or self.plane != 'FACE' or type(self.attached_frame) is not PlaneFrame:
@@ -317,4 +328,4 @@ class SketchParameters:
 
     @property
     def frame(self):
-        return self.attached_frame if self.attachment else PLANES[self.plane]
+        return self.attached_frame if self.attached_frame is not None else PLANES[self.plane]

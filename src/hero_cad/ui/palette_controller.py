@@ -256,9 +256,8 @@ class PaletteController(QObject):
         v.renderer.SetBackground(*(rgb(o['viewport.background']) if 'viewport.background' in o else self.background))
         for key, actor in self.actors.items():
             actor.GetProperty().SetColor(*(rgb(o[key]) if key in o else self.actor_defaults[key]))
-        if s.snap_result:
-            defaults = {'ORIGIN':(1.,.35,.9), 'CENTER':(.35,.65,1.), 'GRID':(1.,.85,.25)}
-            s.snap_actor.GetProperty().SetColor(*v.palette_rgb('snap.'+s.snap_result.target.lower(), defaults[s.snap_result.target]))
+        s.apply_snap_color()
+        w.construction_planes.recolor()
         v.apply_solid_style()
         s.guides.apply_colors()
         for feature in w.document.features:
