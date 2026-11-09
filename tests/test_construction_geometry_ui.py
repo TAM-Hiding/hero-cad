@@ -7,7 +7,7 @@ from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 from test_sketch_ui import click, enter, hover, pixel, window
 
 
-def offset_dialog(qtbot, w, offset, *, accept=True):
+def offset_dialog(qtbot, w, offset, *, accept=True, expected_center=None, expected_normal=None):
     def interact():
         dialog = QApplication.activeModalWidget()
         try:
@@ -18,7 +18,18 @@ def offset_dialog(qtbot, w, offset, *, accept=True):
             qtbot.keyClicks(field.lineEdit(), str(offset))
             assert field.value() == offset
             assert field.text() == f'{offset} mm'
-            assert w.construction_planes.preview[0].GetInput().GetNumberOfPolys() == 1
+            display = w.construction_planes
+            mesh = display.preview[0].GetInput()
+            assert mesh.GetNumberOfPolys() == 1
+            assert display.arrow_actor.GetVisibility()
+            if expected_center is not None:
+                assert quad_center(mesh) == pytest.approx(expected_center)
+                arrow = display.arrow_mapper.GetInput()
+                start, tip = arrow.GetPoint(0), arrow.GetPoint(1)
+                assert tuple(tip[i] - start[i] for i in range(3)) == pytest.approx(
+                    tuple(display.half_size(w.document)*.5*n for n in expected_normal))
+                assert tuple(expected_center[i] - start[i] for i in range(3)) == pytest.approx(
+                    tuple(offset*n for n in expected_normal))
             if accept:
                 dialog.accept()
         finally:
@@ -37,6 +48,7 @@ def test_offset_preview_edit_visibility_and_sketch_camera(qtbot):
     w.offset_plane_action.trigger()
     assert w.document.features == before
     assert not w.construction_planes.preview[1].GetVisibility()
+    assert not w.construction_planes.arrow_actor.GetVisibility()
 
     offset_dialog(qtbot, w, 25)
     w.offset_plane_action.trigger()
@@ -138,3 +150,29 @@ def test_construction_shortcut_creation_snaps_selection_and_deletion(qtbot, tmp_
     path = tmp_path / 'references.hcad'
     w.document.save(path)
     assert w.document.load(path).feature(sid).parameters.entities == (line, circle)
+
+
+
+def quad_center(mesh):
+    return tuple(sum(mesh.GetPoint(i)[axis] for i in range(4))/4 for axis in range(3))
+
+
+def test_chamfer_preview_and_committed_indicator_share_center_and_sign(qtbot):
+    from math import sqrt
+    from test_offset_plane_orientation import chamfer, solid_face
+
+    w = window(qtbot)
+    owner, generated = chamfer(w.document, ((0., 30., 0.), (0., 30., 20.)))
+    w.refresh(fit=True)
+    actual = solid_face(w.document, owner, generated)
+    w.viewport.select_face(actual, (1., 29., 10.))
+    assert w.offset_plane_action.isEnabled()
+    normal = (-1/sqrt(2), 1/sqrt(2), 0.)
+    center = tuple(x - 9*n for x, n in zip((1., 29., 10.), normal))
+    offset_dialog(qtbot, w, -9, expected_center=center, expected_normal=normal)
+    w.offset_plane_action.trigger()
+    plane = w.document.features[-1].id
+    assert w.document.plane_frames[plane].normal == pytest.approx(normal)
+    assert w.document.plane_frames[plane].origin != pytest.approx(center)
+    assert quad_center(w.construction_planes.selected[0].GetInput()) == pytest.approx(center)
+    assert not w.construction_planes.arrow_actor.GetVisibility()

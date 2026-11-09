@@ -2033,3 +2033,41 @@ The focused run selected both `test_construction_geometry` modules,
 `test_face_reliability_ui.py`, `test_atomic_updates_042.py`,
 `test_line_profiles.py`, `test_multi_profile_extrusion.py`,
 `test_precision.py`, `test_sketch_editing_ui.py`, and `test_palette_ui.py`.
+
+
+### PR #48 follow-up — Outward offset normals and display centers
+
+On a selected vertical bevel at X=0, Y=30, the earlier face resolver returned
+(+0.707, −0.707, 0), which the solid classifier found pointed into material.
+The correct outward normal is (−0.707, +0.707, 0). A −9 mm offset exposed the
+flip. OCCT can use an indirect plane basis, and a builder's generated handle
+can also have a different orientation from the matching solid face.
+
+The offset-support resolver uses the exact oriented face in the owning solid,
+then derives its normal from the surface X × Y and topological orientation.
+It preserves handedness and the legacy behavior of earlier saved planes and
+direct face sketches. Evaluated centroids provide independent display centers
+and the preview arrow shows the effective positive normal. Base-model sizing
+and the existing sketch camera workflow still apply.
+
+Tests use solid classification on both sides of the face, compare equivalent
+bevels, and cover rotated faces, extrusion caps, and a Boolean pocket. Model
+and Qt checks cover preview and committed centers, projection through a plane
+chain, upstream changes, undo/redo, save/reopen, and preservation of legacy
+frame and solid placement.
+
+- Focused suite **119 passed** with 12 upstream warnings in 26.42 s.
+- Full suite **950 passed** with 194 upstream warnings in 359.37 s.
+- `pip check` and `git diff --check` passed.
+
+The full run used Ubuntu 24.04, Qt xcb, and software OpenGL over TCP Xvfb.
+
+```sh
+Xvfb :129 -screen 0 1600x1100x24 -nolisten local -nolisten unix -listen tcp -ac
+DISPLAY=127.0.0.1:129 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb LP_NUM_THREADS=4 .venv/bin/pytest -q
+```
+
+The focused run selected `test_offset_plane_orientation.py`, both
+`test_construction_geometry` modules, `test_chamfers.py`,
+`test_face_attachments.py`, `test_face_reliability_ui.py`,
+`test_persistent_references.py`, and `test_atomic_updates_042.py`.

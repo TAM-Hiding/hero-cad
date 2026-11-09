@@ -169,6 +169,28 @@ evaluate their unchanged local entities in the regenerated frame. An unresolved
 face blocks the plane and its dependents through ordinary feature status. The
 document rejects forward and cyclic references before evaluation.
 
+New face-referenced offset planes derive the normal from the oriented face in
+the evaluated solid. OCCT's generated-face handle can carry a different
+orientation from the face in the result. The plane axis can also oppose
+the surface's X × Y when OCCT uses an indirect plane. The resolver matches
+the exact face with IsSame, computes X × Y, and applies the solid face's
+topological reversal. When necessary it reverses V together with the normal
+to preserve U, orthonormality, and handedness.
+
+The optional schema 16 `outward` flag records this convention for new
+face-referenced planes. Earlier schema 16 planes keep the historical frame
+convention when loaded and edited, and direct face-attached sketches keep
+their existing coordinate contract. This preserves signed offsets and attached
+model geometry saved before the correction.
+
+The display center is evaluated separately. Face-backed indicators use the
+trimmed face's area centroid, projected onto the offset plane. Chained planes
+project the parent's display center, and origin-backed indicators use their
+frame origin. The document's evaluated display cache recomputes these points
+on regeneration. The points and preview arrow are excluded from serialization.
+Indicator sizing uses the existing base-model scale. Sketch camera targeting
+continues to use the established sketch workflow.
+
 Line and Circle carry an optional construction designation. The sketch
 evaluator, selection, and snap queries still receive the complete entity list.
 The material-region entry point filters the list before either line-cycle or

@@ -123,7 +123,12 @@ A lost semantic side marks the sketch **UNRESOLVED**, preserves its entities and
 
 Select an origin plane, a supported planar face, or an existing construction
 plane. Choose **Create Offset Plane** and enter a signed offset in millimetres.
-The preview follows the support normal. Zero creates a coincident plane.
+For a new face-referenced plane, a positive offset points out of the material
+(including into a cavity) and a negative offset points into it. The preview
+arrow shows the positive direction. Zero creates a coincident plane. A face
+indicator is centered over its supporting face, while a chained plane inherits
+its parent's display center. The display center leaves the sketch origin and
+coordinates intact.
 Select the resulting plane under **Construction** in the model browser and
 choose **New Sketch** to draw on it. Use **Edit Offset…** in the plane's context
 menu to move its dependent sketches and regenerate downstream features. The

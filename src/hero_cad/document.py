@@ -10,7 +10,7 @@ from hero_cad.profiles import extrude_region, resolve_region, regions, ProfileEr
 from hero_cad.persistence import deserialize, require_document_extension, serialize
 from hero_cad.sketch import Circle, Line, PLANES, SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
-from hero_cad.attachments import AttachmentError, resolve_attachment, identify_face
+from hero_cad.attachments import AttachmentError, resolve_attachment, resolve_offset_support, identify_face
 from hero_cad.face_history import primitive_lineage, evaluated_faces
 from hero_cad.chamfers import edge_reference, resolve_edges, make_chamfer, tangent_chain
 
@@ -20,7 +20,7 @@ class Document:
     # never widgets, persisted metadata or a second set of feature definitions.
     _evaluation_fields = ('features', 'shape', 'sketch_shapes', 'statuses', 'solid_shapes',
                           'active_body_ids', '_regenerated_features', 'face_maps',
-                          'face_lineages', 'source_faces', 'plane_frames', 'last_failure', '_undo', '_redo')
+                          'face_lineages', 'source_faces', 'plane_frames', 'plane_centers', 'last_failure', '_undo', '_redo')
 
     def candidate(self):
         """Stage an ordinary edit using the same evaluator and rejection policy.
@@ -82,7 +82,7 @@ class Document:
             raise FeatureError('document', 'Expected 1–1000 features')
         origin_frames = {f'plane:{name}': frame for name, frame in PLANES.items()}
         known = set(origin_frames)
-        plane_frames = {}
+        plane_frames, plane_centers = {}, {}
         statuses, sketch_shapes, solids, definitions = {}, {}, {}, {}
         if sum(f.type == 'box' for f in features) != 1:
             raise FeatureError('document', 'Exactly one box is supported in this milestone')
@@ -93,12 +93,11 @@ class Document:
         face_maps, lineages, resolved, source_faces = {}, {}, [], {}
         inputs = {f.id: f for f in features}
 
-        def face_frame(reference, previous_frame):
+        def face_options(reference, previous_frame):
             parent = definitions[reference.parent_id]
             previous_source = inputs[parent.parameters.sketch_id].parameters.frame if parent.type == 'extrude' else None
-            return resolve_attachment(reference, face_maps, definitions,
-                                      previous_frame=previous_frame, previous_source_frame=previous_source,
-                                      lineages=lineages, source_faces=source_faces, bodies=solids)
+            return dict(previous_frame=previous_frame, previous_source_frame=previous_source,
+                        lineages=lineages, source_faces=source_faces, bodies=solids)
 
         for feature in features:
             try:
@@ -167,14 +166,21 @@ class Document:
                             p = feature.parameters
                             if isinstance(p.reference, str):
                                 frame = origin_frames.get(p.reference) or plane_frames[p.reference]
+                                center = plane_centers.get(p.reference, frame.origin)
                             else:
-                                frame = face_frame(p.reference, p.support_frame)
+                                previous = None if p.outward else p.support_frame
+                                frame, center = resolve_offset_support(
+                                    p.reference, face_maps, definitions, outward=p.outward,
+                                    **face_options(p.reference, previous))
                                 feature = replace(feature, parameters=replace(p, support_frame=frame))
-                            plane_frames[feature.id] = p.offset_frame(frame)
+                            frame = p.offset_frame(frame)
+                            plane_frames[feature.id] = frame
+                            plane_centers[feature.id] = frame.to_world(frame.to_local(center))
                         elif feature.type == 'sketch':
                             p = feature.parameters
                             if p.attachment:
-                                frame = face_frame(p.attachment, p.attached_frame)
+                                frame = resolve_attachment(p.attachment, face_maps, definitions,
+                                                           **face_options(p.attachment, p.attached_frame))
                                 feature = replace(feature, parameters=replace(p, attached_frame=frame))
                             elif p.plane_id:
                                 feature = replace(feature, parameters=replace(p, attached_frame=plane_frames[p.plane_id]))
@@ -258,7 +264,8 @@ class Document:
             raise FeatureError('document', str(error)) from error
         self.active_body_ids = frozenset(active)
         self._regenerated_features, self.face_maps = tuple(resolved), face_maps
-        self.face_lineages, self.source_faces, self.plane_frames = lineages, source_faces, plane_frames
+        self.face_lineages, self.source_faces = lineages, source_faces
+        self.plane_frames, self.plane_centers = plane_frames, plane_centers
         return shape, sketch_shapes, statuses, solids
 
     def _leaf_sketch_shapes(self, features):
@@ -332,20 +339,31 @@ class Document:
             raise ValueError('Expected construction plane and boolean visibility')
         self.replace_feature(replace(feature, plane_visible=visible))
 
-    def offset_plane_parameters(self, reference, offset):
-        parameters = OffsetPlaneParameters(reference, offset)
-        if isinstance(reference, str):
-            frame = PLANES.get(reference[6:]) if reference.startswith('plane:') else self.plane_frames.get(reference)
-            if frame is None:
-                raise ValueError('Select a resolved plane')
+    def offset_plane_parameters(self, reference, offset, *, editing=None):
+        if editing is not None:
+            existing = editing.parameters
+            parameters = replace(existing, offset=offset)
+            center = self.plane_centers[editing.id]
+            support = existing.support_frame or (
+                PLANES.get(reference[6:]) if reference.startswith('plane:') else self.plane_frames[reference])
         else:
-            frame = resolve_attachment(reference, self.face_maps, {f.id: f for f in self.features},
-                                       lineages=self.face_lineages, source_faces=self.source_faces, bodies=self.solid_shapes)
-            parameters = replace(parameters, support_frame=frame)
-        return parameters, parameters.offset_frame(frame)
+            parameters = OffsetPlaneParameters(reference, offset, outward=not isinstance(reference, str))
+            if isinstance(reference, str):
+                support = PLANES.get(reference[6:]) if reference.startswith('plane:') else self.plane_frames.get(reference)
+                if support is None:
+                    raise ValueError('Select a resolved plane')
+                center = self.plane_centers.get(reference, support.origin)
+            else:
+                support, center = resolve_offset_support(
+                    reference, self.face_maps, {f.id: f for f in self.features},
+                    outward=True, bodies=self.solid_shapes,
+                    lineages=self.face_lineages, source_faces=self.source_faces)
+                parameters = replace(parameters, support_frame=support)
+        frame = parameters.offset_frame(support)
+        return parameters, frame, frame.to_world(frame.to_local(center))
 
     def add_offset_plane(self, reference, offset):
-        parameters, _ = self.offset_plane_parameters(reference, offset)
+        parameters, _, _ = self.offset_plane_parameters(reference, offset)
         feature = Feature('offset_plane', parameters, (parameters.parent_id,))
         self.set_features(self.features + (feature,))
         return feature.id

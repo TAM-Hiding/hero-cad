@@ -60,6 +60,8 @@ def serialize(features):
             parameters = {'reference': p.reference, 'offset': p.offset}
             if isinstance(p.reference, FaceReference):
                 parameters['reference'] = serialize_face(p.reference)
+                if p.outward:
+                    parameters['outward'] = True
                 if p.support_frame is not None:
                     parameters['support_frame'] = serialize_frame(p.support_frame)
         else:
@@ -127,12 +129,14 @@ def deserialize(data):
             value = BoxParameters(**parameters)
         elif item['type'] == 'offset_plane' and version >= 16:
             has_frame = isinstance(parameters, dict) and 'support_frame' in parameters
-            fields(parameters, ('reference', 'offset') + (('support_frame',) if has_frame else ()))
+            outward = isinstance(parameters, dict) and 'outward' in parameters
+            fields(parameters, ('reference', 'offset') + (('support_frame',) if has_frame else ())
+                   + (('outward',) if outward else ()))
             reference = parameters['reference']
             if isinstance(reference, dict):
                 reference = deserialize_face(reference, version)
             frame = deserialize_frame('FACE', parameters['support_frame']) if has_frame else None
-            value = OffsetPlaneParameters(reference, parameters['offset'], frame)
+            value = OffsetPlaneParameters(reference, parameters['offset'], frame, parameters.get('outward', False))
         elif item['type'] == 'sketch':
             attached = version >= 5 and isinstance(parameters, dict) and parameters.get('plane') == 'FACE'
             on_plane = version >= 16 and isinstance(parameters, dict) and parameters.get('plane') == 'CONSTRUCTION'

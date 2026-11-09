@@ -150,8 +150,11 @@ class OffsetPlaneParameters:
     reference: str | FaceReference
     offset: float
     support_frame: PlaneFrame | None = None
+    outward: bool = False  # Missing on planes saved by the original schema 16 writer.
 
     def __post_init__(self):
+        if type(self.outward) is not bool or (self.outward and type(self.reference) is not FaceReference):
+            raise ValueError('Outward convention applies to face references only')
         if type(self.reference) is FaceReference:
             if self.support_frame is not None and (
                     type(self.support_frame) is not PlaneFrame or self.support_frame.name != 'FACE'):

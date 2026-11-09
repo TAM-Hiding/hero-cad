@@ -6,6 +6,8 @@ from OCP.BRepClass import BRepClass_FaceClassifier
 from OCP.BRepTools import BRepTools
 from OCP.gp import gp_Pnt
 from OCP.BRep import BRep_Tool
+from OCP.BRepGProp import BRepGProp
+from OCP.GProp import GProp_GProps
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.GeomAbs import GeomAbs_Plane, GeomAbs_Circle
@@ -131,18 +133,18 @@ def reference_key(reference):
     return reference.face, reference.boundary_id, reference.segment
 
 
-def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None,
+def resolve_face_attachment(reference, face_maps, definitions, *, previous_frame=None, previous_source_frame=None,
                        lineages=None, source_faces=None, bodies=None):
     if reference.snapshot is not None:
         resolution = resolve_snapshot(reference, bodies or {}, lineages or {})
         if resolution.state != ResolutionState.RESOLVED:
             raise AttachmentError(resolution.reason, resolution.state)
-        return resolution.frame
+        return resolution
     if reference.support is not None:
         resolution = resolve_supported_face(reference, face_maps, definitions, lineages or {}, source_faces or {})
         if resolution.state != ResolutionState.RESOLVED:
             raise AttachmentError(resolution.reason, resolution.state)
-        return resolution.frame
+        return resolution
     parent = definitions.get(reference.parent_id)
     if parent is None or parent.type not in ('box', 'extrude', 'boolean', 'chamfer'):
         raise AttachmentError('Attachment parent must be a solid feature')
@@ -153,9 +155,9 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
     if reference.face == 'evaluated' or (parent.type == 'chamfer' and reference.face == 'bevel'):
         # OCCT's source plane provides a deterministic model-space anchor.
         # No pick point, camera state, or nearest-face fallback is used.
-        return planar_frame(face)
+        return FaceResolution(ResolutionState.RESOLVED, face, frame=planar_frame(face))
     if parent.type == 'box':
-        return planar_frame(face)
+        return FaceResolution(ResolutionState.RESOLVED, face, frame=planar_frame(face))
     source = definitions[parent.parameters.sketch_id].parameters
     if reference.face in ('start', 'end'):
         offset = 0 if reference.face == 'start' else parent.parameters.distance
@@ -170,10 +172,40 @@ def resolve_attachment(reference, face_maps, definitions, *, previous_frame=None
             normal = tuple(sense*x for x in source.frame.normal)
         up = cross(normal, source.frame.u)
         result = planar_frame(face, anchor=anchor, up=up)
-        return PlaneFrame('FACE', result.origin, source.frame.u, up)
+        frame = PlaneFrame('FACE', result.origin, source.frame.u, up)
+        return FaceResolution(ResolutionState.RESOLVED, face, frame=frame)
     entity = next(e for e in source.entities if e.id == reference.boundary_id)
     a, _ = segments(entity)[reference.segment]
-    return planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)
+    frame = planar_frame(face, anchor=source.frame.to_world(a), up=source.frame.normal)
+    return FaceResolution(ResolutionState.RESOLVED, face, frame=frame)
+
+
+def resolve_attachment(reference, face_maps, definitions, **options):
+    """Return the historical sketch coordinate frame."""
+    return resolve_face_attachment(reference, face_maps, definitions, **options).frame
+
+
+def resolve_offset_support(reference, face_maps, definitions, *, outward, bodies, **options):
+    """Resolve the exact trimmed solid face, its support frame, and its centroid."""
+    resolved = resolve_face_attachment(reference, face_maps, definitions, bodies=bodies, **options)
+    explorer = TopExp_Explorer(bodies[reference.parent_id], TopAbs_FACE)
+    while explorer.More() and not explorer.Current().IsSame(resolved.face):
+        explorer.Next()
+    if not explorer.More():
+        raise AttachmentError('Resolved support is missing from the owning solid')
+    face = TopoDS.Face_s(explorer.Current())
+    frame = resolved.frame
+    if outward:
+        plane = BRepAdaptor_Surface(face).Plane()
+        # The plane axis can disagree with dU × dV for indirect OCCT planes.
+        normal = cross(plane.XAxis().Direction().Coord(), plane.YAxis().Direction().Coord())
+        if face.Orientation() == TopAbs_REVERSED:
+            normal = tuple(-component for component in normal)
+        if sum(a*b for a, b in zip(frame.normal, normal)) < 0:
+            frame = replace(frame, v=tuple(-component for component in frame.v))
+    properties = GProp_GProps()
+    BRepGProp.SurfaceProperties_s(face, properties)
+    return frame, properties.CentreOfMass().Coord()
 
 
 def identify_face(face, face_maps, definitions, *, active_ids=None, lineages=None, source_faces=None, point=None, bodies=None):
