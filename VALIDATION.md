@@ -1992,3 +1992,82 @@ The focused run used the same Xvfb configuration and selected
 `test_dimension_spinbox.py`, `test_files_ui.py`, `test_extrusion_ui.py`,
 `test_chamfer_ui.py`, `test_sketch_editing_ui.py`, `test_preferences_ui.py`,
 `test_precision.py`, and `test_operation_appearance.py` under `tests/`.
+
+
+## Work Order #048 — Construction geometry
+
+The document model evaluates signed offset planes in feature order using
+canonical origin frames, resolved construction-plane frames, or the
+existing semantic face resolver. Tests cover origin planes, chained planes,
+moving face support, a lost planar face, dependency-cycle rejection, and
+local sketch parameters and extrusion bounds across edits, Undo, Redo, and
+schema 16 save/reopen. Visibility preserves evaluation. Earlier schemas
+and ordinary entities keep their existing serialization.
+
+Construction lines and circles remain in the sketch model, snap queries,
+and picking mesh. The profile classifier filters them before line-cycle and
+primitive analysis. Tests cover crossing a rectangular profile, a reference
+circle with separate selectable ordinary circles, conversion and restoration
+of a referenced extrusion, and saved construction designations. Real Qt
+tests exercise live preview and cancellation, the visibility column, sketch
+camera direction, the X shortcut, endpoint and center snaps, dashed drawing
+and highlighting in wireframe and X-Ray, context conversion, and deletion.
+
+- Final focused suite **201 passed** with 25 upstream warnings in 114.34 s.
+- Final full suite **941 passed** with 194 upstream warnings in 421.47 s.
+- `pip check` and `git diff --check` passed.
+
+The first full run reported one failure in the exact sketch context-menu
+assertion after the conversion action was added. The assertion now covers
+that action along with the existing edit and deletion commands.
+
+Desktop coverage used Ubuntu 24.04, Qt xcb and software OpenGL over TCP Xvfb.
+
+```sh
+Xvfb :130 -screen 0 1600x1100x24 -nolisten local -nolisten unix -listen tcp -ac
+DISPLAY=127.0.0.1:130 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb .venv/bin/pytest -q
+```
+
+The focused run selected both `test_construction_geometry` modules,
+`test_document.py`, `test_rebranding.py`, `test_face_attachment_ui.py`,
+`test_face_reliability_ui.py`, `test_atomic_updates_042.py`,
+`test_line_profiles.py`, `test_multi_profile_extrusion.py`,
+`test_precision.py`, `test_sketch_editing_ui.py`, and `test_palette_ui.py`.
+
+
+### PR #48 follow-up — Outward offset normals and display centers
+
+On a selected vertical bevel at X=0, Y=30, the earlier face resolver returned
+(+0.707, −0.707, 0), which the solid classifier found pointed into material.
+The correct outward normal is (−0.707, +0.707, 0). A −9 mm offset exposed the
+flip. OCCT can use an indirect plane basis, and a builder's generated handle
+can also have a different orientation from the matching solid face.
+
+The offset-support resolver uses the exact oriented face in the owning solid,
+then derives its normal from the surface X × Y and topological orientation.
+It preserves handedness and the legacy behavior of earlier saved planes and
+direct face sketches. Evaluated centroids provide independent display centers
+and the preview arrow shows the effective positive normal. Base-model sizing
+and the existing sketch camera workflow still apply.
+
+Tests use solid classification on both sides of the face, compare equivalent
+bevels, and cover rotated faces, extrusion caps, and a Boolean pocket. Model
+and Qt checks cover preview and committed centers, projection through a plane
+chain, upstream changes, undo/redo, save/reopen, and preservation of legacy
+frame and solid placement.
+
+- Focused suite **119 passed** with 12 upstream warnings in 26.42 s.
+- Full suite **950 passed** with 194 upstream warnings in 359.37 s.
+- `pip check` and `git diff --check` passed.
+
+The full run used Ubuntu 24.04, Qt xcb, and software OpenGL over TCP Xvfb.
+
+```sh
+Xvfb :129 -screen 0 1600x1100x24 -nolisten local -nolisten unix -listen tcp -ac
+DISPLAY=127.0.0.1:129 LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb LP_NUM_THREADS=4 .venv/bin/pytest -q
+```
+
+The focused run selected `test_offset_plane_orientation.py`, both
+`test_construction_geometry` modules, `test_chamfers.py`,
+`test_face_attachments.py`, `test_face_reliability_ui.py`,
+`test_persistent_references.py`, and `test_atomic_updates_042.py`.

@@ -38,7 +38,7 @@ def test_box_right_click_actual_face_create_exact_circle_reenter(qtbot,name,tmp_
     point = look(v,frame,frame.to_local(center))
     v.set_selection_mode('edge')
     qtbot.mouseClick(v,Qt.RightButton,pos=pixel(v,point))
-    assert [a.text() for a in w._context_menu.actions()] == ['New Sketch']
+    assert [a.text() for a in w._context_menu.actions()] == ['New Sketch', 'Create Offset Plane']
     assert v.selection.kind == 'face'
     before = w.document.features
     w._context_menu.actions()[0].trigger()

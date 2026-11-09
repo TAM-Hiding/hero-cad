@@ -95,7 +95,7 @@ def test_viewport_multiselect_context_and_delete_undo(qtbot):
     assert len(w.selected_keys()) == 2
     qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, f.to_world((-7, 0))))
     assert len(w.selected_keys()) == 2
-    assert [a.text() for a in w._context_menu.actions()] == ['Edit Parameters', 'Edit Sketch', 'Delete']
+    assert [a.text() for a in w._context_menu.actions()] == ['Toggle Construction', 'Edit Parameters', 'Edit Sketch', 'Delete']
     w._context_menu.close()
     before, n = w.document.features, len(w.document._undo)
     v.setFocus()

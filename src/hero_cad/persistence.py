@@ -1,6 +1,6 @@
 """Strict versioned parameter serialization; no native shapes or transient selection."""
 from dataclasses import asdict
-from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, ProfileReference, Feature
+from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, OffsetPlaneParameters, ProfileReference, Feature
 from hero_cad.chamfers import EdgeReference
 from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport, FaceSnapshot
 
@@ -54,36 +54,44 @@ def serialize(features):
             if feature.type == 'boolean':
                 version = max(version, 6)
                 parameters['tool_ids'] = list(parameters['tool_ids'])
+        elif feature.type == 'offset_plane':
+            version = max(version, 16)
+            p = feature.parameters
+            parameters = {'reference': p.reference, 'offset': p.offset}
+            if isinstance(p.reference, FaceReference):
+                parameters['reference'] = serialize_face(p.reference)
+                if p.outward:
+                    parameters['outward'] = True
+                if p.support_frame is not None:
+                    parameters['support_frame'] = serialize_frame(p.support_frame)
         else:
             sketch = feature.parameters
             parameters = {'plane': sketch.plane,
-                          'frame': {k: list(getattr(sketch.frame, k)) for k in ('origin', 'u', 'v')},
+                          'frame': serialize_frame(sketch.frame),
                           'entities': [{'type': type(e).__name__.lower(),
                                         'parameters': asdict(e)} for e in sketch.entities]}
             if sketch.attachment:
                 version = max(version, 8 if sketch.attachment.segment == 'line' else 7 if sketch.attachment.face == 'evaluated' else 5)
-                parameters['attachment'] = asdict(sketch.attachment)
+                parameters['attachment'] = serialize_face(sketch.attachment)
                 if sketch.attachment.face in ('start', 'end') and sketch.attachment.boundary_id is not None:
                     version = max(version, 15)
-                if sketch.attachment.snapshot is None:
-                    parameters['attachment'].pop('snapshot')
-                else:
+                if sketch.attachment.snapshot is not None:
                     version = max(version, 10)
-                    snapshot = parameters['attachment']['snapshot']
-                    snapshot['anchor'] = list(snapshot['anchor'])
-                    snapshot['origins'] = list(snapshot['origins'])
-                if sketch.attachment.support is None:
-                    parameters['attachment'].pop('support')
-                else:
+                if sketch.attachment.support is not None:
                     version = max(version, 9)
-                    support = parameters['attachment']['support']
-                    support['origins'] = list(support['origins'])
-                    support['anchor'] = list(support['anchor'])
+            if sketch.plane_id:
+                version = max(version, 16)
+                parameters['plane_id'] = sketch.plane_id
+            for entity in parameters['entities']:
+                if entity['parameters'].pop('construction', False):
+                    version = max(version, 16)
+                    entity['parameters']['construction'] = True
         if not feature.sketch_visible:
             version = max(version, 11)
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references),
-                       **({'sketch_visible': False} if not feature.sketch_visible else {})})
+                       **({'sketch_visible': False} if not feature.sketch_visible else {}),
+                       **({'plane_visible': False} if not feature.plane_visible else {})})
     return {'format': DOCUMENT_FORMAT, 'version': version, 'units': 'mm', 'features': result}
 
 
@@ -93,7 +101,7 @@ def deserialize(data):
     if data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -105,18 +113,35 @@ def deserialize(data):
     result = []
     for item in data['features']:
         visibility = isinstance(item, dict) and 'sketch_visible' in item
-        fields(item, ('id', 'type', 'parameters', 'references') + (('sketch_visible',) if visibility and version >= 11 else ()))
+        plane_visibility = isinstance(item, dict) and 'plane_visible' in item
+        fields(item, ('id', 'type', 'parameters', 'references')
+               + (('sketch_visible',) if visibility and version >= 11 else ())
+               + (('plane_visible',) if plane_visibility and version >= 16 else ()))
         if visibility and (item['type'] != 'sketch' or type(item['sketch_visible']) is not bool):
             raise ValueError('Invalid sketch visibility')
+        if plane_visibility and (item['type'] != 'offset_plane' or type(item['plane_visible']) is not bool):
+            raise ValueError('Invalid construction plane visibility')
         if not isinstance(item['references'], list):
             raise ValueError('Invalid references')
         parameters = item['parameters']
         if item['type'] == 'box':
             fields(parameters, ('width', 'depth', 'height'))
             value = BoxParameters(**parameters)
+        elif item['type'] == 'offset_plane' and version >= 16:
+            has_frame = isinstance(parameters, dict) and 'support_frame' in parameters
+            outward = isinstance(parameters, dict) and 'outward' in parameters
+            fields(parameters, ('reference', 'offset') + (('support_frame',) if has_frame else ())
+                   + (('outward',) if outward else ()))
+            reference = parameters['reference']
+            if isinstance(reference, dict):
+                reference = deserialize_face(reference, version)
+            frame = deserialize_frame('FACE', parameters['support_frame']) if has_frame else None
+            value = OffsetPlaneParameters(reference, parameters['offset'], frame, parameters.get('outward', False))
         elif item['type'] == 'sketch':
             attached = version >= 5 and isinstance(parameters, dict) and parameters.get('plane') == 'FACE'
-            fields(parameters, ('plane', 'frame', 'entities', 'attachment') if attached else ('plane', 'frame', 'entities'))
+            on_plane = version >= 16 and isinstance(parameters, dict) and parameters.get('plane') == 'CONSTRUCTION'
+            fields(parameters, ('plane', 'frame', 'entities')
+                   + (('attachment',) if attached else ()) + (('plane_id',) if on_plane else ()))
             if not isinstance(parameters['entities'], list) or len(parameters['entities']) > 10000:
                 raise ValueError('Too many sketch entities')
             entities = []
@@ -127,50 +152,18 @@ def deserialize(data):
                     cls = {'circle': Circle, 'slot': Slot}.get(entity['type'], cls)
                 if cls is None:
                     raise ValueError('Unsupported sketch entity')
-                fields(entity['parameters'], cls.__dataclass_fields__)
+                params = entity['parameters']
+                names = tuple(k for k in cls.__dataclass_fields__ if k != 'construction')
+                if version >= 16 and cls in (Line, Circle) and isinstance(params, dict) and 'construction' in params:
+                    names += ('construction',)
+                fields(params, names)
                 entities.append(cls(**entity['parameters']))
-            fields(parameters['frame'], ('origin', 'u', 'v'))
-            if any(not isinstance(axis, list) or len(axis) != 3
-                   or any(type(n) not in (int, float) for n in axis)
-                   for axis in parameters['frame'].values()):
-                raise ValueError('Invalid sketch frame')
-            stored = PlaneFrame(parameters['plane'], **{k: tuple(v) for k,v in parameters['frame'].items()})
+            stored = deserialize_frame(parameters['plane'], parameters['frame'])
             if attached:
-                attachment = parameters['attachment']
-                if version < 9 and isinstance(attachment, dict) and 'support' in attachment:
-                    raise ValueError('Ancestry support requires document version 9')
-                enriched = version >= 9 and isinstance(attachment, dict) and 'support' in attachment
-                if version < 10 and isinstance(attachment, dict) and 'snapshot' in attachment:
-                    raise ValueError('Current-face snapshots require document version 10')
-                snapshot = version >= 10 and isinstance(attachment, dict) and 'snapshot' in attachment
-                fields(attachment, ('parent_id', 'face', 'boundary_id', 'segment')
-                       + (('support',) if enriched else ()) + (('snapshot',) if snapshot else ()))
-                attachment = dict(attachment)
-                if snapshot:
-                    value = attachment['snapshot']
-                    fields(value, ('anchor', 'origins'))
-                    if not isinstance(value['anchor'], list) or not isinstance(value['origins'], list):
-                        raise ValueError('Invalid current-face snapshot')
-                    attachment['snapshot'] = FaceSnapshot(tuple(value['anchor']),tuple(value['origins']))
-                if enriched:
-                    support = attachment['support']
-                    fields(support, ('origins', 'root', 'anchor', 'sense', 'count'))
-                    if not isinstance(support['origins'], list) or not isinstance(support['anchor'], list):
-                        raise ValueError('Invalid persisted ancestry support')
-                    attachment['support'] = FaceSupport(**{**support, 'origins': tuple(support['origins']),
-                                                           'anchor': tuple(support['anchor'])})
-                if (version < 15 and attachment['face'] in ('start', 'end')
-                        and attachment['boundary_id'] is not None):
-                    raise ValueError('Profile-scoped caps require document version 15')
-                if version < 7 and parameters['attachment']['face'] == 'evaluated':
-                    raise ValueError('Evaluated face references require document version 7')
-                if version < 8 and parameters['attachment']['segment'] == 'line':
-                    raise ValueError('Line-profile side references require document version 8')
-                if version < 14 and attachment['face'] == 'bevel' and attachment.get('segment') is not None:
-                    raise ValueError('Multi-edge bevel references require document version 14')
-                if version < 12 and attachment['face'] == 'bevel':
-                    raise ValueError('Chamfer face references require document version 12')
-                value = SketchParameters('FACE', tuple(entities), FaceReference(**attachment), stored)
+                value = SketchParameters('FACE', tuple(entities), deserialize_face(parameters['attachment'], version), stored)
+            elif on_plane:
+                value = SketchParameters('CONSTRUCTION', tuple(entities), attached_frame=stored,
+                                         plane_id=parameters['plane_id'])
             else:
                 value = SketchParameters(parameters['plane'], tuple(entities))
                 if stored != value.frame:
@@ -225,8 +218,69 @@ def deserialize(data):
             value = ChamferParameters(parameters['target_id'], edges, parameters['distance'])
         else:
             raise ValueError('Unsupported feature type')
-        result.append(Feature(item['type'], value, tuple(item['references']), item['id'], item.get('sketch_visible', True)))
+        result.append(Feature(item['type'], value, tuple(item['references']), item['id'], item.get('sketch_visible', True),
+                              item.get('plane_visible', True)))
     return tuple(result)
+
+
+def serialize_frame(frame):
+    return {k: list(getattr(frame, k)) for k in ('origin', 'u', 'v')}
+
+
+def deserialize_frame(name, data):
+    fields(data, ('origin', 'u', 'v'))
+    if any(not isinstance(axis, list) or len(axis) != 3
+           or any(type(n) not in (int, float) for n in axis) for axis in data.values()):
+        raise ValueError('Invalid sketch frame')
+    return PlaneFrame(name, **{k: tuple(v) for k, v in data.items()})
+
+
+def serialize_face(reference):
+    data = asdict(reference)
+    for key in ('support', 'snapshot'):
+        if data[key] is None:
+            del data[key]
+        else:
+            data[key]['anchor'] = list(data[key]['anchor'])
+            data[key]['origins'] = list(data[key]['origins'])
+    return data
+
+
+def deserialize_face(attachment, version):
+    if version < 9 and isinstance(attachment, dict) and 'support' in attachment:
+        raise ValueError('Ancestry support requires document version 9')
+    enriched = version >= 9 and isinstance(attachment, dict) and 'support' in attachment
+    if version < 10 and isinstance(attachment, dict) and 'snapshot' in attachment:
+        raise ValueError('Current-face snapshots require document version 10')
+    snapshot = version >= 10 and isinstance(attachment, dict) and 'snapshot' in attachment
+    fields(attachment, ('parent_id', 'face', 'boundary_id', 'segment')
+           + (('support',) if enriched else ()) + (('snapshot',) if snapshot else ()))
+    attachment = dict(attachment)
+    if snapshot:
+        value = attachment['snapshot']
+        fields(value, ('anchor', 'origins'))
+        if not isinstance(value['anchor'], list) or not isinstance(value['origins'], list):
+            raise ValueError('Invalid current-face snapshot')
+        attachment['snapshot'] = FaceSnapshot(tuple(value['anchor']),tuple(value['origins']))
+    if enriched:
+        support = attachment['support']
+        fields(support, ('origins', 'root', 'anchor', 'sense', 'count'))
+        if not isinstance(support['origins'], list) or not isinstance(support['anchor'], list):
+            raise ValueError('Invalid persisted ancestry support')
+        attachment['support'] = FaceSupport(**{**support, 'origins': tuple(support['origins']),
+                                               'anchor': tuple(support['anchor'])})
+    if (version < 15 and attachment['face'] in ('start', 'end')
+            and attachment['boundary_id'] is not None):
+        raise ValueError('Profile-scoped caps require document version 15')
+    if version < 7 and attachment['face'] == 'evaluated':
+        raise ValueError('Evaluated face references require document version 7')
+    if version < 8 and attachment['segment'] == 'line':
+        raise ValueError('Line-profile side references require document version 8')
+    if version < 14 and attachment['face'] == 'bevel' and attachment.get('segment') is not None:
+        raise ValueError('Multi-edge bevel references require document version 14')
+    if version < 12 and attachment['face'] == 'bevel':
+        raise ValueError('Chamfer face references require document version 12')
+    return FaceReference(**attachment)
 
 
 def serialize_edge(edge):

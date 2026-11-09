@@ -3,7 +3,7 @@ from pathlib import Path
 from dataclasses import fields as data_fields, replace
 
 from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize, QStandardPaths
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QComboBox, QLabel, QSpinBox, QStackedWidget, QDockWidget, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
@@ -14,7 +14,7 @@ from hero_cad.chamfers import edge_description
 from hero_cad.document import BoxParameters, Document
 from hero_cad.features import ExtrudeParameters, ChamferParameters, FeatureError
 from hero_cad.geometry import volume, compound
-from hero_cad.sketch import PLANES
+from hero_cad.sketch import Circle, Line, PLANES
 from hero_cad.ui.viewport import Viewport
 from hero_cad.ui.operation_panel import OperationPanel
 from hero_cad.ui.commands import CommandRegistry
@@ -24,6 +24,7 @@ from hero_cad.ui.feature_icons import feature_icon
 from hero_cad.persistence import DOCUMENT_EXTENSION
 from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
 from hero_cad.ui.dimension_spinbox import DimensionSpinBox
+from hero_cad.ui.construction_planes import ConstructionPlanes, request_offset
 
 
 LAST_DOCUMENT_DIRECTORY = 'documents/last_directory'
@@ -44,6 +45,7 @@ class MainWindow(QMainWindow):
         self.entity_context = None
         self.browser_key = None
         self.viewport = Viewport(self)
+        self.construction_planes = ConstructionPlanes(self.viewport)
         self.viewport.update_support_face = self.update_sketch_face
         self.setCentralWidget(self.viewport)
         self.browser = QTreeWidget()
@@ -149,6 +151,9 @@ class MainWindow(QMainWindow):
         self.new_sketch_action = QAction("New Sketch", self)
         self.new_sketch_action.triggered.connect(self.create_sketch)
         toolbar.addAction(self.new_sketch_action)
+        self.offset_plane_action = QAction('Create Offset Plane', self)
+        self.offset_plane_action.triggered.connect(self.create_offset_plane)
+        toolbar.addAction(self.offset_plane_action)
         self.edit_sketch_action = QAction("Edit Sketch", self)
         self.edit_sketch_action.triggered.connect(self.edit_sketch)
         toolbar.addAction(self.edit_sketch_action)
@@ -167,6 +172,14 @@ class MainWindow(QMainWindow):
             self.tool_actions[name] = action
         self.tool_choice.currentTextChanged.connect(lambda name: self.commands.execute('tool.'+name.lower()))
         self.sketch_toolbar.addWidget(self.tool_choice)
+        self.construction_action = QAction('Construction', self)
+        self.construction_action.setCheckable(True)
+        self.construction_action.setToolTip('Draw dashed construction lines and circles. X converts selected curves in Select mode or toggles drawing mode.')
+        self.construction_action.toggled.connect(self.set_construction_mode)
+        self.sketch_toolbar.addAction(self.construction_action)
+        self.construction_shortcut = QShortcut(QKeySequence('X'), self)
+        self.construction_shortcut.setAutoRepeat(False)
+        self.construction_shortcut.activated.connect(self.construction_key)
         self.grid_action = QAction("Grid", self)
         self.grid_action.setCheckable(True)
         self.grid_action.setChecked(True)
@@ -449,11 +462,26 @@ class MainWindow(QMainWindow):
         except ValueError as error:
             return None, str(error)
 
+    def selected_browser_plane(self):
+        key = self.browser_key
+        if not key or self.viewport.selection is not None:
+            return None
+        if key[0] == 'plane':
+            return 'plane:' + key[1]
+        if key[0] == 'offset_plane' and key[1] in self.document.plane_frames:
+            return key[1]
+        return None
+
     def update_commands(self):
         active = self.viewport.sketch.active_id is not None
         key = self.browser_key or ()
         reference, face_reason = self.selected_face_reference() if not active else (None, '')
-        plane = bool(key and key[0] == 'plane' and self.viewport.selection is None)
+        plane = self.selected_browser_plane() is not None
+        self.offset_plane_action.setEnabled(not active and (reference is not None or plane))
+        self.construction_shortcut.setEnabled(active)
+        self.construction_action.setEnabled(active)
+        with QSignalBlocker(self.construction_action):
+            self.construction_action.setChecked(active and self.viewport.sketch.construction_mode)
         self.commands.enable('sketch.new', not active and (reference is not None or plane),
                              'Finish the current sketch first.' if active else face_reason)
         editable = bool(key and key[0] in ('sketch', 'entity', 'extrude'))
@@ -485,7 +513,7 @@ class MainWindow(QMainWindow):
             context = 'sketch' if active else 'face' if reference is not None else 'model'
             hint = ('Draw in the active sketch; Esc cancels construction.' if active else
                     'New Sketch attaches to the selected planar face.' if reference is not None else
-                    'New Sketch uses the selected origin plane.' if plane else face_reason)
+                    'New Sketch uses the selected plane.' if plane else face_reason)
             self.tool_island.set_context(context, hint)
 
     def add_panel(self, title, widget, area):
@@ -498,6 +526,22 @@ class MainWindow(QMainWindow):
             pos = event.position().toPoint()
             item = self.browser.itemAt(pos)
             key = item.data(0, Qt.UserRole) if item else None
+            if self.browser.columnAt(pos.x()) == 1 and key and key[0] == 'offset_plane':
+                if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                    feature = self.document.feature(key[1])
+                    try:
+                        self.edit_document(lambda d: d.set_plane_visibility(feature.id, not feature.plane_visible),
+                                           reuse_unchanged_solids=True)
+                    except ValueError as error:
+                        self.statusBar().showMessage(str(error), 5000)
+                        return True
+                    self._prepared_refresh = None
+                    item.setText(1, '○' if feature.plane_visible else '●')
+                    item.setToolTip(1, 'Click to show plane' if feature.plane_visible else 'Click to hide plane')
+                    self.update_history_inspector()
+                    self.viewport.update_clipping()
+                    self.viewport.GetRenderWindow().Render()
+                return True
             if self.browser.columnAt(pos.x()) == 1 and key and key[0] == 'sketch':
                 if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
                     feature = self.document.feature(key[1])
@@ -625,6 +669,7 @@ class MainWindow(QMainWindow):
             support_mapper.SetInputData(support[2])
         return dict(solid=solid, sketch_display=sketch_display, sketches=sketches,
                     support=support, support_mapper=support_mapper,
+                    planes=self.construction_planes.prepare(document, self.browser_key),
                     checked=checked, has_extrusions=has_extrusions,
                     volume=visible_volume, label=label)
 
@@ -635,6 +680,7 @@ class MainWindow(QMainWindow):
         v = self.viewport
         old_solid, old_sketch = v.solid_state(), v.sketch.display_state()
         old_sketches = v.sketch.features
+        old_planes = self.construction_planes.state
         old_support = (v.support_mapper, getattr(v, '_support_key', None),
                        getattr(v, '_support_available', False), v.support_actor.GetVisibility())
         stage = 'document_publication'
@@ -648,6 +694,7 @@ class MainWindow(QMainWindow):
                 v.install_shape(prepared['solid'])
             v.sketch.install_display(prepared['sketch_display'])
             v.sketch.features = prepared['sketches']
+            self.construction_planes.install(prepared['planes'])
             v.support_actor.SetMapper(prepared['support_mapper'])
             v.support_mapper = prepared['support_mapper']
             v._support_key, v._support_available, _ = prepared['support']
@@ -658,6 +705,7 @@ class MainWindow(QMainWindow):
             v.install_shape(old_solid)
             v.sketch.install_display(old_sketch)
             v.sketch.features = old_sketches
+            self.construction_planes.install(old_planes)
             v.support_mapper, v._support_key, v._support_available, visible = old_support
             v.support_actor.SetMapper(v.support_mapper)
             v.support_actor.SetVisibility(visible)
@@ -756,6 +804,7 @@ class MainWindow(QMainWindow):
             except (StopIteration, AttributeError):
                 self.entity_context = None
         self.rebuild_browser()
+        self.construction_planes.install(self.construction_planes.prepare(self.document, self.browser_key))
         self.show_properties()
         if fit:
             self.viewport.fit()
@@ -963,7 +1012,7 @@ class MainWindow(QMainWindow):
                 info.setWordWrap(True)
                 self.entity_form.addRow(info)
             for parameter in data_fields(entity):
-                if parameter.name == 'id' or (solid_operation and parameter.name != 'distance'):
+                if parameter.name in ('id', 'construction') or (solid_operation and parameter.name != 'distance'):
                     continue
                 name = parameter.name
                 field = DimensionSpinBox()
@@ -993,7 +1042,12 @@ class MainWindow(QMainWindow):
             self.viewport.sketch.select_entity(None if solid_operation else entity.id)
         elif self.browser_key and self.browser_key[0] != 'box':
             self.property_stack.setCurrentIndex(2)
-            if self.browser_key[0] == 'boolean':
+            if self.browser_key[0] == 'offset_plane':
+                feature = self.document.feature(self.browser_key[1])
+                status = self.document.statuses[feature.id]
+                self.property_info.setText(f'Offset plane · {feature.parameters.offset:g} mm\n' +
+                                           (status.error or 'Use Edit Offset in the browser context menu.'))
+            elif self.browser_key[0] == 'boolean':
                 feature = self.document.feature(self.browser_key[1])
                 p,status = feature.parameters,self.document.statuses[feature.id]
                 self.property_info.setText(f'Combine · {p.operation}\nTarget: {self.body_label(p.target_id)}\nTools: ' + ', '.join(self.body_label(t) for t in p.tool_ids) + ('\n'+status.error if not status.valid else ''))
@@ -1008,7 +1062,7 @@ class MainWindow(QMainWindow):
 
     def update_history_inspector(self):
         key = self.browser_key
-        identifier = key[1] if key and key[0] in ('box', 'sketch', 'extrude', 'boolean', 'chamfer', 'entity') else None
+        identifier = key[1] if key and key[0] in ('box', 'sketch', 'extrude', 'boolean', 'chamfer', 'offset_plane', 'entity') else None
         if identifier and any(f.id == identifier for f in self.document.features):
             text = feature_history_text(self.document, identifier)
         else:
@@ -1034,6 +1088,10 @@ class MainWindow(QMainWindow):
                 item.setData(0, Qt.UserRole, key)
                 self.browser_items[key] = item
             origin.setExpanded(True)
+            construction = (QTreeWidgetItem(self.browser, ['Construction'])
+                            if any(f.type == 'offset_plane' for f in self.document.features) else None)
+            if construction is not None:
+                construction.setExpanded(True)
             body = QTreeWidgetItem(self.browser, ["Body 1"])
             for feature in self.document.features:
                 status = self.document.statuses[feature.id]
@@ -1041,6 +1099,12 @@ class MainWindow(QMainWindow):
                     item = QTreeWidgetItem(body, ["Box"])
                     self.box_item = item
                     key = ('box', feature.id)
+                elif feature.type == 'offset_plane':
+                    number = sum(k[0] == 'offset_plane' for k in self.browser_items) + 1
+                    item = QTreeWidgetItem(construction, [f'Plane {number} · {feature.parameters.offset:g} mm'])
+                    key = ('offset_plane', feature.id)
+                    item.setText(1, '●' if feature.plane_visible else '○')
+                    item.setToolTip(1, 'Click to hide plane' if feature.plane_visible else 'Click to show plane')
                 elif feature.type == 'extrude':
                     item = QTreeWidgetItem(self.browser, [f"Extrusion · {feature.parameters.distance:g} mm · {feature.parameters.operation} · {feature.parameters.extent}"])
                     key = ('extrude', feature.id)
@@ -1058,7 +1122,9 @@ class MainWindow(QMainWindow):
                     item.setText(1, '●' if feature.sketch_visible else '○')
                     item.setToolTip(1, 'Click to hide sketch' if feature.sketch_visible else 'Click to show sketch; editing temporarily reveals it')
                     for i, entity in enumerate(feature.parameters.entities, 1):
-                        child = QTreeWidgetItem(item, [f"{type(entity).__name__} {i}"])
+                        kind = type(entity).__name__
+                        label = f'Construction {kind.lower()}' if getattr(entity, 'construction', False) else kind
+                        child = QTreeWidgetItem(item, [f'{label} {i}'])
                         child_key = ('entity', feature.id, entity.id)
                         child.setData(0, Qt.UserRole, child_key)
                         self.browser_items[child_key] = child
@@ -1120,13 +1186,14 @@ class MainWindow(QMainWindow):
         key = tuple(key) if key else None
         if key == self.browser_key:
             return
-        if key and key[0] in ('box','extrude','boolean','chamfer','plane'):
+        if key and key[0] in ('box','extrude','boolean','chamfer','plane','offset_plane'):
             self.viewport.clear_selection(render=False)
         if self.has_pending_edits() and not self.apply_dimensions():
             with QSignalBlocker(self.browser):
                 self.browser.setCurrentItem(self.browser_items.get(self.browser_key))
             return
         self.browser_key = key
+        self.construction_planes.install(self.construction_planes.prepare(self.document, key))
         with QSignalBlocker(self.browser):
             self.browser.setCurrentItem(self.browser_items.get(key), 0, QItemSelectionModel.NoUpdate)
         self.entity_context = (key[1], key[2]) if key and key[0] == 'entity' else None
@@ -1140,6 +1207,8 @@ class MainWindow(QMainWindow):
 
     def sketch_plane_label(self, feature):
         ref = feature.parameters.attachment
+        if feature.parameters.plane_id:
+            return self.body_label(feature.parameters.plane_id)
         if not ref:
             return feature.parameters.plane
         parent = self.document.feature(ref.parent_id)
@@ -1158,6 +1227,7 @@ class MainWindow(QMainWindow):
         try:
             reference = self.document.face_reference(hit[0], point=hit[1])
             menu.addAction(self.new_sketch_action)
+            menu.addAction(self.offset_plane_action)
         except ValueError as error:
             if menu.isEmpty():
                 self.statusBar().showMessage(str(error),5000)
@@ -1179,19 +1249,59 @@ class MainWindow(QMainWindow):
         self.update_actions()
         self.update_status()
 
+    def create_offset_plane(self, *, reference=None):
+        if self.viewport.sketch.active_id:
+            return
+        if reference is None:
+            face, _ = self.selected_face_reference()
+            reference = face or self.selected_browser_plane()
+        if reference is None or (self.has_pending_edits() and not self.apply_dimensions()):
+            return
+        offset = request_offset(self, reference, 0.)
+        if offset is None:
+            return
+        try:
+            identifier = self.edit_document(lambda d: d.add_offset_plane(reference, offset))
+        except ValueError as error:
+            QMessageBox.warning(self, 'Cannot create offset plane', str(error))
+            return
+        self.browser_key, self.entity_context = ('offset_plane', identifier), None
+        self.refresh(fit=True)
+
+    def edit_offset_plane(self):
+        key = self.browser_key
+        if not key or key[0] != 'offset_plane' or self.viewport.sketch.active_id:
+            return
+        feature = self.document.feature(key[1])
+        status = self.document.statuses[feature.id]
+        if not status.valid:
+            self.statusBar().showMessage(status.error, 5000)
+            return
+        p = feature.parameters
+        offset = request_offset(self, p.reference, p.offset, editing=feature)
+        if offset is None or offset == p.offset:
+            return
+        try:
+            self.edit_document(lambda d: d.replace_feature(replace(feature, parameters=replace(p, offset=offset))))
+        except ValueError as error:
+            QMessageBox.warning(self, 'Cannot edit offset plane', str(error))
+            return
+        self.refresh(fit=True)
+
     def create_sketch(self):
         if not self.viewport.sketch.active_id:
             reference, _ = self.selected_face_reference()
             if reference:
                 self.create_face_sketch(reference)
                 return
-        if not self.browser_key or self.browser_key[0] != 'plane':
+        plane = self.selected_browser_plane()
+        if not plane or self.viewport.sketch.active_id:
             return
-        plane = self.browser_key[1]
         if self.has_pending_edits() and not self.apply_dimensions():
             return
         try:
-            identifier = self.edit_document(lambda d: d.add_sketch(plane))
+            identifier = self.edit_document(lambda d: d.add_sketch(plane[6:]) if plane.startswith('plane:')
+                                            else d.add_plane_sketch(plane))
         except Exception as error:
             QMessageBox.warning(self, "Cannot create sketch", str(error))
             return
@@ -1230,12 +1340,45 @@ class MainWindow(QMainWindow):
             self.tool_choice.setCurrentText(name.title())
         self.update_actions()
 
+    def set_construction_mode(self, enabled):
+        sketch = self.viewport.sketch
+        sketch.construction_mode = bool(sketch.active_id and enabled)
+        self.viewport.GetRenderWindow().Render()
+
+    def selected_construction_curves(self):
+        sketch = self.viewport.sketch
+        if not sketch.feature:
+            return set()
+        return {e.id for e in sketch.feature.parameters.entities
+                if isinstance(e, (Line, Circle)) and e.id in sketch.entity_ids}
+
+    def construction_key(self):
+        sketch = self.viewport.sketch
+        if sketch.controller.name == 'select' and self.selected_construction_curves():
+            self.convert_construction()
+        elif sketch.active_id:
+            self.construction_action.toggle()
+
+    def convert_construction(self):
+        identifiers = self.selected_construction_curves()
+        if not identifiers or (self.has_pending_edits() and not self.apply_dimensions()):
+            return
+        try:
+            self.edit_document(lambda d: d.toggle_construction(self.viewport.sketch.active_id, identifiers),
+                               reuse_unchanged_solids=True)
+        except ValueError as error:
+            self.statusBar().showMessage(str(error), 5000)
+            return
+        self.refresh(reuse_unchanged_solids=True)
+
     def entity_created(self, entity):
         identifier = self.viewport.sketch.active_id
         if not identifier:
             return
         if self.has_pending_edits() and not self.apply_dimensions():
             return
+        if self.viewport.sketch.construction_mode and isinstance(entity, (Line, Circle)):
+            entity = replace(entity, construction=True)
         try:
             self.edit_document(lambda d: d.add_entity(identifier, entity), reuse_unchanged_solids=True)
         except Exception as error:
@@ -1290,11 +1433,11 @@ class MainWindow(QMainWindow):
         keys = self.selected_keys()
         if not keys:
             return
-        if any(k[0] not in ('entity', 'sketch', 'extrude', 'boolean', 'chamfer') for k in keys):
-            self.statusBar().showMessage('Only sketch entities, unreferenced sketches and extrusions can be deleted', 4000)
+        if any(k[0] not in ('entity', 'sketch', 'extrude', 'boolean', 'chamfer', 'offset_plane') for k in keys):
+            self.statusBar().showMessage('Select sketch entities or unreferenced model features to delete', 4000)
             return
         try:
-            self.edit_document(lambda d: d.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean', 'chamfer')],
+            self.edit_document(lambda d: d.delete(features=[k[1] for k in keys if k[0] in ('sketch', 'extrude', 'boolean', 'chamfer', 'offset_plane')],
                                                  entities=[k[1:] for k in keys if k[0] == 'entity']))
         except Exception as error:
             self.statusBar().showMessage(str(error), 5000)
@@ -1309,6 +1452,15 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         if len(self.selected_body_ids()) >= 2:
             menu.addAction(self.combine_action)
+        if key and key[0] in ('plane', 'offset_plane'):
+            menu.addAction(self.new_sketch_action)
+            menu.addAction(self.offset_plane_action)
+        if key and key[0] == 'offset_plane':
+            if not self.viewport.sketch.active_id:
+                menu.addAction('Edit Offset…', self.edit_offset_plane)
+            menu.addAction('Delete', self.delete_selected)
+        if key and key[0] == 'entity' and self.selected_construction_curves():
+            menu.addAction('Toggle Construction', self.convert_construction)
         if key and key[0] in ('extrude','boolean','chamfer'):
             menu.addAction('Edit Operation…',self.edit_operation)
         if key and key[0] in ('boolean','chamfer'):
@@ -1329,7 +1481,8 @@ class MainWindow(QMainWindow):
     def body_label(self, identifier):
         feature = self.document.feature(identifier)
         number = [f.id for f in self.document.features if f.type == feature.type].index(identifier)+1
-        return f'{feature.type.title()} {number} · {identifier[:8]}'
+        label = 'Plane' if feature.type == 'offset_plane' else feature.type.title()
+        return f'{label} {number} · {identifier[:8]}'
 
     def selected_body_ids(self):
         result = {k[1] for k in self.selected_keys() if k[0] in ('box','extrude','boolean','chamfer') and k[1] in self.document.active_body_ids}
@@ -1467,6 +1620,7 @@ class MainWindow(QMainWindow):
                     pass
                 else:
                     menu.addAction('New Sketch', lambda: self.create_face_sketch(reference))
+                    menu.addAction('Create Offset Plane', lambda: self.create_offset_plane(reference=reference))
         menu.popup(position)
         self._context_menu = menu
 

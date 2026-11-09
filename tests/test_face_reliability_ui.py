@@ -76,7 +76,7 @@ def test_current_split_faces_right_click_repeat_reenter_save_and_history(qtbot, 
         point = look(v, frame, frame.to_local(center(face)))
         v.set_selection_mode('edge')
         qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, point))
-        assert [a.text() for a in w._context_menu.actions()] == ['New Sketch']
+        assert [a.text() for a in w._context_menu.actions()] == ['New Sketch', 'Create Offset Plane']
         w._context_menu.actions()[0].trigger()
         w._context_menu.close()
         sid = v.sketch.active_id
@@ -130,8 +130,8 @@ def test_finished_curve_context_still_offers_new_sketch_on_underlying_face(qtbot
     frame = d.feature(first).parameters.frame
     point = look(v, frame, (13, 10))
     qtbot.mouseClick(v, Qt.RightButton, pos=pixel(v, point))
-    assert [a.text() for a in w._context_menu.actions()] == ['Edit Parameters', 'Edit Sketch', 'Delete', 'New Sketch']
-    w._context_menu.actions()[-1].trigger()
+    assert [a.text() for a in w._context_menu.actions()] == ['Edit Parameters', 'Edit Sketch', 'Delete', 'New Sketch', 'Create Offset Plane']
+    w._context_menu.actions()[-2].trigger()
     w._context_menu.close()
     second = v.sketch.active_id
     assert second != first and d.feature(second).parameters.attachment == ref

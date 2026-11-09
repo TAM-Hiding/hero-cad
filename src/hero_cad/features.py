@@ -1,7 +1,7 @@
 """Ordered immutable feature definitions; no UI or display references."""
 from dataclasses import dataclass, field
 from math import isfinite
-from hero_cad.sketch import SketchParameters, new_id, valid_id
+from hero_cad.sketch import FaceReference, PlaneFrame, PLANES, SketchParameters, new_id, valid_id
 
 
 @dataclass(frozen=True)
@@ -146,21 +146,56 @@ class ChamferParameters:
 
 
 @dataclass(frozen=True)
+class OffsetPlaneParameters:
+    reference: str | FaceReference
+    offset: float
+    support_frame: PlaneFrame | None = None
+    outward: bool = False  # Missing on planes saved by the original schema 16 writer.
+
+    def __post_init__(self):
+        if type(self.outward) is not bool or (self.outward and type(self.reference) is not FaceReference):
+            raise ValueError('Outward convention applies to face references only')
+        if type(self.reference) is FaceReference:
+            if self.support_frame is not None and (
+                    type(self.support_frame) is not PlaneFrame or self.support_frame.name != 'FACE'):
+                raise ValueError('Expected a face support frame')
+        else:
+            if not isinstance(self.reference, str) or self.support_frame is not None:
+                raise ValueError('Expected an origin plane, construction plane, or planar face')
+            if self.reference not in {f'plane:{name}' for name in PLANES}:
+                valid_id(self.reference)
+        if type(self.offset) not in (float, int) or not isfinite(self.offset) or abs(self.offset) > 100000:
+            raise ValueError('Plane offset must be finite and within ±100000 mm')
+
+    @property
+    def parent_id(self):
+        return self.reference.parent_id if isinstance(self.reference, FaceReference) else self.reference
+
+    def offset_frame(self, frame):
+        origin = tuple(a + self.offset*b for a, b in zip(frame.origin, frame.normal))
+        return PlaneFrame('CONSTRUCTION', origin, frame.u, frame.v)
+
+
+@dataclass(frozen=True)
 class Feature:
     type: str
     parameters: object
     references: tuple = ()
     id: str = field(default_factory=new_id)
     sketch_visible: bool = True  # Presentation only; never suppresses evaluation.
+    plane_visible: bool = True
 
     def __post_init__(self):
         valid_id(self.id)
         if type(self.sketch_visible) is not bool or (self.type != 'sketch' and not self.sketch_visible):
             raise ValueError('Visibility metadata is a boolean for sketches only')
+        if type(self.plane_visible) is not bool or (self.type != 'offset_plane' and not self.plane_visible):
+            raise ValueError('Plane visibility metadata is a boolean for offset planes only')
         if not isinstance(self.type, str):
             raise ValueError('Feature type must be a string')
         expected = {'box': BoxParameters, 'sketch': SketchParameters, 'extrude': ExtrudeParameters,
-                    'boolean': BooleanParameters, 'chamfer': ChamferParameters}.get(self.type)
+                    'boolean': BooleanParameters, 'chamfer': ChamferParameters,
+                    'offset_plane': OffsetPlaneParameters}.get(self.type)
         if expected is None or type(self.parameters) is not expected:
             raise ValueError('Unsupported feature or parameter type')
         if not isinstance(self.references, tuple) or any(not isinstance(r, str) for r in self.references):

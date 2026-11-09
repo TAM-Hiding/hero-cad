@@ -37,3 +37,41 @@ def display_points(entity, count):
     right = arc(entity.second_center, angle-pi/2, pi, count//2)
     left = arc((entity.x, entity.y), angle+pi/2, pi, count//2)
     return (left[-1],) + right + left[:-1] + (left[-1],)
+
+
+def dashed_paths(path, pixels_per_mm):
+    """Split a display polyline into dash fragments without altering its hit path."""
+    from math import dist
+
+    lengths = [dist(a, b) for a, b in zip(path, path[1:])]
+    total = sum(lengths)
+    cycle = max(8 / pixels_per_mm, total / 512)
+    dash = cycle * .625
+    if total <= dash:
+        return [path]
+    result, fragment = [], []
+    phase = 0.
+    for a, b, length in zip(path, path[1:], lengths):
+        if not length:
+            continue
+        start = 0.
+        while start < length:
+            drawing = phase < dash
+            boundary = dash if drawing else cycle
+            run = min(boundary - phase, length - start)
+            end = start + run
+            if drawing:
+                if not fragment:
+                    fragment.append(tuple(x + (y-x)*start/length for x, y in zip(a, b)))
+                fragment.append(tuple(x + (y-x)*end/length for x, y in zip(a, b)))
+            if run == boundary - phase:
+                if drawing:
+                    result.append(tuple(fragment))
+                    fragment = []
+                phase = dash if drawing else 0.
+            else:
+                phase += run
+            start = end
+    if len(fragment) > 1:
+        result.append(tuple(fragment))
+    return result

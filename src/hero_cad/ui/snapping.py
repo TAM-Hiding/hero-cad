@@ -1,7 +1,7 @@
 """Local construction-point snapping with projected screen-distance acceptance."""
 from dataclasses import dataclass
 from math import floor, hypot
-from hero_cad.sketch import Circle, Slot
+from hero_cad.sketch import Circle, Line, Slot
 
 
 @dataclass(frozen=True)
@@ -19,7 +19,13 @@ def center_targets(entities):
             yield entity.second_center
 
 
-def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, centers=(), tolerance=8):
+def construction_endpoints(entities):
+    for entity in entities:
+        if isinstance(entity, Line) and entity.construction:
+            yield from entity.points
+
+
+def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, centers=(), endpoints=(), tolerance=8):
     """project(local_uv) returns screen XY or None for a clipped target.
 
     No feature/topology references or document edits are created here. The local
@@ -34,6 +40,9 @@ def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, cente
     candidate = min(centers, key=distance, default=None)
     if candidate is not None and distance(candidate) <= tolerance:
         return SnapResult(candidate, 'CENTER')
+    candidate = min(endpoints, key=distance, default=None)
+    if candidate is not None and distance(candidate) <= tolerance:
+        return SnapResult(candidate, 'ENDPOINT')
     if grid:
         indices = tuple(floor(c/spacing + 0.5) for c in point)
         # Nearby lattice candidates account for oblique projection/shear.
