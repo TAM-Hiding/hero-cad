@@ -5,7 +5,7 @@ import re
 from PySide6.QtCore import Qt, QTimer, QSignalBlocker, QSize
 from PySide6.QtGui import QShortcut, QKeySequence
 from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
-from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters, ProfileReference
+from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters
 from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
@@ -392,12 +392,12 @@ class OperationPanel(QDockWidget):
             if not references:
                 region = resolve_region(self.window.document.feature(self.source[0]).parameters,
                                         self.source[1], self.source[2])
-                references = (ProfileReference(region.outer_id, region.hole_ids, region.line_ids),)
+                references = (region.reference,)
             first = references[0]
             p = ExtrudeParameters(self.source[0], first.outer_id, first.hole_ids, self.input_distance(), op,
                                   None if op == 'new' else target,
                                   self.extent.currentData() if op == 'cut' else 'distance', self.direction.currentData(),
-                                  first.line_ids, references[1:])
+                                  first.line_ids, references[1:], first.region_sources)
             refs = (p.sketch_id,) + ((p.target_id,) if p.target_id else ())
             return Feature('extrude',p,refs,self.feature_id)
         tools = tuple(i for i in self.bodies if i != target)

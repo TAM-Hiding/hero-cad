@@ -31,7 +31,7 @@ def test_click_material_hole_extrude_edit_source_and_reopen(qtbot, monkeypatch, 
     w, sid, outer, hole = plate(qtbot, plane)
     v, frame = w.viewport, w.document.feature(sid).parameters.frame
     click(qtbot, v, frame, (5, 5))
-    assert v.profiles.selection is None and not w.extrude_action.isEnabled()
+    assert v.profiles.selection[1].region_sources == (hole.id,) and w.extrude_action.isEnabled()
     click(qtbot, v, frame, (16, 5))
     assert v.profiles.selection[0] == sid
     assert v.profiles.selection[1].hole_ids == (hole.id,)
@@ -127,8 +127,9 @@ def test_profile_mode_filter_independence_ambiguity_and_gesture_conflicts(qtbot)
     w.refresh()
     w.profile_action.setChecked(True)
     click(qtbot, v, frame, (15, 5))
-    assert v.profiles.selection is None and not w.extrude_action.isEnabled()
-    assert 'unambiguous' in w.statusBar().currentMessage()
+    assert v.profiles.selection[1].region_sources and w.extrude_action.isEnabled()
+    click(qtbot, v, frame, (6, 5))
+    assert v.profiles.selection[1].region_sources and outer.id not in v.profiles.selection[1].region_sources
 
 
 def test_plate_hole_and_profile_highlight_render(qtbot, monkeypatch):

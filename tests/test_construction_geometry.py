@@ -125,7 +125,7 @@ def test_construction_profile_exclusion_conversion_and_persistence(tmp_path):
         doc.add_entity(sketch, entity)
     assert [r.outer_id for r in regions(doc.feature(sketch).parameters)] == [rectangle.id]
     doc.toggle_construction(sketch, [line.id])
-    assert not regions(doc.feature(sketch).parameters)
+    assert len(regions(doc.feature(sketch).parameters)) == 2
     doc.undo()
     assert doc.feature(sketch).parameters.entities == (rectangle, line, circle)
     doc.redo()

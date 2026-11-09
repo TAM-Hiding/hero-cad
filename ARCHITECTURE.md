@@ -205,6 +205,49 @@ documents that use only earlier features. Plane preview state and sketch
 construction mode are session-only. Visibility and construction designation
 participate in document history.
 
+## Intersection-aware sketch regions
+
+The original profile path resolves legacy outer, hole, and line-member
+references through its original even/odd classifier. New selection uses
+an analytic arrangement, retaining a legacy reference when an unchanged
+cell has the same complete loops. This lets existing documents regenerate
+with the exact previous interpretation while exposing nested interior cells
+and intersecting boundaries to new selections.
+
+The arrangement expands the existing sketch entities into their OCCT line and
+circle edges in local XY. It excludes construction entities before analysis.
+OCCT splits a padded planar carrier face with the edges and publishes split-edge
+history. The cell incident to the carrier border is the exterior. For each
+remaining cell, the evaluator keeps directed boundary wires and discards
+internal dangling chains. It verifies analytic endpoint gaps against the
+existing 1e-7 mm tolerance, validates positive-area OCCT faces, then locates the
+faces in the sketch frame. No viewport tessellation enters classification.
+
+Each split edge traces back to source entity and primitive edge IDs. Segment
+order and direction, the source curves meeting at each endpoint, and their
+signed crossing directions identify each directed boundary. The evaluator
+canonicalizes the cyclic start of each ring and sorts the holes. A UUID digest
+of that signature, plus the sorted source entity IDs, is persisted for new
+cell references in schema 17. Coincident input edges retain all source IDs.
+A duplicate signature, a missing cell, or a changed boundary signature
+cannot resolve to a substitute. A change that crosses a periodic seam or
+alters the segmentation can require reselection even when a similar region
+remains visible. Unaffected cells are retained where the kernel can classify
+them independently. Kernel split warnings and complexity limits reject
+the arrangement with feedback.
+
+Prisms consume the evaluated faces and reuse the existing Boolean pipeline.
+Multi-cell New Body and Intersect first fuse connected tools. Join and Cut
+retain the existing multi-tool policy. Legacy side names still refer to whole
+primitive edges. Split side faces can be selected with the existing exact
+current-face mechanism, while arrangement prisms publish ordinary cap history.
+
+A bounded cache keys arrangements by immutable ordinary entities and frame.
+The viewport also reuses the results until document refresh and classifies
+hover/click points on the analytic faces. Hover and selection tessellate only
+the corresponding cells for display. The evaluator caps candidate edge pairs,
+split edges, and cells in addition to the existing ordinary entity limit.
+
 ## Native documents and file dialogs
 
 HERO-CAD identifies native documents by the case-insensitive `.hcad` extension
