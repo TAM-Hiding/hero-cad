@@ -8,7 +8,7 @@ from OCP.BRepBndLib import BRepBndLib
 from hero_cad.document import Document
 from hero_cad.features import ExtrudeParameters, FeatureError
 from hero_cad.geometry import volume
-from hero_cad.profiles import regions, contains
+from hero_cad.profiles import legacy_regions, regions, contains
 from hero_cad.sketch import Circle, Rectangle, Slot, Line
 
 
@@ -44,7 +44,7 @@ def test_simple_extrusions_are_exact_valid_solids(plane, distance, entity, area)
 def test_holes_and_islands_are_material_regions_not_individual_wires():
     outer, hole, island, separate = Rectangle(0, 0, 40, 30), Circle(10, 10, 5), Circle(10, 10, 2), Slot(60, 0, 2, 5)
     d, sid = sketch_document([hole, separate, island, outer])
-    rs = regions(d.feature(sid).parameters)
+    rs = legacy_regions(d.feature(sid).parameters)
     assert {r.outer_id for r in rs} == {outer.id, island.id, separate.id}
     plate = next(r for r in rs if r.outer_id == outer.id)
     assert plate.hole_ids == (hole.id,)
@@ -68,7 +68,7 @@ def test_holes_and_islands_are_material_regions_not_individual_wires():
 def test_ambiguous_overlaps_touching_and_duplicates_do_not_extrude(pair):
     safe = Circle(50, 50, 2)
     d, sid = sketch_document([*pair, safe])
-    assert [r.outer_id for r in regions(d.feature(sid).parameters)] == [safe.id]
+    assert [r.outer_id for r in legacy_regions(d.feature(sid).parameters)] == [safe.id]
     for entity in pair:
         with pytest.raises(FeatureError):
             d.add_extrusion(sid, entity.id)
@@ -79,7 +79,7 @@ def test_overlapping_holes_block_ancestor_and_descendant_material():
     outer = Rectangle(-20, -20, 40, 40)
     a, b, island = Circle(0, 0, 8), Circle(10, 0, 8), Circle(0, 0, 1)
     d, sid = sketch_document([outer, a, b, island])
-    assert not regions(d.feature(sid).parameters)
+    assert not legacy_regions(d.feature(sid).parameters)
     with pytest.raises(FeatureError):
         d.add_extrusion(sid, outer.id, (a.id, b.id))
 

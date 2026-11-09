@@ -7,7 +7,7 @@ from OCP.BRepCheck import BRepCheck_Analyzer
 from hero_cad.document import Document
 from hero_cad.features import ExtrudeParameters, ProfileReference, FeatureError
 from hero_cad.geometry import volume
-from hero_cad.profiles import regions
+from hero_cad.profiles import legacy_regions
 from hero_cad.persistence import serialize, deserialize
 from hero_cad.sketch import Circle, Rectangle, Slot, Line, FaceReference
 from hero_cad.attachments import identify_face
@@ -25,7 +25,7 @@ def setup(entities=None, face=False):
 
 
 def select(d, sid):
-    return tuple(ProfileReference(r.outer_id, r.hole_ids, r.line_ids) for r in regions(d.feature(sid).parameters))
+    return tuple(ProfileReference(r.outer_id, r.hole_ids, r.line_ids) for r in legacy_regions(d.feature(sid).parameters))
 
 
 def assert_solid(d, eid, expected):

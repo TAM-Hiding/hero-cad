@@ -2071,3 +2071,30 @@ The focused run selected `test_offset_plane_orientation.py`, both
 `test_construction_geometry` modules, `test_chamfers.py`,
 `test_face_attachments.py`, `test_face_reliability_ui.py`,
 `test_persistent_references.py`, and `test_atomic_updates_042.py`.
+
+## Work Order #049 — Intersection-aware sketch regions
+
+The OCCT carrier splitter exposes bounded analytic cells and split-edge
+history. Tests verify analytic lens area and circular edge type, overlapping
+rectangles, line divisions and dangling edges, mixed slots/circles/rectangles,
+nested cells, tangency, coincidence, multiple-curve junctions, construction
+exclusion, and bounded evaluation. An initial endpoint-tolerance test found
+OCCT closing a 2e-7 mm gap. The final wire validation checks analytic
+endpoints and retains HERO's existing 1e-7 mm limit.
+
+The schema 17 cell reference uses directed split-edge provenance, source
+incidence and crossing signs. Tests cover dimension changes, disappearing
+and reappearing cells, topology changes, source deletion, construction
+conversion, Undo/Redo, and save/reopen. Tests for historical hole and line
+membership behavior now target the legacy resolver explicitly. Real Qt
+tests check hover and selection, a single evaluation across mouse movement,
+Shift-click, palette and X-Ray, Cut/Join previews and reselecting after reload
+and an edit. Adjacent-cell New Body and Intersect also validate in the kernel.
+
+- Focused suite **266 passed** with 11 upstream warnings in 53.15 s.
+
+- Full suite **968 passed** with 194 upstream warnings in 369.72 s.
+- The warnings came from VTK's NumPy shape-setting deprecation. Desktop
+  tests used Qt xcb and software OpenGL under Xvfb on Ubuntu 24.04.
+- `pip check` and `git diff --check` passed. Supplemental OCCT checks
+  verified signed prisms and offset-plane regeneration on XY, XZ, and YZ.

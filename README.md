@@ -89,20 +89,24 @@ Right-click a sketch curve or browser entry for **Edit Parameters**, **Edit Sket
 
 ### Material profiles and extrusion
 
-1. Draw a **Rectangle**, **Circle**, **Shift-slot** or simple closed loop of individual **Line** entities in an origin-plane or resolved face-attached sketch. Triangles, trapezoids, concave polygons and dovetails are supported.
-2. Choose **Select Profile** and click **inside the material**, away from its boundary. Selected material regions receive an orange fill; holes remain empty. **Shift-click** adds/removes regions from the same sketch; ordinary click replaces the selection. This mode is independent of the face/edge filter. Enter the sketch if a solid obscures its plane, or if multiple sketches coincide.
-3. Choose **Extrude…** in the toolbar or context menu. In the modeless operation panel choose New Body, Join, Cut or Intersect and an explicit target for material operations. Enter a signed distance: positive follows the sketch normal, negative reverses it. Click Preview result, inspect/navigate, then Apply or Cancel. Zero distance is rejected. Negative New Body remains a new body, never an implicit Cut.
-4. The browser lists the extrusion. Select it to edit its signed distance in Properties, or choose **Edit Sketch** to modify source dimensions. Source edits regenerate the extrusion through persistent sketch/entity IDs. Undo/Redo covers creation, parameter edits and deletion; Save/Open regenerates the same bodies.
+1. Draw rectangles, circles, slots, or lines in a sketch. Ordinary curves can intersect to form bounded cells. Construction lines and circles stay out of the cell boundaries.
+2. Choose **Select Profile**, hover to preview a cell, and click inside it. **Shift-click** adds or removes cells from the same sketch. Click away from shared boundaries. Select a sketch in the browser to scope the pick if a solid obscures its plane or multiple sketches coincide.
+3. Choose **Extrude…** and select New Body, Join, Cut, or Intersect. Enter a signed distance, preview the result, then apply. Positive follows the sketch normal. Selected adjacent cells can form one connected solid, and material operations use the chosen target.
+4. Edit the sketch dimensions to update the extrusion. A cell whose boundary identity disappears or changes ambiguously is marked unresolved. Undo or restoring the original arrangement can recover it.
 
-**Holes:** a boundary with fully contained closed loops extrudes as material minus its immediate holes. Further nesting alternates empty/material: an island inside a hole is a separate selectable profile. Rectangles, circles and slots can form outer boundaries or holes, including rotated shapes. Several isolated regions from one sketch can form **one Cut or Join extrusion feature**, with one Preview/Apply and one Undo step. Multi-profile New Body (disconnected solids) and Intersect are rejected clearly; single-profile operations are unchanged. Sketch entities remain reusable, including regions used in earlier extrusions. See [multi-profile behavior, compatibility and measurements](docs/MULTI_PROFILE_EXTRUSION.md).
+**Nested profiles.** The annulus and the disk inside it are separate selectable
+cells. Select the annulus alone to leave a hole. Older saved extrusions retain
+their exact outer boundary, hole set, and line membership.
 
-**Line profiles:** connect endpoints within **0.0000001 mm (1e-7 mm)**, the existing OCCT/region tolerance. This absolute model-space tolerance is independent of zoom and smaller than the minimum allowed line length. Stored endpoints and exact source curves are not snapped, healed or rewritten; only transient wire vertices share the kernel tolerance. Visibly open gaps never close automatically. Each simple degree-two cycle is an independent boundary, with identity derived from its sorted member line UUIDs. Reordering or reversing lines keeps that identity. Line loops and closed primitives can form nested holes/islands through the same region classifier.
+**Profile limits.** HERO uses the analytic sketch curves and the existing
+0.0000001 mm line-connection tolerance. Dangling edges do not create cells.
+Coincident segments can share a boundary when OCCT can trace their sources.
+Invalid or ambiguous cells are refused. Evaluation limits are 256 ordinary
+entities, 8,192 potentially intersecting edge pairs, 4,096 split edges, and
+1,024 bounded cells. Extrusions still require a valid connected result. The
+arrangement leaves source entities editable and unchanged.
 
-**Safety limits:** crossing, overlapping, duplicate or branched line networks (including shared edges/vertices between loops) are rejected explicitly for profile analysis; automatic trimming and planar-arrangement splitting remain deferred. Keep those networks in a separate sketch. Simple open chains stay unfilled and may coexist with independent closed profiles, but an open edge touching/crossing a primitive boundary makes that region unavailable. Mixed line/arc chains are not supported; circles and slots remain independent closed primitives. Overlapping, touching or coincident closed boundaries are not split into regions. Affected containing regions and nested descendants are unavailable; separate unambiguous regions can still be selected. Boundaries closer than 0.0000001 mm are treated as ambiguous. Profile analysis supports at most **256 total entities** per sketch. Unsupported cases receive feedback rather than silently filling holes or choosing another region.
-
-Extrusions store the source sketch UUID, outer boundary UUID and exact hole UUID set. Line-loop boundary UUIDs are derived from member IDs; a v8 extrusion also stores every referenced line UUID for deletion protection and membership validation. Dimension/position edits preserve those references. For existing primitive-only profiles, a change that would add/remove a hole, change nesting or make boundaries intersect is rejected atomically. Existing line-based extrusions instead report UNRESOLVED when endpoint edits temporarily open a loop or make the selected topology unavailable; no stale output or downstream solid is kept. Reconnect the original members to recover. Local line edits, unresolved states and recovery support Undo/Redo and save/reopen. Hole/member identities are never silently substituted. Delete the extrusion, change the region topology, then reselect and extrude; Undo can recover the earlier state. Referenced source sketches and boundary entities cannot be deleted while their extrusion survives.
-
-Extrusions support **New Body, Join, Cut and Intersect**, without taper, drag-depth manipulation or general overlapping sketch-region construction. Bodies are not implicitly fused; their volumes sum even if bodies overlap. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **Settings → Show base box** restores it; this display preference does not modify geometry. By default, deleting all extrusion bodies restores the base box. An explicit Settings toggle overrides these defaults for the session, including after New/Open and Undo/Redo. The toggle also works when the box is the only solid; hiding it does not delete or suppress its dependent features. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
+Extrusions support **New Body, Join, Cut and Intersect**. The initial box remains in the document but is hidden after creating an extrusion or opening a document with extrusions, so it cannot cover the new part. **Settings → Show base box** restores it; this display preference does not modify geometry. By default, deleting all extrusion bodies restores the base box. An explicit Settings toggle overrides these defaults for the session, including after New/Open and Undo/Redo. The toggle also works when the box is the only solid; hiding it does not delete or suppress its dependent features. The status bar reports the volume of displayed bodies, explicitly a sum when several are shown.
 
 ### Sketch on a planar face
 
@@ -190,7 +194,7 @@ or Cancel. Canceled dialogs and failed loads retain the active document.
 Undo history is session-only. Native `.hcad` files contain versioned JSON in
 millimetres with the format identifier `hero-cad`. They store the ordered
 feature history, sketch entities, parameters and references. Schema versions
-1–16 remain readable under the native identity. The writer selects the schema
+1–17 remain readable under the native identity. The writer selects the schema
 version required by the document's features. Numeric parameters round-trip
 at their stored precision. Former `.starcad` files and the `star-cad` format
 identifier are unsupported.
