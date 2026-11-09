@@ -3,10 +3,11 @@ from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import (
     QDialog, QListWidget, QStackedWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox, QWidget, QLabel,
+    QCheckBox, QComboBox, QSpinBox, QWidget, QLabel,
     QDialogButtonBox, QPushButton, QScrollArea,
 )
 from hero_cad.preferences import CATEGORIES, PREFERENCES
+from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 
 
 class PreferencesDialog(QDialog):
@@ -49,7 +50,7 @@ class PreferencesDialog(QDialog):
                     control.currentTextChanged.connect(lambda value, name=key: preferences.set(name, value))
                     form.addRow(spec.label, control)
                 else:
-                    control = QDoubleSpinBox() if spec.kind is float else QSpinBox()
+                    control = DimensionSpinBox() if spec.kind is float else QSpinBox()
                     if spec.kind is float:
                         control.setDecimals(6)
                     control.setRange(spec.minimum, spec.maximum)

@@ -43,7 +43,9 @@ def test_click_material_hole_extrude_edit_source_and_reopen(qtbot, monkeypatch, 
     assert v.sketch.active_id is None and not w.show_base_box.isChecked()
     assert volume(w.document.solid_shapes[feature.id]) == pytest.approx((200-4*pi)*3)
     assert w.entity_context == ('extrude', feature.id)
+    assert w.operation_panel.distance.text() == '3 mm'
     w.entity_fields['distance'].setValue(-4.25)
+    assert w.entity_fields['distance'].text() == '-4.25 mm'
     w.entity_apply.click()
     assert w.document.feature(feature.id).parameters.distance == -4.25
     w.browser.setCurrentItem(w.browser_items[('extrude', feature.id)])

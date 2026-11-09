@@ -16,6 +16,7 @@ def test_save_pending_open_undo_and_precision(qtbot, monkeypatch, tmp_path):
     w = window(qtbot)
     path = tmp_path / 'part.hcad'
     monkeypatch.setattr(w, 'select_document_save_path', lambda *a: str(path))
+    assert w.fields['width'].text() == '40 mm'
     w.fields['width'].setValue(65.125)
     assert '*' in w.windowTitle()
     assert w.save_document()
@@ -27,10 +28,13 @@ def test_save_pending_open_undo_and_precision(qtbot, monkeypatch, tmp_path):
     assert w.fields['width'].value() == 65.125 and '*' not in w.windowTitle()
     precise = Document(BoxParameters(width=12.3456789))
     precise.save(path)
+    original = path.read_bytes()
     monkeypatch.setattr(w, 'select_document_open_path', lambda *a: str(path))
     w.open_action.trigger()
     assert not w.has_pending_edits()
+    assert w.fields['width'].decimals() == 3
     assert w.save_document()
+    assert path.read_bytes() == original
     assert Document.load(path).parameters.width == 12.3456789
 
 

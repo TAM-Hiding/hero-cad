@@ -4,8 +4,9 @@ from math import isfinite
 import re
 from PySide6.QtCore import Qt, QTimer, QSignalBlocker, QSize
 from PySide6.QtGui import QShortcut, QKeySequence
-from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QDoubleSpinBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
+from PySide6.QtWidgets import QDockWidget, QWidget, QFormLayout, QComboBox, QPushButton, QLabel, QLineEdit, QHBoxLayout, QScrollArea
 from hero_cad.features import Feature, ExtrudeParameters, BooleanParameters, ProfileReference
+from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 from hero_cad.sketch import new_id
 from hero_cad.geometry import compound, volume
 from hero_cad.ui.display_geometry import tessellate
@@ -59,7 +60,7 @@ class OperationPanel(QDockWidget):
         self.extent.addItem('Through All (Cut)','through_all')
         self.direction.addItem('Along sketch normal (+)',1)
         self.direction.addItem('Opposite sketch normal (−)',-1)
-        self.distance = QDoubleSpinBox()
+        self.distance = DimensionSpinBox()
         self.distance.setDecimals(9)
         self.distance.setRange(-100000,100000)
         self.distance.setSuffix(' mm')
