@@ -131,7 +131,7 @@ print(json.dumps({k:s.value('tool_island/v1/'+k) for k in ('size','x','y','colla
     assert not restored.isVisible() and not other.island_action.isChecked()
     other.island_action.trigger()
     assert restored.isVisible() and restored.collapsed
-    other.document.save(tmp_path/'model.starcad')
+    other.document.save(tmp_path/'model.hcad')
     assert 'tool_island' not in other.document.path.read_text()
     assert not other.document.dirty
 

@@ -43,7 +43,7 @@ def test_box_cylinder_parametric_history_persistence(op,expected,tmp_path):
     d.update_entity(sid,replace(c,radius=1))
     assert d.features[-1].id==bid and d.features[-1].parameters.target_id==box
     d.undo(); assert d.features==before
-    d.redo(); d.save(tmp_path/'boolean.starcad')
+    d.redo(); d.save(tmp_path/'boolean.hcad')
     loaded=Document.load(d.path)
     assert loaded.features==d.features and loaded.active_body_ids==d.active_body_ids
     assert json.loads(d.path.read_text())['version']==6
@@ -81,7 +81,7 @@ def test_face_cut_blind_or_through_recomputes_target_thickness(through,tmp_path)
         p=d.feature(eid).parameters
         d.replace_feature(replace(d.feature(eid),parameters=replace(p,distance=-8)))
         assert volume(d.solid_shapes[eid])==pytest.approx(10000-32*pi)
-    d.save(tmp_path/'cut.starcad')
+    d.save(tmp_path/'cut.hcad')
     assert Document.load(d.path).features==d.features
 
 
@@ -123,7 +123,7 @@ def test_existing_operation_failure_keeps_parameters_and_recovers(tmp_path):
     d.update_entity(sid,replace(c,x=40))
     assert not d.statuses[result].valid and result not in d.solid_shapes
     assert d.feature(result).parameters==p
-    d.save(tmp_path/'failed.starcad')
+    d.save(tmp_path/'failed.hcad')
     assert not Document.load(d.path).statuses[result].valid
     d.undo();assert d.statuses[result].valid
 
@@ -216,7 +216,7 @@ def test_face_contact_protrusion_history_reload(modified, tmp_path):
         d.replace_feature(replace(f,parameters=replace(f.parameters,distance=15)))
     assert d.statuses[result].valid
     assert d.feature(sid).parameters.frame.origin[2] == pytest.approx(10 if modified else 15)
-    d.save(tmp_path/'contact.starcad')
+    d.save(tmp_path/'contact.hcad')
     loaded = Document.load(d.path)
     assert loaded.features == d.features
     assert volume(loaded.solid_shapes[result]) == pytest.approx(volume(d.solid_shapes[result]))

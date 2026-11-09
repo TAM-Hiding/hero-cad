@@ -1,10 +1,11 @@
+import os
 from pathlib import Path
 from dataclasses import fields as data_fields, replace
 
-from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize
+from PySide6.QtCore import Qt, QSignalBlocker, QItemSelectionModel, QEvent, QSize, QStandardPaths
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import (
-    QComboBox, QLabel, QSpinBox, QStackedWidget, QFileDialog, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
+    QComboBox, QLabel, QSpinBox, QStackedWidget, QDockWidget, QDoubleSpinBox, QFormLayout, QMainWindow, QMessageBox,
     QPushButton, QTreeWidget, QTreeWidgetItem, QWidget, QAbstractItemView, QMenu, QLineEdit,
     QSlider, QHBoxLayout, QWidgetAction, QInputDialog, QHeaderView, QTabWidget, QPlainTextEdit,
 )
@@ -20,6 +21,12 @@ from hero_cad.ui.commands import CommandRegistry
 from hero_cad.ui.tool_island import ToolIsland
 from hero_cad.history_inspection import feature_history_text, first_failure
 from hero_cad.ui.feature_icons import feature_icon
+from hero_cad.persistence import DOCUMENT_EXTENSION
+from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
+
+
+LAST_DOCUMENT_DIRECTORY = 'documents/last_directory'
+UNTITLED_FILENAME = f'Untitled{DOCUMENT_EXTENSION}'
 
 
 class MainWindow(QMainWindow):
@@ -810,22 +817,52 @@ class MainWindow(QMainWindow):
         self.cancel_interaction(history=True, restore=False)
         self.refresh()
 
+    def document_directory(self, *, for_save=False):
+        current = self.document.path
+        last = self.preferences.value(LAST_DOCUMENT_DIRECTORY, '', type=str)
+        for directory in (current.parent if current else None, Path(last) if last else None):
+            if directory and directory.is_absolute() and os.path.isdir(directory):
+                return directory
+
+        documents = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+        home = Path.home()
+        root = Path(documents) if Path(documents).is_absolute() else home
+        models = root / 'HERO-CAD' / 'Models'
+        if for_save:
+            try:
+                models.mkdir(parents=True, exist_ok=True)
+                if not os.access(models, os.R_OK | os.W_OK | os.X_OK):
+                    raise PermissionError(f'Cannot read or write {models}')
+                return models
+            except OSError as error:
+                fallback = os.path.isdir(home) and os.access(home, os.R_OK | os.W_OK | os.X_OK)
+                message = f'Cannot use the HERO-CAD Models directory at {models}.\n{error}'
+                if fallback:
+                    message += f'\nSave As will start in {home}.'
+                QMessageBox.warning(self, 'HERO-CAD Models directory unavailable', message)
+                return home if fallback else None
+        return next((directory for directory in (models, root) if os.path.isdir(directory)), home)
+
+    def remember_document_directory(self):
+        self.preferences.setValue(LAST_DOCUMENT_DIRECTORY, str(self.document.path.parent))
+        self.preferences.sync()
+
+    def select_document_save_path(self, directory, filename):
+        return SaveDocumentDialog(self, directory, filename).select_path()
+
+    def select_document_open_path(self, directory):
+        return DocumentDialog(self, directory).select_path()
+
     def save_document(self, checked=False, *, save_as=False):
         path = self.document.path
-        if save_as or path is None:
-            selected, _ = QFileDialog.getSaveFileName(
-                self, "Save HERO-CAD document", str(path or "Untitled.starcad"),
-                "HERO-CAD documents (*.starcad)")
-            if not selected:
+        if save_as or path is None or path.suffix.lower() != DOCUMENT_EXTENSION:
+            directory = self.document_directory(for_save=True)
+            if directory is None:
                 return False
-            path = selected
-            if not path.lower().endswith('.starcad'):
-                path += '.starcad'
-                if Path(path).exists() and QMessageBox.question(
-                    self, "Replace file?", f"Replace {path}?",
-                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No
-                ) != QMessageBox.Yes:
-                    return False
+            filename = path.name if path and path.suffix.lower() == DOCUMENT_EXTENSION else UNTITLED_FILENAME
+            path = self.select_document_save_path(directory, filename)
+            if not path:
+                return False
         if not self.apply_dimensions():
             return False
         try:
@@ -833,6 +870,7 @@ class MainWindow(QMainWindow):
         except Exception as error:
             QMessageBox.warning(self, "Cannot save document", str(error))
             return False
+        self.remember_document_directory()
         self.update_actions()
         return True
 
@@ -865,8 +903,7 @@ class MainWindow(QMainWindow):
         self.refresh(fit=True)
 
     def open_document(self):
-        selected, _ = QFileDialog.getOpenFileName(
-            self, "Open HERO-CAD document", "", "HERO-CAD documents (*.starcad)")
+        selected = self.select_document_open_path(self.document_directory())
         if not selected:
             return
         try:
@@ -890,6 +927,7 @@ class MainWindow(QMainWindow):
             self.document.last_failure = failure
             QMessageBox.warning(self, 'Cannot open document', str(failure))
             return
+        self.remember_document_directory()
         self.refresh(fit=True)
 
     def current_entity(self):

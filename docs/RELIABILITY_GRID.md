@@ -88,7 +88,7 @@ can change the face signature. No face-reference rewrite is included.
    shown; the same construction points must result.
 7. Enable X-Ray fading, switch Celadon/Orange/Off and confirm immediate restoration.
    Disable fading and verify X-Ray no longer changes grid appearance. Restart:
-   color, scale and fade preferences must remain; reopen an existing `.starcad`.
+   color, scale and fade preferences must remain; reopen an existing `.hcad`.
 
 Physical laptop checks remain for the reviewer; automated results and exact
 local environment are recorded in VALIDATION.md.

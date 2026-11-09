@@ -193,7 +193,7 @@ def viewport_metrics(doc, samples):
 def run(count, samples, viewport):
     doc, construction = timed(lambda: model(count))
     with tempfile.TemporaryDirectory() as temp:
-        path = Path(temp)/'benchmark.starcad'
+        path = Path(temp)/'benchmark.hcad'
         doc.save(path)
         load, regen, mesh, native_mesh, conversion, wire = [], [], [], [], [], []
         for _ in range(samples):

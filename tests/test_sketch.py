@@ -54,7 +54,7 @@ def test_sketch_edit_undo_precision_and_persistence(tmp_path):
     doc.undo()
     assert doc.features == before
     doc.redo()
-    path = tmp_path/'sketch.starcad'
+    path = tmp_path/'sketch.hcad'
     doc.save(path)
     assert not doc.dirty
     loaded = Document.load(path)
@@ -70,9 +70,9 @@ def test_sketch_edit_undo_precision_and_persistence(tmp_path):
         Document.load(path)
 
 
-def test_legacy_box_file_migrates(tmp_path):
-    path = tmp_path/'v1.starcad'
-    path.write_text(json.dumps({'format':'star-cad','version':1,'units':'mm',
+def test_native_v1_box_upgrades_on_save(tmp_path):
+    path = tmp_path/'v1.hcad'
+    path.write_text(json.dumps({'format':'hero-cad','version':1,'units':'mm',
                                'box':{'width':12.3456789,'height':42,'depth':31}}))
     doc = Document.load(path)
     assert doc.parameters.width == 12.3456789 and not doc.dirty
@@ -171,7 +171,7 @@ def test_kernel_sketch_lengths_and_bounds(plane):
 def test_save_size_limit_preserves_previous_file_and_savepoint(tmp_path, monkeypatch):
     import hero_cad.document as module
     doc = Document()
-    path = tmp_path/'keep.starcad'
+    path = tmp_path/'keep.hcad'
     doc.save(path)
     before = path.read_bytes()
     doc.add_sketch('XY')

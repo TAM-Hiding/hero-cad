@@ -93,6 +93,6 @@ the shared validation/notification path.
 6. Restore a category's defaults. Confirm other categories, current sketch,
    current document dirty/history state and per-sketch visibility are unchanged.
 7. Create/edit sketches, extrude, perform a Boolean, Undo/Redo, save/reopen an
-   existing `.starcad` file. Preferences must not change the model or document.
+   existing `.hcad` file. Preferences must not change the model or document.
 
 No new UI framework, theme editor, geometry feature or settings-storage system.

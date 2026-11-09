@@ -64,7 +64,7 @@ def test_cut_through_panel_mode_switch_and_edit(qtbot,tmp_path):
     assert p.preview() and p.commit()
     d.set_box(BoxParameters(20,20,25));w.refresh()
     assert volume(d.solid_shapes[eid])==pytest.approx(10000-100*np.pi)
-    d.save(tmp_path/'through.starcad')
+    d.save(tmp_path/'through.hcad')
 
 
 @pytest.mark.parametrize('mode',['Shaded with CAD Edges','Shaded','CAD Wireframe','Mesh Debug'])

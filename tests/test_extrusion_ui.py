@@ -55,7 +55,7 @@ def test_click_material_hole_extrude_edit_source_and_reopen(qtbot, monkeypatch, 
     assert volume(w.document.solid_shapes[feature.id]) == pytest.approx((250-4*pi)*4.25)
     assert w.document.feature(feature.id).parameters.outer_id == outer.id
     w.finish_sketch()
-    path = tmp_path/f'plate-{plane}.starcad'
+    path = tmp_path/f'plate-{plane}.hcad'
     w.document.save(path)
     loaded = Document.load(path)
     assert loaded.features == w.document.features
@@ -170,7 +170,6 @@ def test_plate_hole_and_profile_highlight_render(qtbot, monkeypatch):
 
 
 def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkeypatch, tmp_path):
-    from PySide6.QtWidgets import QFileDialog
     w = window(qtbot)
     sid = enter(w)
     circle = Circle(60, 0, 3)
@@ -185,11 +184,11 @@ def test_profile_picking_in_model_view_and_open_recreates_new_body(qtbot, monkey
     assert v.profiles.selection[1].outer_id == circle.id
     extrude(w, 5.0)
     eid = w.document.features[-1].id
-    path = tmp_path/'reopen.starcad'
+    path = tmp_path/'reopen.hcad'
     w.document.save(path)
     w.new_document()
     assert w.show_base_box.isChecked() and w.show_base_box.isEnabled()
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (str(path), ''))
+    monkeypatch.setattr(w, 'select_document_open_path', lambda *args: str(path))
     w.open_document()
     assert not w.show_base_box.isChecked() and w.show_base_box.isEnabled()
     assert volume(w.document.solid_shapes[eid]) == pytest.approx(45*pi)

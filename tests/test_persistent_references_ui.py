@@ -34,7 +34,7 @@ def test_clicked_witness_survives_split_and_history_without_stale_picking(qtbot,
     w.edit_sketch();assert v.sketch.active_id==sid
     assert v.renderer.GetActiveCamera().GetDirectionOfProjection()==pytest.approx(tuple(-n for n in p.frame.normal))
     w.finish_sketch()
-    d.save(tmp_path/'clicked.starcad')
+    d.save(tmp_path/'clicked.hcad')
     loaded=type(d).load(d.path)
     assert loaded.features==d.features and loaded.feature(sid).parameters.attachment==ref
 

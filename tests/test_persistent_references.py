@@ -67,9 +67,9 @@ def test_split_recovery_uses_stored_source_point_and_preserves_frame(tmp_path):
     assert p.entities == (c,) and p.attachment == ref
     before = d.features
     d.undo();d.redo();assert d.features == before
-    d.save(tmp_path/'witness.starcad')
+    d.save(tmp_path/'witness.hcad')
     data = json.loads(d.path.read_text())
-    assert data['version'] == 9 and data['format'] == 'star-cad'
+    assert data['version'] == 9 and data['format'] == 'hero-cad'
     loaded = Document.load(d.path)
     assert loaded.features == d.features and loaded.feature(sid).parameters.attachment == ref
     assert resolution(loaded,ref).state == ResolutionState.RESOLVED
@@ -86,7 +86,7 @@ def test_split_boundary_or_removed_point_never_chooses_another_region(point,stat
     assert d.statuses[sid].reference_state == state and not d.statuses[sid].valid
     assert not d.statuses[eid].valid and eid not in d.solid_shapes
     assert sid not in d.sketch_shapes and d.feature(sid).parameters == old
-    d.save(tmp_path/(state+'.starcad'))
+    d.save(tmp_path/(state+'.hcad'))
     loaded = Document.load(d.path)
     assert loaded.statuses[sid].reference_state == state
     assert loaded.feature(sid).parameters == old
@@ -106,7 +106,7 @@ def test_removed_supporting_face_is_missing_not_last_frame_fallback(tmp_path):
     assert d.statuses[sid].reference_state == 'missing'
     assert d.feature(sid).parameters == old and eid not in d.solid_shapes
     assert not resolution(d,ref).face
-    d.save(tmp_path/'deleted.starcad')
+    d.save(tmp_path/'deleted.hcad')
     loaded = Document.load(d.path)
     assert loaded.statuses[sid].reference_state == 'missing'
     d.undo();assert d.statuses[sid].valid

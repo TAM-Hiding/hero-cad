@@ -45,7 +45,7 @@ def test_draw_line_dovetail_finish_pick_preview_commit_and_reopen(qtbot, operati
     before = d.features
     w.undo(); w.redo()
     assert d.features == before
-    d.save(tmp_path/'dovetail.starcad')
+    d.save(tmp_path/'dovetail.hcad')
     assert Document.load(d.path).features == d.features
 
 
@@ -111,7 +111,7 @@ def test_xray_menu_toolbar_sketch_transitions_and_history_do_not_reset_mode(qtbo
     w.finish_sketch()
     assert v.xray_mode == mode and v.actor.GetProperty().GetOpacity() == (1 if mode == 'Off' else .85)
     w.undo(); w.redo()
-    d.save(tmp_path/'xray.starcad')
+    d.save(tmp_path/'xray.hcad')
     w.document = Document.load(d.path); w.refresh()
     assert v.xray_mode == mode
     assert 'xray' not in d.path.read_text().lower()

@@ -33,7 +33,7 @@ def test_delete_failed_operation_undo_redo_and_reopen(tmp_path):
     doc.redo()
     assert result not in {f.id for f in doc.features}
     doc.undo()
-    doc.save(tmp_path / 'failed-history.starcad')
+    doc.save(tmp_path / 'failed-history.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == doc.features
     assert loaded.statuses[result] == failed_status
@@ -134,7 +134,7 @@ def test_face_dependency_chain_updates_and_batch_delete_is_undoable(tmp_path):
     assert doc.active_body_ids == {box}
     doc.undo()
     assert doc.features == before and doc.active_body_ids == {cut}
-    doc.save(tmp_path / 'chain.starcad')
+    doc.save(tmp_path / 'chain.hcad')
     loaded = Document.load(doc.path)
     assert loaded.features == before
     assert BRepCheck_Analyzer(loaded.solid_shapes[cut]).IsValid()

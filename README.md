@@ -1,8 +1,7 @@
 # HERO-CAD
 
 Formerly STAR-CAD. The application, console command and Python package are now
-**HERO-CAD**, **hero-cad** and **hero_cad**. Existing **.starcad** documents and
-their internal format are unchanged.
+**HERO-CAD**, **hero-cad** and **hero_cad**. Native documents use **.hcad**.
 
 Repository: [TAM-Hiding/hero-cad](https://github.com/TAM-Hiding/hero-cad).
 See [MIGRATION.md](MIGRATION.md) for existing-install upgrades and
@@ -64,7 +63,7 @@ Origin frames: XY uses U=+X/V=+Y (normal +Z); XZ uses U=+X/V=+Z (normal −Y); Y
 
 A compact **HERO Tools** panel starts at the upper-right of the viewport. Drag its header to move it; choose **Compact**, **Medium** or **Expanded** to reflow the shared command buttons into one, two or three columns. Smaller layouts scroll when needed. The header's **− / +** control collapses and expands it without changing the selected size. **View → Floating Tool Island** hides/shows it. Context changes never automatically expand it or reset the active construction tool; viewport shrinkage clamps it into accessible bounds.
 
-Position, size preset, collapse and visibility persist between launches in application settings, separately from `.starcad` documents. Layout changes do not affect geometry, Undo or dirty state. Existing menus, toolbars and shortcuts remain. Disabled command tooltips explain the missing selection/state. Select an origin plane or eligible planar face and use **New Sketch** from the island or toolbar. During editing the island shows the existing construction, profile, grid and snap commands. **Slot** in the island/toolbar is an explicit entry to the existing Shift+Circle construction stages; Shift+Circle continues working as before.
+Position, size preset, collapse and visibility persist between launches in application settings, separately from `.hcad` documents. Layout changes do not affect geometry, Undo or dirty state. Existing menus, toolbars and shortcuts remain. Disabled command tooltips explain the missing selection/state. Select an origin plane or eligible planar face and use **New Sketch** from the island or toolbar. During editing the island shows the existing construction, profile, grid and snap commands. **Slot** in the island/toolbar is an explicit entry to the existing Shift+Circle construction stages; Shift+Circle continues working as before.
 
 See [the island guide, screenshots and desktop checks](docs/TOOL_ISLAND.md). The lightweight command catalogue reuses existing Qt actions and callbacks; it is not a plugin or user-scripting framework.
 
@@ -146,9 +145,36 @@ The existing box workflow remains: edit Width (X), Depth (Y), Height (Z), then *
 
 **Ctrl+S** saves, **Ctrl+Shift+S** saves as, **Ctrl+O** opens, **Ctrl+N** starts fresh; **Ctrl+Z / Ctrl+Shift+Z** undo/redo feature and entity edits. Undo first cancels unapplied property edits. Changing browser selection or finishing a sketch commits pending property edits; invalid edits keep the current selection. Save also commits pending fields. In-progress cursor previews are not document geometry and are not saved.
 
-The title's `*` marks unsaved changes. New/Open/Close offer Save, Discard or Cancel; cancelled or failed saves retain the document. Undo history is session-only. Documents use versioned `.starcad` JSON in millimetres. Format v3 stores ordered feature IDs, dependencies, box parameters, origin-plane frames and sketch entities. Existing v1–v7 documents still load. Saving without extrusions writes v3; documents containing ordinary New Body extrusions write v4 with stable source/profile references and signed distance. Boolean features and material-operation extrusions write v6 with operation, target, extent and direction; v1–v5 files continue to load. Face-attached sketches write v5 with semantic parent-face references and last resolved frames. Sketches on evaluated Boolean faces write v7, storing the parent UUID, ancestry/adjacency fingerprint and last resolved frame. Line-profile extrusions and their line-side attachments write v8, including exact line membership. Documents without these features keep their previous version/serialization. Older application versions cannot open newer format versions. Numeric parameters round-trip without deliberate decimal rounding.
+The first save starts in `Documents/HERO-CAD/Models`, using the Linux Documents
+location reported by Qt. HERO-CAD creates the folder when needed. If Qt cannot
+resolve Documents, HERO-CAD uses `~/HERO-CAD/Models`. If the Models folder
+cannot be used, HERO-CAD explains the failure and opens Save As in your home
+directory when accessible. Subsequent Open and Save As dialogs prefer the current
+document's directory, then the last directory used for a successful save or open.
+That preference survives restarts.
 
-Saves flush a complete same-directory temporary file before atomic replacement. Failed writes retain the previous file. Strict schema validation rejects unknown fields/versions, duplicate JSON keys, invalid IDs, missing/forward/cyclic dependencies and invalid geometry. V2–v8 files are limited to 4 MiB, 1000 features and 10000 entities per sketch; legacy v1 retains its 64 KiB limit. No autosave or concurrent-writer locking.
+Open and Save As share Qt's widget-based file dialog and follow HERO's dialog
+and control colors. In Save As, the filename field has keyboard focus and
+only the basename is selected. Type a new name over `Untitled` (or the current
+basename) and press Enter. Qt adds `.hcad` when you enter a filename without a
+suffix and confirms replacement of an existing file. Explicit case variants
+such as `.HCAD` are preserved. In Open, double-click a document to load it.
+
+The title's `*` marks unsaved changes. New, Open and Close offer Save, Discard
+or Cancel. Canceled dialogs and failed loads retain the active document.
+Undo history is session-only. Native `.hcad` files contain versioned JSON in
+millimetres with the format identifier `hero-cad`. They store the ordered
+feature history, sketch entities, parameters and references. Schema versions
+1–15 remain readable under the native identity. The writer selects the schema
+version required by the document's features. Numeric parameters round-trip
+at their stored precision. Former `.starcad` files and the `star-cad` format
+identifier are unsupported.
+
+Saves flush a complete same-directory temporary file before atomic replacement.
+Failed writes retain the previous file and saved state. Strict schema validation
+rejects unknown fields and versions, duplicate JSON keys, invalid IDs and invalid
+dependencies. Files have a 4 MiB size limit (64 KiB for version 1), with limits of
+1,000 features and 10,000 entities per sketch. Concurrent saves are not locked.
 
 This milestone supports **one base box, multiple origin-plane/face-attached sketches and parametric extrusion bodies**, ordered regeneration and transactional validity/error reporting. It does not include constraints, general topological naming or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity/feature at a time. Extrusions consume their referenced source sketch during regeneration.
 
@@ -236,7 +262,7 @@ New eligible sketches on Boolean faces retain construction ancestry and a
 source-local attachment point. They can survive face enumeration changes and
 recover a uniquely identified descendant after a split. Ambiguous or missing
 support remains unresolved with retained parameters and suppressed dependents.
-Existing `.starcad` versions remain readable; version 9 stores the optional new
+Version 9 stores the optional new
 metadata. See [persistent-reference notes](docs/PERSISTENT_REFERENCES.md) for
 compatibility, limits and desktop testing instructions.
 
@@ -246,7 +272,7 @@ Concentric hollow-cylinder walls retain distinct identities through cuts, keepin
 both planar end caps available for repeated sketches. Explicit new current-face
 selection can establish a checked reference even when ancestry is incomplete;
 existing broken or ambiguous attachments are not guessed onto another face.
-Optional current-geometry references use `.starcad` v10; older versions remain
+Optional current-geometry references use `.hcad` v10; older versions remain
 readable. See [current-face attachment notes](docs/CURRENT_FACE_ATTACHMENTS.md)
 for reproduction, conservative limits and desktop checks.
 

@@ -202,7 +202,7 @@ def test_snapped_tools_numeric_edits_and_persistence(qtbot, tmp_path, plane):
     w.undo_action.trigger()
     assert w.document.features == before
     w.redo_action.trigger()
-    path = tmp_path/'snapped.starcad'
+    path = tmp_path/'snapped.hcad'
     w.document.save(path)
     assert Document.load(path).features == w.document.features
     assert not w.document.dirty

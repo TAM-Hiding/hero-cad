@@ -105,7 +105,7 @@ def test_six_profile_preview_cancel_apply_reuse_edit_and_history(qtbot, tmp_path
                             & (pixels[...,1] > pixels[...,0]+5)) > 100
     w.undo(); assert d.features == before
     w.redo(); assert d.features[-1].id == eid
-    d.save(tmp_path/'multi.starcad')
+    d.save(tmp_path/'multi.hcad')
     assert Document.load(d.path).features == d.features
     w.browser.setCurrentItem(w.browser_items[('extrude', eid)])
     w.edit_operation()

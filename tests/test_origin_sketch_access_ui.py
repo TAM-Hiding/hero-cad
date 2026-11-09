@@ -82,7 +82,7 @@ def test_finish_explicit_profile_access_extrude_reopen_and_normal_faces(qtbot,pl
     assert w.document.statuses[result.id].valid
     assert w.document.feature(sid).parameters.frame==frame
     saved=w.document.features;w.undo();w.redo();assert w.document.features==saved
-    w.document.save(tmp_path/'origin.starcad')
+    w.document.save(tmp_path/'origin.hcad')
     w.document=Document.load(w.document.path);w.refresh()
     assert w.document.features==saved
     w.browser.setCurrentItem(w.browser_items[('sketch',sid)]);w.edit_sketch()

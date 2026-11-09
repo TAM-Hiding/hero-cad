@@ -163,7 +163,9 @@ class PaletteController(QObject):
             rule('QDockWidget::title,QHeaderView::section,QTabBar::tab,QLabel[paletteRole="heading"]', 'color:'+self.text_color(o['ui.heading'], colors['ui.background']))
         if 'controls.selection' in o or 'controls.selection_text' in o:
             bg = colors['controls.selection']
-            rule('QTreeWidget#modelBrowser', 'selection-background-color:'+bg+';selection-color:'+self.text_color(colors['controls.selection_text'],bg))
+            selection = 'selection-background-color:'+bg+';selection-color:'+self.text_color(colors['controls.selection_text'],bg)
+            rule('QTreeWidget#modelBrowser, QFileDialog#heroDocumentDialog QAbstractItemView, '
+                 'QFileDialog#heroDocumentDialog QLineEdit', selection)
         if 'history.selection' in o:
             rule('QPlainTextEdit#historyInspector', 'selection-background-color:'+o['history.selection']+
                  ';selection-color:'+self.text_color(colors['ui.text'],o['history.selection']))

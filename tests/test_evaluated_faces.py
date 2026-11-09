@@ -83,9 +83,9 @@ def test_split_cylinder_regions_independent_repeated_sketches_history_and_reload
     assert d.feature(ids[-1]).parameters.frame == saved[ids[-1]].frame
     d.redo()
     assert d.features == before
-    d.save(tmp_path / 'split.starcad')
+    d.save(tmp_path / 'split.hcad')
     payload = json.loads(d.path.read_text())
-    assert payload['version'] == 9 and payload['format'] == 'star-cad'
+    assert payload['version'] == 9 and payload['format'] == 'hero-cad'
     loaded = Document.load(d.path)
     assert loaded.features == d.features and all(s.valid for s in loaded.statuses.values())
     assert volume(loaded.shape) == pytest.approx(volume(d.shape))
@@ -121,7 +121,7 @@ def test_two_successive_plate_holes_attach_to_current_result_and_edit_independen
     before = d.features
     d.undo(); d.redo()
     assert d.features == before
-    d.save(tmp_path / 'two-holes.starcad')
+    d.save(tmp_path / 'two-holes.hcad')
     assert Document.load(d.path).features == d.features
     # Old parents stay available to their historical sketches but cannot be
     # mistaken for a new selection on the currently displayed body.
@@ -150,7 +150,7 @@ def test_every_planar_face_of_supported_boolean_models_accepts_sketch(operation,
         coincident(d.feature(sid).parameters.frame, d.face_maps[result][reference_key(ref)])
     d.set_box(BoxParameters(11, 11, 11))
     assert all(s.valid for s in d.statuses.values())
-    d.save(tmp_path / f'{operation}.starcad')
+    d.save(tmp_path / f'{operation}.hcad')
     assert Document.load(d.path).features == d.features
 
 
@@ -167,7 +167,7 @@ def test_topology_change_unresolves_without_substitution_blocks_downstream_and_u
     assert not d.statuses[sid].valid and 'Unresolved face' in d.statuses[sid].error
     assert d.feature(sid).parameters == old and sid not in d.sketch_shapes
     assert not d.statuses[downstream].valid and downstream not in d.solid_shapes
-    d.save(tmp_path / 'lost.starcad')
+    d.save(tmp_path / 'lost.hcad')
     loaded = Document.load(d.path)
     assert not loaded.statuses[sid].valid and loaded.feature(sid).parameters == old
     d.undo()
@@ -227,5 +227,5 @@ def test_compound_angle_boolean_face_attachment_follows_parent(monkeypatch, tmp_
     p = d.feature(attached).parameters
     assert p.entities == (c,) and all(abs(n) > .1 for n in p.frame.normal)
     coincident(p.frame, d.face_maps[result][reference_key(ref)])
-    d.save(tmp_path / 'angled-boolean.starcad')
+    d.save(tmp_path / 'angled-boolean.hcad')
     assert Document.load(d.path).features == d.features

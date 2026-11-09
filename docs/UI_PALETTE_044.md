@@ -59,7 +59,7 @@ category or all removes only those color overrides, never document state or othe
 preferences. An empty Custom palette has the original appearance.
 
 Application Preferences/QSettings stores optional colors under
-`palette/v1/<property>` and `palette/v1/enabled`, separate from .starcad documents.
+`palette/v1/<property>` and `palette/v1/enabled`, separate from .hcad documents.
 Startup rejects malformed stored colors to their original fallback. The existing
 Preferences dialog/categories and legacy grid/X-Ray settings remain available.
 Experimental grid colors override the corresponding legacy grid-choice colors
@@ -72,6 +72,13 @@ existing components intentionally have different default colors for a shared
 property (native buttons versus HERO Tools versus orange operation controls).
 Unset overrides preserve those contextual defaults. An explicit global control
 color applies consistently to existing and subsequently created controls.
+
+The Open and Save As document choosers use the same Qt widget style. They
+follow the dialog background, general text, input and button colors, and
+keyboard focus settings. The existing selection color and text settings
+also apply to filename selection and file lists. Automatic contrast adjusts
+foregrounds for readability, while Manual uses the requested text colors.
+Window decorations and system file icons come from the desktop theme.
 
 ## Portable JSON and validation
 

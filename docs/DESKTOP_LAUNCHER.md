@@ -101,7 +101,7 @@ On the Ubuntu 22.04 laptop:
    venv. Check title, approved icon and a nonblank model viewport.
 3. Pin to Dock, close the app, launch from the pinned icon; verify a single grouped
    application icon rather than a second Python/unknown icon.
-4. Open an existing `.starcad` file; edit a sketch, extrude/Boolean, save/reopen and
+4. Open an existing `.hcad` file; edit a sketch, extrude/Boolean, save/reopen and
    Undo/Redo. Check Settings and all existing quick controls.
 5. Rerun setup: confirm one Applications entry. Test a checkout/environment path
    containing spaces if practical. After a move/rebuild, regenerate the launcher.

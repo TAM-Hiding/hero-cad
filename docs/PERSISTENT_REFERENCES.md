@@ -154,7 +154,7 @@ support through immutable feature parameters.
 6. Repeat ordinary dimension edits with Join/Intersect operation extrusions and
    Combine results. Check face-normal alignment, Shift gestures, grid/snapping,
    exact dimensions, preview/Cancel, and selection after history changes.
-7. Open older `.starcad` examples. Confirm semantic and valid exact evaluated
+7. Open older-schema `.hcad` examples. Confirm semantic and valid exact evaluated
    references still regenerate; no new metadata or migration guess is required.
 
 Boundary ambiguity, reversed enumeration and malformed metadata are also covered

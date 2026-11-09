@@ -46,7 +46,7 @@ def test_attached_join_preview_commit_undo_redo_and_reopen(qtbot,tmp_path,quick)
     assert len(d._undo) == count+1
     w.undo(); assert d.features == before
     w.redo(); assert d.features == accepted
-    d.save(tmp_path/'join.starcad')
+    d.save(tmp_path/'join.hcad')
     loaded = Document.load(d.path)
     assert loaded.features == accepted and loaded.active_body_ids == d.active_body_ids
 

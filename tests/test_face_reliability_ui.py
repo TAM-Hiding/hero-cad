@@ -106,7 +106,7 @@ def test_current_split_faces_right_click_repeat_reenter_save_and_history(qtbot, 
         assert v.sketch.active_id == sid
         w.finish_sketch()
 
-    d.save(tmp_path / 'faces.starcad')
+    d.save(tmp_path / 'faces.hcad')
     loaded = Document.load(d.path)
     assert loaded.features == d.features
     w.document = loaded

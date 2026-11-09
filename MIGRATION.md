@@ -1,5 +1,12 @@
 # HERO-CAD migration
 
+This guide records the PR #18 application rename. Work Order #046 replaces
+the document compatibility contract below. The current application opens and
+saves `.hcad` documents with the `hero-cad` format marker. Keep older
+`.starcad` files with a pre-#046 build if you still need to open them.
+See [Documents and editing](README.md#documents-and-editing) for the current
+workflow.
+
 ## What PR #18 changes
 
 - Application/display/window name: HERO-CAD.

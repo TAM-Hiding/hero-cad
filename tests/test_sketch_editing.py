@@ -21,7 +21,7 @@ def test_atomic_delete_history_dependencies_and_persistence(tmp_path):
     d.undo()
     assert d.features == before
     d.redo()
-    d.save(tmp_path/'deleted.starcad')
+    d.save(tmp_path/'deleted.hcad')
     assert Document.load(d.path).features == d.features
     dependent = replace(d.feature(b), references=('plane:XZ', a))
     d.replace_feature(dependent)

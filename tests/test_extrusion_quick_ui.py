@@ -46,7 +46,7 @@ def test_immediate_typing_enter_commit_history_properties_and_reload(qtbot,text,
     assert not w.extrude_action.isEnabled()
     saved=w.document.features;w.undo();assert w.document.features==before
     w.redo();assert w.document.features==saved
-    w.document.save(tmp_path/'quick.starcad')
+    w.document.save(tmp_path/'quick.hcad')
     assert Document.load(w.document.path).features==saved
     w.browser.setCurrentItem(w.browser_items[('extrude',f.id)])
     w.entity_fields['distance'].setValue(2.5);w.entity_apply.click()

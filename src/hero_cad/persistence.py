@@ -5,6 +5,15 @@ from hero_cad.chamfers import EdgeReference
 from hero_cad.sketch import Circle, Line, Rectangle, SketchParameters, Slot, PlaneFrame, FaceReference, FaceSupport, FaceSnapshot
 
 
+DOCUMENT_EXTENSION = '.hcad'
+DOCUMENT_FORMAT = 'hero-cad'
+
+
+def require_document_extension(path):
+    if path.suffix.lower() != DOCUMENT_EXTENSION or not path.stem.strip():
+        raise ValueError(f'Use a filename ending in {DOCUMENT_EXTENSION} for HERO-CAD documents')
+
+
 def fields(data, expected):
     if not isinstance(data, dict) or set(data) != set(expected):
         raise ValueError('Invalid document fields: expected ' + ', '.join(expected))
@@ -75,11 +84,13 @@ def serialize(features):
         result.append({'id': feature.id, 'type': feature.type, 'parameters': parameters,
                        'references': list(feature.references),
                        **({'sketch_visible': False} if not feature.sketch_visible else {})})
-    return {'format': 'star-cad', 'version': version, 'units': 'mm', 'features': result}
+    return {'format': DOCUMENT_FORMAT, 'version': version, 'units': 'mm', 'features': result}
 
 
 def deserialize(data):
-    if not isinstance(data, dict) or data.get('format') != 'star-cad' or data.get('units') != 'mm':
+    if not isinstance(data, dict) or data.get('format') != DOCUMENT_FORMAT:
+        raise ValueError('Unsupported document format: expected a HERO-CAD .hcad document')
+    if data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
     if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):

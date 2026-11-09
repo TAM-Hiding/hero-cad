@@ -71,7 +71,7 @@ def test_mouse_line_numeric_edit_save_and_reenter(qtbot, tmp_path, plane):
     assert w.document.feature(identifier).parameters.entities[0] == entity
     w.redo_action.trigger()
     assert w.document.feature(identifier).parameters.entities[0] == edited
-    path = tmp_path/'sketch.starcad'
+    path = tmp_path/'sketch.hcad'
     w.document.save(path)
     assert Document.load(path).features == w.document.features
     w.finish_sketch_action.trigger()

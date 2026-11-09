@@ -105,7 +105,7 @@ new extrusion. Preview, invalid values, failed Booleans and Cancel never change
 it. Undo/Redo restores visibility together with the extrusion. Manual toggles
 also use ordinary document history. No separate visibility-history system exists.
 
-`.starcad` v11 adds an optional boolean `sketch_visible` field on sketch feature
+`.hcad` v11 adds an optional boolean `sketch_visible` field on sketch feature
 records. It is written only for hidden sketches; all-shown documents retain the
 schema version their geometry requires. Existing v1–v10 files default to shown
 and are not automatically hidden merely because they contain an extrusion.

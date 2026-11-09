@@ -11,7 +11,6 @@ from hero_cad import __version__
 from hero_cad.document import Document
 from hero_cad.features import BoxParameters
 from hero_cad.geometry import volume
-from hero_cad.ui.main_window import MainWindow
 
 FIXTURES = Path(__file__).parent/'fixtures'/'legacy_documents'
 
@@ -36,38 +35,23 @@ def test_installed_package_and_console_identity():
     assert not any(old_source.rglob('*.py'))
 
 
-def test_main_window_hero_title_and_document_filters(qtbot,monkeypatch,tmp_path):
-    from PySide6.QtWidgets import QFileDialog
-    w=MainWindow()
-    qtbot.addWidget(w)
-    assert w.windowTitle().startswith(f'HERO-CAD {__version__}')
-    calls=[]
-    def save(*args):
-        calls.append(args)
-        return str(tmp_path/'unchanged_extension.starcad'),''
-    monkeypatch.setattr(QFileDialog,'getSaveFileName',save)
-    assert w.save_document(save_as=True)
-    assert calls[0][1]=='Save HERO-CAD document'
-    assert calls[0][3]=='HERO-CAD documents (*.starcad)'
-    assert json.loads(w.document.path.read_text())['format']=='star-cad'
-    def open_file(*args):
-        calls.append(args)
-        return str(FIXTURES/'v6.starcad'),''
-    monkeypatch.setattr(QFileDialog,'getOpenFileName',open_file)
-    w.open_document()
-    assert calls[-1][1]=='Open HERO-CAD document'
-    assert calls[-1][3]=='HERO-CAD documents (*.starcad)'
-    assert any(f.type=='boolean' for f in w.document.features)
-    assert all(s.valid for s in w.document.statuses.values())
-
-
 @pytest.mark.parametrize('version',range(1,7))
-def test_pre_rename_documents_regenerate_save_and_history(version,tmp_path):
+def test_older_schema_versions_regenerate_save_and_history(version,tmp_path):
     path=FIXTURES/f'v{version}.starcad'
     original=path.read_bytes()
     expected=json.loads((FIXTURES/'manifest.json').read_text())['files'][path.name]
     assert hashlib.sha256(original).hexdigest()==expected['sha256']
-    d=Document.load(path)
+    with pytest.raises(ValueError, match=r'\.hcad'):
+        Document.load(path)
+    source = tmp_path/'source.hcad'
+    source.write_bytes(original)
+    with pytest.raises(ValueError, match='Unsupported document format'):
+        Document.load(source)
+    # Exercise the retained schema readers using native-identity test data.
+    payload = json.loads(original)
+    payload['format'] = 'hero-cad'
+    source.write_text(json.dumps(payload))
+    d=Document.load(source)
     assert not d.dirty
     assert all(s.valid for s in d.statuses.values())
     assert [f.type for f in d.features]==expected['feature_types']
@@ -83,14 +67,14 @@ def test_pre_rename_documents_regenerate_save_and_history(version,tmp_path):
     d.redo()
     assert all(s.valid for s in d.statuses.values())
     d.undo()
-    destination=tmp_path/path.name
+    destination=tmp_path/f'v{version}.hcad'
     d.save(destination)
     loaded=Document.load(destination)
     assert loaded.features==d.features
-    assert json.loads(destination.read_text())['format']=='star-cad'
+    assert json.loads(destination.read_text())['format']=='hero-cad'
     assert path.read_bytes()==original
     if version>=3:
-        assert json.loads(destination.read_text())==json.loads(original)
+        assert json.loads(destination.read_text())==payload
 
 
 @pytest.mark.parametrize('entry',['console','module'])
