@@ -22,12 +22,15 @@ from hero_cad.ui.tool_island import ToolIsland
 from hero_cad.history_inspection import feature_history_text, first_failure
 from hero_cad.ui.feature_icons import feature_icon
 from hero_cad.persistence import DOCUMENT_EXTENSION
+from hero_cad.manufacturing_export import export_document
 from hero_cad.ui.document_dialog import DocumentDialog, SaveDocumentDialog
+from hero_cad.ui.export_dialog import ExportDialog
 from hero_cad.ui.dimension_spinbox import DimensionSpinBox
 from hero_cad.ui.construction_planes import ConstructionPlanes, request_offset
 
 
 LAST_DOCUMENT_DIRECTORY = 'documents/last_directory'
+LAST_EXPORT_DIRECTORY = 'exports/last_directory'
 UNTITLED_FILENAME = f'Untitled{DOCUMENT_EXTENSION}'
 
 
@@ -253,6 +256,9 @@ class MainWindow(QMainWindow):
         self.open_action = self.action(file_menu, "&Open…", QKeySequence.Open, self.open_document)
         self.save_action = self.action(file_menu, "&Save", QKeySequence.Save, self.save_document)
         self.action(file_menu, "Save &As…", QKeySequence.SaveAs, lambda: self.save_document(save_as=True))
+        export_menu = file_menu.addMenu("&Export")
+        export_menu.addAction("STL…", lambda: self.export_manufacturing("stl"))
+        export_menu.addAction("STEP…", lambda: self.export_manufacturing("step"))
         edit_menu = self.menuBar().addMenu("&Edit")
         self.undo_action = self.action(edit_menu, "&Undo", QKeySequence.Undo, self.undo)
         self.redo_action = self.action(edit_menu, "&Redo", QKeySequence.Redo, self.redo)
@@ -924,6 +930,36 @@ class MainWindow(QMainWindow):
         self.update_actions()
         return True
 
+    def export_manufacturing(self, format_name):
+        title = f'Cannot export {format_name.upper()}'
+        if not self.document.active_body_ids:
+            QMessageBox.warning(self, title, 'Create or resolve a solid body before exporting.')
+            return False
+        if self.has_pending_edits():
+            QMessageBox.warning(self, title, 'Apply or revert the pending property edits before exporting.')
+            return False
+        selected = self.selected_body_ids(unambiguous=True)
+        last = self.preferences.value(LAST_EXPORT_DIRECTORY, '', type=str)
+        document_path = self.document.path
+        directory = (Path(last) if last and Path(last).is_dir() else
+                     document_path.parent if document_path else self.document_directory())
+        basename = document_path.stem if document_path else 'Untitled'
+        options = ExportDialog(self, directory, basename, format_name,
+                               len(selected), len(self.document.active_body_ids)).export_options()
+        if options is None:
+            return False
+        destination, use_selected, quality = options
+        try:
+            path = export_document(self.document, destination, format_name,
+                                   body_ids=selected if use_selected else None, quality=quality)
+        except Exception as error:
+            QMessageBox.warning(self, title, str(error))
+            return False
+        self.preferences.setValue(LAST_EXPORT_DIRECTORY, str(path.parent))
+        self.preferences.sync()
+        self.statusBar().showMessage(f'Exported {format_name.upper()} to {path}', 6000)
+        return True
+
     def confirm_replace(self):
         # Commit text to spinbox values before checking staged edits.
         self.field_parameters()
@@ -1484,17 +1520,22 @@ class MainWindow(QMainWindow):
         label = 'Plane' if feature.type == 'offset_plane' else feature.type.title()
         return f'{label} {number} · {identifier[:8]}'
 
-    def selected_body_ids(self):
+    def selected_body_ids(self, *, unambiguous=False):
         result = {k[1] for k in self.selected_keys() if k[0] in ('box','extrude','boolean','chamfer') and k[1] in self.document.active_body_ids}
         if self.viewport.selections:
             result = set()
             from OCP.TopAbs import TopAbs_FACE, TopAbs_EDGE
             from hero_cad.ui.display_geometry import subshapes
-            for identifier in self.document.active_body_ids:
-                shape = self.document.solid_shapes[identifier]
-                for selection in self.viewport.selections:
-                    if any(s.IsSame(selection.shape) for s in subshapes(shape,TopAbs_FACE if selection.kind == 'face' else TopAbs_EDGE)):
-                        result.add(identifier)
+            for selection in self.viewport.selections:
+                kind = TopAbs_FACE if selection.kind == 'face' else TopAbs_EDGE
+                owners = {
+                    identifier for identifier in self.document.active_body_ids
+                    if any(subshape.IsSame(selection.shape)
+                           for subshape in subshapes(self.document.solid_shapes[identifier], kind))
+                }
+                if unambiguous and len(owners) != 1:
+                    return ()
+                result.update(owners)
         return tuple(f.id for f in self.document.features if f.id in result)
 
     def combine_selected(self):

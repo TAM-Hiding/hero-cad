@@ -1,0 +1,129 @@
+{
+  "format": "hero-cad",
+  "version": 6,
+  "units": "mm",
+  "features": [
+    {
+      "id": "0b9ef338-cdfb-4e03-bbb5-f5f09d6a9e2e",
+      "type": "box",
+      "parameters": {
+        "width": 40,
+        "depth": 30,
+        "height": 5
+      },
+      "references": []
+    },
+    {
+      "id": "f6d439d5-cd46-436b-8a0e-578a5c0eb418",
+      "type": "sketch",
+      "parameters": {
+        "plane": "XY",
+        "frame": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "u": [
+            1,
+            0,
+            0
+          ],
+          "v": [
+            0,
+            1,
+            0
+          ]
+        },
+        "entities": [
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 20,
+              "y": 15,
+              "radius": 9,
+              "id": "61c41d81-09c9-432e-b335-769f6d6cb16d"
+            }
+          }
+        ]
+      },
+      "references": [
+        "plane:XY"
+      ]
+    },
+    {
+      "id": "53b107b2-588a-4c20-8a49-4179f74d28c7",
+      "type": "extrude",
+      "parameters": {
+        "sketch_id": "f6d439d5-cd46-436b-8a0e-578a5c0eb418",
+        "outer_id": "61c41d81-09c9-432e-b335-769f6d6cb16d",
+        "hole_ids": [],
+        "distance": 10,
+        "operation": "join",
+        "target_id": "0b9ef338-cdfb-4e03-bbb5-f5f09d6a9e2e",
+        "extent": "distance",
+        "direction": 1
+      },
+      "references": [
+        "f6d439d5-cd46-436b-8a0e-578a5c0eb418",
+        "0b9ef338-cdfb-4e03-bbb5-f5f09d6a9e2e"
+      ]
+    },
+    {
+      "id": "f6ce73e0-0315-4d6f-accc-49b8f51d63b1",
+      "type": "sketch",
+      "parameters": {
+        "plane": "XY",
+        "frame": {
+          "origin": [
+            0,
+            0,
+            0
+          ],
+          "u": [
+            1,
+            0,
+            0
+          ],
+          "v": [
+            0,
+            1,
+            0
+          ]
+        },
+        "entities": [
+          {
+            "type": "circle",
+            "parameters": {
+              "x": 20,
+              "y": 15,
+              "radius": 4,
+              "id": "9a78ee20-7a09-4d77-abd9-008e7b52646c"
+            }
+          }
+        ]
+      },
+      "references": [
+        "plane:XY"
+      ]
+    },
+    {
+      "id": "fe584a24-3098-4983-81cd-cb29a3bddfeb",
+      "type": "extrude",
+      "parameters": {
+        "sketch_id": "f6ce73e0-0315-4d6f-accc-49b8f51d63b1",
+        "outer_id": "9a78ee20-7a09-4d77-abd9-008e7b52646c",
+        "hole_ids": [],
+        "distance": 10.0,
+        "operation": "cut",
+        "target_id": "53b107b2-588a-4c20-8a49-4179f74d28c7",
+        "extent": "through_all",
+        "direction": 1
+      },
+      "references": [
+        "f6ce73e0-0315-4d6f-accc-49b8f51d63b1",
+        "53b107b2-588a-4c20-8a49-4179f74d28c7"
+      ]
+    }
+  ]
+}

@@ -2071,3 +2071,53 @@ The focused run selected `test_offset_plane_orientation.py`, both
 `test_construction_geometry` modules, `test_chamfers.py`,
 `test_face_attachments.py`, `test_face_reliability_ui.py`,
 `test_persistent_references.py`, and `test_atomic_updates_042.py`.
+
+## HERO-050 manufacturing export
+
+The export tests reopen STL with VTK and STEP with OCCT. They verify outward
+triangle winding, closed edge incidence, body and shell counts, bounds,
+volume, STEP units and analytic surfaces. Standard STL test fixtures use
+a 0.08 mm absolute bounds tolerance and 0.5% relative volume tolerance;
+actual error depends on feature geometry and tessellation. STEP fixtures use
+a 0.0000001 mm bounds tolerance and a 0.000000001 relative volume tolerance.
+The Qt tests cover both menu actions, file extension handling, selection and
+visibility, separate directory preferences, and pending edits. The failure
+tests check unresolved history, invalid geometry, float precision loss,
+permissions, and partial writes. The focused geometry and Qt suite passed
+148 tests, including 42 manufacturing export tests.
+
+Representative exports from the fixtures in `tests/test_manufacturing_export.py`
+were timed using Python 3.12 and OCP 7.9.3.1.1 on Linux. Values are medians of
+seven warm runs. They include validation and file replacement and exclude
+model regeneration. File sizes are in bytes.
+
+| Fixture | Standard STL | Fine STL | STEP |
+| --- | ---: | ---: | ---: |
+| Box | 2.0 ms / 684 | 2.2 ms / 684 | 7.4 ms / 15,416 |
+| Cylinder | 3.6 ms / 10,084 | 6.2 ms / 20,884 | 4.2 ms / 5,679 |
+| Hollow cylinder | 5.7 ms / 20,484 | 12.7 ms / 42,084 | 6.0 ms / 9,245 |
+| Box with through-hole | 4.4 ms / 11,084 | 7.0 ms / 21,884 | 10.7 ms / 19,042 |
+| Chamfered hole | 5.9 ms / 16,184 | 10.8 ms / 37,684 | 12.1 ms / 21,624 |
+| Boolean cut | 3.3 ms / 1,484 | 3.4 ms / 1,484 | 18.3 ms / 29,183 |
+| Two disconnected bodies | 6.4 ms / 10,684 | 10.6 ms / 21,484 | 12.7 ms / 20,653 |
+| Manufacturing mount | 12.1 ms / 26,384 | 23.7 ms / 53,384 | 13.8 ms / 25,472 |
+
+The independent review flagged a Qt edge case where quoted filenames could
+yield multiple destination entries. The dialog now requires one entry. The
+review also verified multi-body output and millimeter STEP units with the
+kernel's global STEP settings initially configured in inches.
+
+OrcaSlicer 2.5.2 for Linux successfully imported and sliced both fixture
+STLs with its CLI in strict mode, using a generic profile at 0.20 mm layer
+height. Each reported one manifold part measuring 40 × 30 × 10 mm. The
+Standard and Fine results retained all 526 and 1,066 facets respectively.
+Each produced 50 layers with zero warnings and no mesh repair or scaling
+flags. GUI layer inspection, printer-specific setup, a physical print, and
+external CAD interoperability remain manual checks.
+
+```sh
+python -m pytest -q tests/test_document.py tests/test_manufacturing_export.py
+LIBGL_ALWAYS_SOFTWARE=1 QT_QPA_PLATFORM=xcb xvfb-run -a python -m pytest -q
+python -m pip check
+git diff --check
+```
