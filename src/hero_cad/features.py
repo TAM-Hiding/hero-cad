@@ -21,16 +21,19 @@ class ProfileReference:
     outer_id: str
     hole_ids: tuple = ()
     line_ids: tuple = ()
+    region_sources: tuple = ()
 
     def __post_init__(self):
         valid_id(self.outer_id)
-        for values, limit in ((self.hole_ids, 255), (self.line_ids, 256)):
+        for values, limit in ((self.hole_ids, 255), (self.line_ids, 256), (self.region_sources, 256)):
             if not isinstance(values, tuple) or len(values) > limit:
                 raise ValueError('Invalid immutable profile boundary references')
             for identifier in values:
                 valid_id(identifier)
             if len(set(values)) != len(values):
                 raise ValueError('Duplicate profile boundary references')
+        if self.region_sources and (self.hole_ids or self.line_ids or tuple(sorted(self.region_sources)) != self.region_sources):
+            raise ValueError('A bounded cell requires sorted source IDs and its own boundary identity')
         if self.outer_id in self.hole_ids:
             raise ValueError('Profile boundaries must be distinct')
         if self.line_ids != tuple(sorted(self.line_ids)):
@@ -50,10 +53,11 @@ class ExtrudeParameters:
     direction: int = 1
     line_ids: tuple = ()
     additional_profiles: tuple = ()
+    region_sources: tuple = ()
 
     @property
     def profiles(self):
-        return (ProfileReference(self.outer_id, self.hole_ids, self.line_ids), *self.additional_profiles)
+        return (ProfileReference(self.outer_id, self.hole_ids, self.line_ids, self.region_sources), *self.additional_profiles)
 
     def __post_init__(self):
         if (not isinstance(self.additional_profiles, tuple) or len(self.additional_profiles) > 255
@@ -66,6 +70,7 @@ class ExtrudeParameters:
             object.__setattr__(self, "outer_id", ordered[0].outer_id)
             object.__setattr__(self, "hole_ids", ordered[0].hole_ids)
             object.__setattr__(self, "line_ids", ordered[0].line_ids)
+            object.__setattr__(self, "region_sources", ordered[0].region_sources)
             object.__setattr__(self, "additional_profiles", ordered[1:])
         if self.operation not in ('new', 'join', 'cut', 'intersect'):
             raise ValueError('Unsupported extrusion operation')

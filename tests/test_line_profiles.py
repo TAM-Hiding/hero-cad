@@ -10,7 +10,7 @@ from hero_cad.features import BoxParameters, FeatureError
 from hero_cad.geometry import volume
 from hero_cad.line_profiles import CONNECT_TOLERANCE, loop_id
 from hero_cad.persistence import deserialize
-from hero_cad.profiles import regions, contains
+from hero_cad.profiles import legacy_regions, regions, contains
 from hero_cad.sketch import Circle, Line, Rectangle, FaceReference
 from test_face_attachments import coincident
 
@@ -106,7 +106,7 @@ def test_endpoint_tolerance_does_not_rewrite_source_geometry(gap, closed):
 def test_crossing_overlap_duplicate_and_branch_arrangements_rejected(entities):
     d, sid = document(entities)
     with pytest.raises(ValueError, match='line|Line'):
-        regions(d.feature(sid).parameters)
+        legacy_regions(d.feature(sid).parameters)
 
 
 def test_nested_line_and_primitive_holes_never_silently_fill():
@@ -114,19 +114,19 @@ def test_nested_line_and_primitive_holes_never_silently_fill():
     hole = polygon([(20, 5), (30, 5), (30, 15), (20, 15)])
     circle = Circle(10, 10, 3)
     d, sid = document((*outer, *hole, circle))
-    r, = regions(d.feature(sid).parameters)
+    r, = legacy_regions(d.feature(sid).parameters)
     assert r.hole_ids == tuple(sorted((loop_id(e.id for e in hole), circle.id)))
     assert not contains(r.face, (25, 10, 0)) and not contains(r.face, (10, 10, 0))
     eid = d.add_extrusion(sid, r.outer_id, r.hole_ids, 2)
     assert volume(d.solid_shapes[eid]) == pytest.approx((1200-100-9*pi)*2)
     primitive = Rectangle(-5, -5, 50, 40)
     other, sketch = document((*hole, primitive))
-    region, = regions(other.feature(sketch).parameters)
+    region, = legacy_regions(other.feature(sketch).parameters)
     assert region.outer_id == primitive.id and region.line_ids == tuple(sorted(e.id for e in hole))
     # A crossing inner network must not disappear and fill its enclosing plate.
     bad, sid = document((primitive, *polygon([(0, 0), (10, 10), (0, 10), (10, 0)])))
     with pytest.raises(ValueError):
-        regions(bad.feature(sid).parameters)
+        legacy_regions(bad.feature(sid).parameters)
 
 
 def test_loop_identity_reorder_reversal_regeneration_and_v8_persistence(tmp_path):

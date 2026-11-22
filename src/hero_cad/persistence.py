@@ -37,10 +37,18 @@ def serialize(features):
                     parameters['edges'] = [serialize_edge(edge) for edge in edges]
             if feature.type == 'extrude':
                 additional = parameters.pop('additional_profiles')
+                if feature.parameters.region_sources:
+                    version = max(version, 17)
+                    parameters['region_sources'] = list(feature.parameters.region_sources)
+                else:
+                    parameters.pop('region_sources')
+                if any(p.region_sources for p in feature.parameters.additional_profiles):
+                    version = max(version, 17)
                 if additional:
                     version = max(version, 15)
                     parameters['additional_profiles'] = [
-                        {'outer_id': p.outer_id, 'hole_ids': list(p.hole_ids), 'line_ids': list(p.line_ids)}
+                        {'outer_id': p.outer_id, 'hole_ids': list(p.hole_ids), 'line_ids': list(p.line_ids),
+                     **({'region_sources': list(p.region_sources)} if p.region_sources else {})}
                         for p in feature.parameters.additional_profiles]
                 version = max(version, 8 if feature.parameters.line_ids else 6 if feature.parameters.operation != 'new' else 4)
                 if feature.parameters.line_ids:
@@ -101,7 +109,7 @@ def deserialize(data):
     if data.get('units') != 'mm':
         raise ValueError('Expected a HERO-CAD document in millimetres')
     version = data.get('version')
-    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17):
         raise ValueError('Unsupported document version')
     if version == 1:
         fields(data, ('format', 'version', 'units', 'box'))
@@ -179,10 +187,18 @@ def deserialize(data):
             multiple = version >= 15 and isinstance(parameters, dict) and 'additional_profiles' in parameters
             if multiple:
                 expected += ('additional_profiles',)
+            cell = version >= 17 and isinstance(parameters, dict) and 'region_sources' in parameters
+            if cell:
+                expected += ('region_sources',)
             fields(parameters, expected)
             if not isinstance(parameters['hole_ids'], list):
                 raise ValueError('Profile holes must be a list')
             values = {**parameters, 'hole_ids': tuple(parameters['hole_ids'])}
+            if cell:
+                sources = parameters['region_sources']
+                if not isinstance(sources, list) or not sources:
+                    raise ValueError('Bounded cell source IDs must be a nonempty list')
+                values['region_sources'] = tuple(sources)
             if line_profile:
                 if not isinstance(parameters['line_ids'], list) or not parameters['line_ids']:
                     raise ValueError('Line-profile membership must be a nonempty list')
@@ -193,10 +209,14 @@ def deserialize(data):
                     raise ValueError('Additional profiles must be a nonempty list')
                 additional = []
                 for record in records:
-                    fields(record, ('outer_id', 'hole_ids', 'line_ids'))
-                    if not isinstance(record['hole_ids'], list) or not isinstance(record['line_ids'], list):
-                        raise ValueError('Profile boundary references must be lists')
-                    additional.append(ProfileReference(record['outer_id'], tuple(record['hole_ids']), tuple(record['line_ids'])))
+                    cell = version >= 17 and isinstance(record, dict) and 'region_sources' in record
+                    fields(record, ('outer_id', 'hole_ids', 'line_ids') + (('region_sources',) if cell else ()))
+                    sources = record.get('region_sources', [])
+                    if (not isinstance(record['hole_ids'], list) or not isinstance(record['line_ids'], list)
+                            or not isinstance(sources, list) or cell and not sources):
+                        raise ValueError('Profile boundary references must be lists with nonempty cell sources')
+                    additional.append(ProfileReference(record['outer_id'], tuple(record['hole_ids']),
+                                                       tuple(record['line_ids']), tuple(sources)))
                 values['additional_profiles'] = tuple(additional)
             value = ExtrudeParameters(**values)
         elif item['type'] == 'boolean' and version >= 6:
