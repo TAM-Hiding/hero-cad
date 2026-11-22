@@ -256,6 +256,7 @@ class PaletteController(QObject):
         v.renderer.SetBackground(*(rgb(o['viewport.background']) if 'viewport.background' in o else self.background))
         for key, actor in self.actors.items():
             actor.GetProperty().SetColor(*(rgb(o[key]) if key in o else self.actor_defaults[key]))
+        v.profiles.hover_actor.GetProperty().SetColor(*v.profiles.actor.GetProperty().GetColor())
         s.apply_snap_color()
         w.construction_planes.recolor()
         v.apply_solid_style()

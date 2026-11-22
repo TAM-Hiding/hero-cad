@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from hero_cad.features import BoxParameters, ExtrudeParameters, BooleanParameters, ChamferParameters, OffsetPlaneParameters, Feature, FeatureError, FeatureStatus
 from hero_cad.geometry import make_box, make_sketch, compound
-from hero_cad.profiles import extrude_region, resolve_region, regions, ProfileError
+from hero_cad.profiles import extrude_region, resolve_region, regions, legacy_regions, ProfileError
 from hero_cad.persistence import deserialize, require_document_extension, serialize
 from hero_cad.sketch import Circle, Line, PLANES, SketchParameters
 from hero_cad.booleans import combine, through_distance, OperationError
@@ -203,19 +203,24 @@ class Document:
                                 p = feature.parameters
                                 if p.extent == 'through_all':
                                     p = replace(p, distance=through_distance(source.parameters.frame, solids[p.target_id], p.direction))
-                                if p.additional_profiles and p.operation in ('new', 'intersect'):
+                                has_cells = any(ref.region_sources for ref in p.profiles)
+                                if p.additional_profiles and p.operation in ('new', 'intersect') and not has_cells:
                                     raise OperationError('Multiple profiles support Cut or Join only; New Body requires one connected solid and Intersect requires one profile')
                                 try:
-                                    available = regions(source.parameters) if p.additional_profiles else None
+                                    legacy = legacy_regions(source.parameters) if p.additional_profiles and any(
+                                        not ref.region_sources for ref in p.profiles) else None
                                 except ValueError as error:
-                                    if any(ref.line_ids for ref in p.profiles):
-                                        raise ProfileError(f'Unresolved line profile: {error}') from error
+                                    if any(ref.line_ids or ref.region_sources for ref in p.profiles):
+                                        raise ProfileError(f'Unresolved profile: {error}') from error
                                     raise
                                 tools, tool_lineages, sources = [], [], {}
                                 for ref in p.profiles:
                                     tool_parameters = replace(p, outer_id=ref.outer_id, hole_ids=ref.hole_ids,
-                                                              line_ids=ref.line_ids, additional_profiles=())
-                                    tool, tool_faces = extrude_region(source.parameters, tool_parameters, with_faces=True, available=available)
+                                                              line_ids=ref.line_ids, additional_profiles=(),
+                                                              region_sources=ref.region_sources)
+                                    tool, tool_faces = extrude_region(
+                                        source.parameters, tool_parameters, with_faces=True,
+                                        available=None if ref.region_sources else legacy)
                                     if p.additional_profiles:
                                         tool_faces = {(face, ref.outer_id if face in ('start', 'end') else boundary, segment): shape
                                                       for (face, boundary, segment), shape in tool_faces.items()}
@@ -224,6 +229,10 @@ class Document:
                                     tool_lineages.append(primitive_lineage(feature.id, tool_faces))
                                 source_faces[feature.id] = sources
                                 result, faces, lineage = tools[0], sources, tool_lineages[0]
+                                if p.additional_profiles and p.operation in ('new', 'intersect'):
+                                    result, lineage = combine('join', tools[0], tools[1:], lineages=tool_lineages)
+                                    tools, tool_lineages = [result], [lineage]
+                                    faces = evaluated_faces(lineage)
                                 if p.operation != 'new':
                                     result, lineage = combine(p.operation, solids[p.target_id], tools,
                                                               lineages=[lineages[p.target_id], *tool_lineages])
@@ -446,7 +455,8 @@ class Document:
         if not refs:
             raise ValueError('Select at least one material profile')
         p = ExtrudeParameters(sketch_id, refs[0].outer_id, refs[0].hole_ids, distance,
-                              line_ids=refs[0].line_ids, additional_profiles=refs[1:], **options)
+                              line_ids=refs[0].line_ids, additional_profiles=refs[1:],
+                              region_sources=refs[0].region_sources, **options)
         feature = Feature('extrude', p, (sketch_id,) + ((p.target_id,) if p.target_id else ()))
         self.set_features(self.features + (feature,))
         return feature.id
@@ -461,11 +471,17 @@ class Document:
             source = next((f for f in self.features if f.id == sketch_id and f.type == 'sketch'), None)
             if source is None:
                 raise ValueError('Extrusion source must be an earlier sketch')
-            region = resolve_region(source.parameters, outer_id, hole_ids)
+            try:
+                region = resolve_region(source.parameters, outer_id, hole_ids)
+            except ValueError as legacy_error:
+                region = next((r for r in regions(source.parameters) if r.region_sources
+                               and r.outer_id == outer_id and r.hole_ids == tuple(sorted(hole_ids))), None)
+                if region is None:
+                    raise legacy_error
         except ValueError as error:
             self.last_failure = FeatureError(feature.id, str(error))
             raise self.last_failure from error
-        feature = replace(feature, parameters=replace(parameters, line_ids=region.line_ids))
+        feature = replace(feature, parameters=replace(parameters, line_ids=region.line_ids, region_sources=region.region_sources))
         self.set_features(self.features + (feature,))
         return feature.id
 

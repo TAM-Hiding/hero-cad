@@ -1,16 +1,20 @@
 """Analytic material regions: persistent entity keys, never display tessellation."""
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from OCP.BRep import BRep_Tool
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepClass import BRepClass_FaceClassifier
 from OCP.BRepExtrema import BRepExtrema_DistShapeShape
 from OCP.BRepPrimAPI import BRepPrimAPI_MakePrism
+from OCP.Standard import Standard_Failure
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_IN, TopAbs_VERTEX, TopAbs_WIRE, TopAbs_SOLID
 from OCP.TopExp import TopExp_Explorer
 from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Pnt, gp_Vec
 from hero_cad.geometry import make_sketch, volume
+from hero_cad.arrangement import arrangement
+from hero_cad.features import ProfileReference
 from hero_cad.sketch import SketchParameters, Line
 from hero_cad.line_profiles import line_boundaries
 
@@ -18,7 +22,7 @@ TOLERANCE = 1e-7
 
 
 class ProfileError(ValueError):
-    """A previously selected line boundary is temporarily open/ambiguous."""
+    """A selected profile is temporarily lost or ambiguous."""
 
 
 @dataclass(frozen=True)
@@ -28,13 +32,18 @@ class Region:
     face: object
     boundary_ids: tuple = ()
     line_ids: tuple = ()
+    region_sources: tuple = ()
+
+    @property
+    def reference(self):
+        return ProfileReference(self.outer_id, self.hole_ids, self.line_ids, self.region_sources)
 
 
 def contains(face, world):
     return BRepClass_FaceClassifier(face, gp_Pnt(*world), TOLERANCE).State() == TopAbs_IN
 
 
-def regions(sketch):
+def legacy_regions(sketch):
     """Even/odd material; reject intersecting boundaries and affected ancestors.
 
     Simple line cycles and primitives share the same nesting/extrusion pipeline.
@@ -113,17 +122,59 @@ def regions(sketch):
     return tuple(result)
 
 
-def resolve_region(sketch, outer_id, hole_ids, *, available=None):
-    region = next((r for r in (regions(sketch) if available is None else available) if r.outer_id == outer_id), None)
+@lru_cache(maxsize=16)
+def sketch_cells(entities, frame):
+    try:
+        return arrangement(entities, frame)
+    except (Standard_Failure, RuntimeError) as error:
+        raise ValueError(f'OCCT could not evaluate the sketch arrangement: {error}') from error
+
+
+def ordinary_cells(sketch):
+    ordinary = tuple(e for e in sketch.entities if not getattr(e, 'construction', False))
+    if len(ordinary) > 256:
+        raise ValueError('Profile analysis supports at most 256 ordinary entities per sketch')
+    return sketch_cells(ordinary, sketch.frame)
+
+
+def cell_region(cell):
+    return Region(cell.identifier, (), cell.face, cell.sources, region_sources=cell.sources)
+
+
+@lru_cache(maxsize=16)
+def regions(sketch):
+    """All bounded cells, with legacy IDs for unchanged historical profiles."""
+    cells = ordinary_cells(sketch)
+    try:
+        legacy = {(r.outer_id, r.hole_ids): r for r in legacy_regions(sketch)}
+    except ValueError:
+        legacy = {}
+    result = []
+    for cell in cells:
+        outer, *holes = cell.whole_loops
+        match = legacy.get((outer, tuple(sorted(holes)))) if all(cell.whole_loops) else None
+        result.append(match if match else cell_region(cell))
+    return tuple(result)
+
+
+def resolve_region(sketch, outer_id, hole_ids, *, available=None, region_sources=()):
+    if available is None:
+        available = (tuple(map(cell_region, ordinary_cells(sketch))) if region_sources else legacy_regions(sketch))
+    region = next((r for r in available if r.outer_id == outer_id and r.region_sources == region_sources), None)
     if region is None or region.hole_ids != tuple(sorted(hole_ids)):
+        if region_sources:
+            raise ProfileError('Selected bounded region disappeared or its boundary topology became ambiguous')
         raise ValueError('Selected profile topology changed or is ambiguous; delete the extrusion and reselect its material region. Holes will not be filled silently.')
     return region
 
 
 def extrude_region(sketch, parameters, *, with_faces=False, available=None):
     try:
-        region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids, available=available)
+        region = resolve_region(sketch, parameters.outer_id, parameters.hole_ids, available=available,
+                                region_sources=parameters.region_sources)
     except ValueError as error:
+        if parameters.region_sources:
+            raise ProfileError(str(error)) from error
         if any(getattr(e, 'construction', False) and e.id in (parameters.outer_id, *parameters.hole_ids)
                for e in sketch.entities):
             raise ProfileError('Selected profile references construction geometry') from error
@@ -139,5 +190,7 @@ def extrude_region(sketch, parameters, *, with_faces=False, available=None):
         raise ValueError('OCCT could not build a valid positive-volume extrusion')
     if with_faces:
         from hero_cad.attachments import extrusion_faces
+        if parameters.region_sources:
+            region = replace(region, boundary_ids=())
         return shape, extrusion_faces(builder, region, sketch, parameters)
     return shape

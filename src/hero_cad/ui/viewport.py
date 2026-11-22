@@ -583,6 +583,9 @@ class Viewport(QVTKRenderWindowInteractor):
             super().mousePressEvent(self.navigation_event(event))
 
     def mouseMoveEvent(self, event):
+        if self.profiles.active and not event.buttons():
+            self.profiles.hover(*self.display_position(event))
+            return
         if self.dimensions.editing and not event.buttons() & (Qt.MiddleButton | Qt.RightButton):
             return
         if getattr(self, '_context_press', None) is not None and event.buttons() & Qt.RightButton:
@@ -724,6 +727,7 @@ class Viewport(QVTKRenderWindowInteractor):
         return super().focusNextPrevChild(next)
 
     def leaveEvent(self, event):
+        self.profiles.clear_hover()
         self.sketch.clear_snap()
         self.toolHintChanged.emit(self.sketch.controller.hint)
         self.GetRenderWindow().Render()

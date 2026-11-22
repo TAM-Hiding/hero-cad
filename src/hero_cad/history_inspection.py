@@ -134,13 +134,20 @@ def feature_history_text(document, identifier):
         if p.target_id:
             lines.append(f'Target: {reference_label(p.target_id)}')
         lines.append(f'Source profile: 1 outer boundary, {len(p.hole_ids)} hole boundaries, {len(p.line_ids)} line members')
-        identifiers.extend([f'Outer boundary ID: {p.outer_id}', f'Hole boundary IDs ({len(p.hole_ids)}):'])
-        identifiers.extend(p.hole_ids or ('None',))
-        identifiers.append(f'Line member IDs ({len(p.line_ids)}):')
-        identifiers.extend(p.line_ids or ('None',))
+        if p.region_sources:
+            identifiers.extend([f'Bounded cell ID: {p.outer_id}', 'Source entity IDs:', *p.region_sources])
+        else:
+            identifiers.extend([f'Outer boundary ID: {p.outer_id}', f'Hole boundary IDs ({len(p.hole_ids)}):'])
+            identifiers.extend(p.hole_ids or ('None',))
+            identifiers.append(f'Line member IDs ({len(p.line_ids)}):')
+            identifiers.extend(p.line_ids or ('None',))
         if p.additional_profiles:
             lines.append(f'Selected material regions: {len(p.profiles)}')
             for profile in p.additional_profiles:
+                if profile.region_sources:
+                    identifiers.extend([f'Additional bounded cell ID: {profile.outer_id}',
+                                        'Source entity IDs:', *profile.region_sources])
+                    continue
                 identifiers.append(f'Additional outer boundary ID: {profile.outer_id}')
                 identifiers.append(f'Hole boundary IDs ({len(profile.hole_ids)}):')
                 identifiers.extend(profile.hole_ids or ('None',))

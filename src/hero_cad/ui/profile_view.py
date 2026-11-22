@@ -18,6 +18,15 @@ class ProfileView:
         self.mapper.SetResolveCoincidentTopologyToPolygonOffset()
         self.mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
         self.actor.VisibilityOff()
+        self.hovered = None
+        self.hover_mapper, self.hover_actor = viewport.add_actor(self.actor.GetProperty().GetColor())
+        self.hover_actor.GetProperty().SetOpacity(.16)
+        self.hover_actor.GetProperty().LightingOff()
+        self.hover_actor.PickableOff()
+        self.hover_actor.UseBoundsOff()
+        self.hover_mapper.SetResolveCoincidentTopologyToPolygonOffset()
+        self.hover_mapper.SetRelativeCoincidentTopologyPolygonOffsetParameters(-1, -1)
+        self.hover_actor.VisibilityOff()
 
     @property
     def selection(self):
@@ -30,6 +39,7 @@ class ProfileView:
 
     def clear(self):
         self.selections = ()
+        self.clear_hover()
         self.mapper.SetInputData(None)
         self.actor.VisibilityOff()
         self.viewport.profilePicked.emit(None)
@@ -46,9 +56,26 @@ class ProfileView:
                                            else 'Select Profile: visible regions. Select a sketch in the browser to access hidden profiles.')
         self.viewport.GetRenderWindow().Render()
 
-    def pick(self, x, y, *, additive=False, context=False):
-        if not additive and not context:
-            self.clear()
+    def clear_hover(self):
+        self.hovered = None
+        self.hover_actor.VisibilityOff()
+        self.hover_mapper.SetInputData(None)
+
+    def hover(self, x, y):
+        scope, hit, _ = self.find(x, y)
+        if hit in self.selections:
+            hit = None
+        if hit == self.hovered:
+            return
+        self.clear_hover()
+        if hit:
+            self.hovered = hit
+            self.hover_mapper.SetInputData(tessellate(hit[1].face))
+            self.viewport.sketch_foreground(self.hover_actor, bool(scope))
+            self.hover_actor.VisibilityOn()
+        self.viewport.GetRenderWindow().Render()
+
+    def find(self, x, y):
         v = self.viewport
         candidates, errors = [], []
         renderer = v.renderer
@@ -89,9 +116,21 @@ class ProfileView:
                     candidates.append((t, feature.id, region))
         candidates.sort(key=lambda row: row[:2])
         if not candidates or (len(candidates) > 1 and abs(candidates[0][0]-candidates[1][0]) < 1e-8):
-            v.viewFeedback.emit(errors[0] if errors else 'No unambiguous material region here. Holes, overlapping/touching loops and open line chains cannot be filled; select its sketch in the browser then Select Profile, or edit the sketch.')
+            return scope, None, errors[0] if errors else 'Click inside an unambiguous bounded region. Shared edges and open chains are not selectable.'
+        _, sketch_id, region = candidates[0]
+        return scope, (sketch_id, region), ''
+
+    def pick(self, x, y, *, additive=False, context=False):
+        if not additive and not context:
+            self.clear()
         else:
-            _, sketch_id, region = candidates[0]
+            self.clear_hover()
+        v = self.viewport
+        scope, hit, error = self.find(x, y)
+        if hit is None:
+            v.viewFeedback.emit(error)
+        else:
+            sketch_id, region = hit
             if additive and self.selection and self.selection[0] != sketch_id:
                 v.viewFeedback.emit('Select profiles from one sketch. Click without Shift to switch sketches.')
                 v.GetRenderWindow().Render()

@@ -66,6 +66,28 @@ def test_repeatable_install_real_gio_launch_special_paths_and_uninstall(tmp_path
     assert unrelated.read_text()==preferences.read_text()=='keep'
 
 
+def test_refresh_retargets_managed_launcher_and_reuses_installed_artwork(tmp_path, monkeypatch):
+    old_python, icon, old_marker = environment(tmp_path/'old')
+    current_python, _, current_marker = environment(tmp_path/'current')
+    data = tmp_path/'data'
+    desktop = install_launcher(icon, python=old_python, data_home=data)
+    installed_icon = data/'icons/hicolor/64x64/apps/hero-cad.png'
+    artwork = installed_icon.read_bytes()
+
+    assert install_launcher(installed_icon, python=current_python, data_home=data) == desktop
+    assert list(desktop.parent.glob('*.desktop')) == [desktop]
+    assert installed_icon.read_bytes() == artwork
+    monkeypatch.setenv('XDG_STATE_HOME', str(tmp_path/'state'))
+    monkeypatch.setenv('PATH', '/no/activated/environment')
+    monkeypatch.delenv('VIRTUAL_ENV', raising=False)
+    launch_with_gio(desktop)
+    deadline = time.monotonic() + 5
+    while not current_marker.exists() and time.monotonic() < deadline:
+        time.sleep(.02)
+    assert current_marker.exists() and not old_marker.exists()
+    assert json.loads(current_marker.read_text())['HERO_CAD_ICON'] == str(installed_icon)
+
+
 def test_explicit_qt_environment_preserved_and_png_size_changes_cleanup(tmp_path,monkeypatch):
     python,icon,marker=environment(tmp_path);data=tmp_path/'data'
     desktop=install_launcher(icon,python=python,data_home=data)
@@ -132,6 +154,26 @@ def test_real_launcher_opens_installed_app_without_activation(qtbot,tmp_path,mon
     x.XGetClassHint.argtypes=[ctypes.c_void_p,ctypes.c_ulong,ctypes.POINTER(ClassHint)]
     display=x.XOpenDisplay(os.fsencode(os.environ['DISPLAY']));assert display
     found=[];seen=set()
+
+    def has_approved_icon(window):
+        atom = x.XInternAtom(display, b'_NET_WM_ICON', True)
+        if not atom:
+            return False
+        data = ctypes.c_void_p()
+        actual, count, remaining = ctypes.c_ulong(), ctypes.c_ulong(), ctypes.c_ulong()
+        bits = ctypes.c_int()
+        x.XGetWindowProperty(display, window, atom, 0, 3, False, 0, ctypes.byref(actual),
+                             ctypes.byref(bits), ctypes.byref(count), ctypes.byref(remaining), ctypes.byref(data))
+        if not data:
+            return False
+        try:
+            if bits.value != 32 or count.value != 3:
+                return False
+            values = ctypes.cast(data, ctypes.POINTER(ctypes.c_ulong))
+            return tuple(values[i] & 0xffffffff for i in range(3)) == (64, 64, 0xff987650)
+        finally:
+            x.XFree(data)
+
     def visible_window():
         if child.poll() is not None:
             log=tmp_path/'state/hero-cad/launcher.log'
@@ -146,7 +188,7 @@ def test_real_launcher_opens_installed_app_without_activation(qtbot,tmp_path,mon
             x.XGetWindowProperty(display,window,atom,0,4096,False,0,ctypes.byref(actual),ctypes.byref(fmt),ctypes.byref(items),ctypes.byref(remaining),ctypes.byref(title))
             if title and fmt.value==8:
                 name=ctypes.string_at(title,items.value).decode(errors='replace');x.XFree(title);seen.add(name)
-                if name.startswith('HERO-CAD 0.'):
+                if name.startswith('HERO-CAD 0.') and has_approved_icon(window):
                     hint=ClassHint()
                     if not x.XGetClassHint(display,window,ctypes.byref(hint)):continue
                     values=[ctypes.string_at(hint.name).decode(),ctypes.string_at(hint.class_).decode()]

@@ -27,7 +27,19 @@ your GNOME version. Launching the menu entry, rather than a terminal Python
 process, is recommended for testing dock identity. The app's desktop-file name
 and X11 instance class match the generated `hero-cad.desktop` entry.
 
-Setup is repeatable: it updates one entry, rather than adding numbered copies.
+Setup refreshes the existing managed `hero-cad.desktop` entry in place.
+Use the installer from the virtual environment you want the launcher to run.
+If you no longer have the original artwork file, you can reuse the installed
+copy. Read the `Icon` line to locate it and pass that file to `--icon`.
+
+```bash
+desktop="${XDG_DATA_HOME:-$HOME/.local/share}/applications/hero-cad.desktop"
+grep -E '^(Exec|Icon|StartupWMClass)=' "$desktop"
+desktop-file-validate "$desktop"  # When desktop-file-utils is installed
+```
+
+Check that `Exec` points to your current environment and launch HERO-CAD
+from the application menu to verify the icon and dock grouping.
 If an unmanaged/custom `hero-cad.desktop` already exists, back it up or move it
 first; the command will not overwrite it silently. You do not need to make the
 applications-menu desktop entry executable or grant it desktop-folder trust.

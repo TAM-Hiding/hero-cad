@@ -26,6 +26,8 @@ from hero_cad.face_history import subshapes
 from hero_cad.geometry import volume
 from hero_cad.manufacturing_export import export_document
 from hero_cad.sketch import Circle, Rectangle, Slot
+from hero_cad.profiles import regions
+from test_intersection_profiles import lens_area, model as intersection_model, picked
 
 
 MOUNT = Path(__file__).parent / 'fixtures' / 'manufacturing-mount.hcad'
@@ -283,3 +285,52 @@ def test_bad_destination_and_write_failure_preserve_files(tmp_path, monkeypatch,
         export_document(doc, destination, format_name)
     assert destination.read_bytes() == b'old geometry'
     assert set(tmp_path.iterdir()) == {destination, link}
+
+
+@pytest.mark.parametrize('format_name', ['stl', 'step'])
+@pytest.mark.parametrize('operation', ['lens', 'cut'])
+def test_intersection_cells_export_modeled_solid_after_native_reopen(tmp_path, format_name, operation):
+    doc, sketch_id, first, second = intersection_model()
+    available = regions(doc.feature(sketch_id).parameters)
+    lens = picked(available, 13, 10)
+    if operation == 'lens':
+        result = doc.add_extrusion(sketch_id, lens.outer_id, distance=4)
+        expected_bounds = (11, 15, 6, 14, 0, 4)
+        expected_volume = 4 * lens_area(5, 6)
+        # The original base box is still current but outside this export scope.
+        scope = {'body_ids': (result,)}
+    else:
+        outer_cell = picked(available, 7, 10)
+        box = doc.features[0].id
+        result = doc.add_multi_extrusion(sketch_id, (outer_cell.reference, lens.reference),
+                                         20, operation='cut', target_id=box)
+        expected_bounds = (0, 40, 0, 30, 0, 20)
+        expected_volume = 40 * 30 * 20 - 20 * 25 * np.pi
+        assert doc.active_body_ids == {result}
+        scope = {}
+
+    native = tmp_path/'intersecting.hcad'
+    doc.save(native)
+    loaded = Document.load(native)
+    assert loaded.feature(sketch_id).parameters.entities == (first, second)
+    assert loaded.feature(result) == doc.feature(result)
+    assert all(ref.region_sources for ref in loaded.feature(result).parameters.profiles)
+    native_bytes = native.read_bytes()
+    features, shape = loaded.features, loaded.shape
+    history = tuple(loaded._undo), tuple(loaded._redo)
+    path = export_document(loaded, tmp_path/'modeled', format_name, **scope)
+    if format_name == 'stl':
+        exported_bounds, exported_volume, components = read_stl(path)
+        assert components == 1
+        assert exported_bounds == pytest.approx(expected_bounds, abs=0.08)
+        assert exported_volume == pytest.approx(expected_volume, rel=0.005)
+    else:
+        solid, = read_step(path)
+        assert BRepCheck_Analyzer(solid).IsValid()
+        assert GeomAbs_Cylinder in surface_types(solid)
+        assert bounds(solid) == pytest.approx(expected_bounds, abs=1e-7)
+        assert volume(solid) == pytest.approx(expected_volume, rel=1e-9)
+    assert loaded.path == native and not loaded.dirty
+    assert loaded.features == features and loaded.shape.IsSame(shape)
+    assert (tuple(loaded._undo), tuple(loaded._redo)) == history
+    assert native.read_bytes() == native_bytes
