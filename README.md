@@ -207,6 +207,47 @@ dependencies. Files have a 4 MiB size limit (64 KiB for version 1), with limits 
 
 This milestone supports **one base box, multiple origin-plane/face-attached sketches and parametric extrusion bodies**, ordered regeneration and transactional validity/error reporting. It does not include constraints, general topological naming or feature reordering. Sketch and solid selection support multiple entities; Properties edits one current entity/feature at a time. Extrusions consume their referenced source sketch during regeneration.
 
+## Manufacturing export
+
+Choose **File → Export → STL…** or **STEP…**. Select current bodies in the
+model browser, or select faces or edges with unambiguous body ownership in the
+viewport. The dialog can export those bodies together or all current bodies,
+including hidden bodies. Export uses committed, evaluated geometry and remembers
+its own destination folder. Resolve failed solid operations before exporting
+all bodies. A selected scope can still export unrelated current bodies.
+
+**STL** is binary and unitless. HERO-CAD writes the coordinates in millimeters.
+Standard quality is the default. Coarse reduces file size and Fine improves
+curved surfaces. The presets are absolute OCCT deflections.
+
+| STL quality | Linear deflection (mm) | Angular deflection (radians) |
+| --- | ---: | ---: |
+| Coarse | 0.25 | 0.50 |
+| Standard | 0.08 | 0.25 |
+| Fine | 0.02 | 0.12 |
+
+**STEP** writes millimeter B-reps with analytic geometry. Use `.step` or
+`.stp`. Both formats retain separate bodies. Overlapping or touching bodies may
+be interpreted differently by slicers. Combine them in HERO-CAD if the print
+requires one unified solid. STL uses single-precision coordinates, so a small
+feature far from the origin can exceed STL precision. Use STEP if the STL
+validation reports this.
+
+### OrcaSlicer smoke test
+
+1. Open [manufacturing-mount.hcad](tests/fixtures/manufacturing-mount.hcad) in
+   HERO-CAD. It contains a 40 × 30 × 5 mm base, an 18 mm diameter boss, and
+   an 8 mm diameter through-hole cut through the base and boss.
+2. Export **All current bodies** as Standard STL. Import it in OrcaSlicer.
+   Confirm 40 × 30 × 10 mm and check the hole and boss in the model view.
+3. Select your printer and filament, slice, and check the layer preview.
+   The base should give way to the circular boss at 5 mm. The center hole
+   should stay open throughout. Confirm OrcaSlicer reports no geometry repair.
+4. Repeat with Fine STL. Both should slice at the same dimensions, with a
+   smoother curved outline in the Fine file.
+5. For a STEP check, export the same model and open it in a STEP-capable CAD
+   application. Confirm one solid and the same outside dimensions.
+
 ## Ubuntu setup
 
 Primary automated target: Ubuntu 24.04 x86-64, CPython **>=3.12,<3.13**, X11/XWayland and OpenGL 3.2+. v0.0.2 also passed a user-reported physical laptop test on **Ubuntu 22.04 with Python 3.12**. Ubuntu 22.04's system Python 3.10 does not satisfy this requirement. Keep the system Python unchanged; use a separate Python 3.12 interpreter and a dedicated venv. Other Python versions and ARM are not declared supported.
