@@ -2170,3 +2170,88 @@ The focused integration runs passed 142 kernel tests and 14 Qt/launcher
 tests. `pip check` and `git diff --check` passed. The user separately
 confirmed that STEP imports into OrcaSlicer and generates printable toolpaths.
 OrcaSlicer is optional and does not run in automated tests.
+
+## Existing geometry references and sketch snapping
+
+Baseline main was b053d529c8cd32d07c5d37d060372b8bb0d85741, the merge of
+PR #50. The environment used Python 3.12.16 and requirements-dev.lock on Debian
+13, Qt xcb and software OpenGL with four llvmpipe threads. Xvfb 21.1.16 was
+extracted locally from Debian's official package because system package
+installation is unavailable. It used TCP with a separate display per run.
+
+### Automated verification
+
+- Baseline geometry command `.venv/bin/pytest tests/test_document.py -q`
+  passed all 23 tests.
+- Focused command `python -m pytest -q tests/test_model_references.py
+  tests/test_model_references_ui.py tests/test_precision.py
+  tests/test_face_attachment_ui.py tests/test_curve_display_centers.py
+  tests/test_construction_geometry_ui.py tests/test_atomic_updates_042.py`
+  passed all 107 tests with 8 upstream VTK/NumPy deprecation warnings in 101.99 s.
+- The new tests cover coplanarity, inner boundaries, artificial seam exclusion,
+  rotated frames, screen-space priority and retention, exact coordinates,
+  actual Qt drawing gestures, multiple sketches, cache invalidation, zoom,
+  palette feedback, native persistence, Undo/Redo, New Body/Join/Cut and STL/STEP
+  export. The same xcb/Xvfb environment runs the complete suite below.
+- `uv pip check --python .venv/bin/python`, Python compilation and
+  `git diff --check` passed.
+
+### Full regression comparison
+
+Clean main command used `PYTHONPATH=/tmp/hero-baseline/src python -m pytest
+/tmp/hero-baseline/tests -q` in a detached baseline worktree. The candidate used
+`python -m pytest -q`. Both ran under the xcb/Xvfb environment described above.
+
+| Environment and revision | Result | Duration |
+| --- | --- | --- |
+| Debian 13, clean main b053d52 | 1,014 passed, 1 failed, 230 warnings | 657.98 s |
+| Debian 13, snapping implementation | 1,037 passed, 1 failed, 230 warnings | 636.75 s |
+| Ubuntu 22.04 CI, f6fbb838 | 1,038 passed, 230 warnings | 366.13 s |
+| Ubuntu 24.04 CI, f6fbb838 | 1,038 passed, 230 warnings | 369.54 s |
+
+Both Ubuntu jobs passed the locked installation, dependency consistency check
+and complete test suite in [Actions run 269](https://github.com/TAM-Hiding/hero-cad/actions/runs/46084393058).
+
+The sole local failure on both revisions was
+`tests/test_face_view.py::test_gesture_rejection_preserves_active_shift_slot`
+at line 231. While a Shift-slot is active on an origin-plane sketch, a
+Shift-right-double-click at the origin finds a planar face. The assertion expects
+No visible face, but the status is View aligned perpendicular to planar face.
+The same assertion and actual status reproduced on pristine main, and both Ubuntu
+jobs passed it. The new model-reference path is inactive for origin-plane
+sketches. This existing local face-view gesture discrepancy is recorded for a
+separate investigation. No test expectation or face-view behavior was changed.
+
+All 230 full-suite warnings are VTK's NumPy 2.5 shape-assignment deprecation.
+An initial Qt offscreen probe aborted during viewport initialization. Final UI
+runs used xcb under Xvfb. An overlapping display lock aborted one focused
+attempt before QApplication initialization, after which each run used its own
+display. These setup failures are separate from the final results above.
+
+### Independent review
+
+One independent agent reviewed extraction, snapping, cache invalidation, input
+routing, palette feedback and atomic publication. It reported no material product
+defects and caught one new test using unsupported mode text, Wireframe. The test
+now uses CAD Wireframe. The broader independent run had 83 passes and that single
+failure loaded before correction, with 8 upstream warnings in 67.55 s. One targeted
+follow-up of the corrected test passed in 3.89 s. The final focused 107-test run
+also includes the corrected case.
+
+### Actual desktop verification
+
+Using the running HERO-CAD application on the Linux desktop, selected a box's
++Z face, entered New Sketch, fitted the face and dragged a Rectangle between
+opposite acquired corners. Properties displayed X=0 mm, Y=0 mm, width=40 mm,
+height=30 mm and angle=0 degrees. Hover showed MODEL ENDPOINT at U=40, V=30,
+MODEL MIDPOINT at U=20, V=30 and MODEL EDGE at U=10.3836343, V=30. A blue snap
+marker and source edge highlight identified each reference. Finish Sketch
+restored model mode and cleared the reference feedback. This is separate from
+the automated Qt events. Circular-hole and rotated-face desktop checks remain
+part of operator acceptance, although automated tests cover both.
+
+Supported geometry and the acceptance checklist are documented in
+[GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md). Acquired points store exact
+local coordinates. The sketch retains its existing plane attachment and acquires
+no persistent edge constraint. Model snapping is limited to supported coplanar
+edges of displayed solids during directly face-attached sketch editing.
