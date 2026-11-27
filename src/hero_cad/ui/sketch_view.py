@@ -6,9 +6,10 @@ from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from hero_cad.sketch import Circle, Line
 from hero_cad.tools import ToolController, ToolEvent
 from hero_cad.ui.camera_alignment import deterministic_up
-from hero_cad.ui.display_geometry import paths_mesh
+from hero_cad.ui.display_geometry import paths_mesh, selected_mesh
 from hero_cad.ui.guides import ViewGuides
 from hero_cad.ui.snapping import center_targets, construction_endpoints, snap_point
+from hero_cad.ui.model_references import model_references
 from hero_cad.ui.curve_display import dashed_paths, display_points, segment_count
 
 
@@ -29,6 +30,15 @@ class SketchView:
         self.snap_actor.PickableOff()
         self.snap_actor.UseBoundsOff()
         self.snap_actor.VisibilityOff()
+        self._model_edges = None
+        self._model_frame = None
+        self._model_references = None
+        self.reference_mapper, self.reference_actor = viewport.add_actor((.35, .65, 1.))
+        self.reference_actor.GetProperty().LightingOff()
+        self.reference_actor.GetProperty().SetLineWidth(2)
+        self.reference_actor.PickableOff()
+        self.reference_actor.UseBoundsOff()
+        self.reference_actor.VisibilityOff()
         self.origin_mapper, self.origin_actor = viewport.add_actor((0.8, 0.85, 0.9))
         points = vtkPoints()
         points.InsertNextPoint(0, 0, 0)
@@ -207,7 +217,7 @@ class SketchView:
     def prepare_display(self):
         """Refresh quality bands before rendering, never recursively render here."""
         self.install_display(self.prepare_features(self.features))
-        for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor):
+        for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor, self.reference_actor):
             self.viewport.sketch_foreground(actor, bool(self.active_id))
 
     def enter(self, identifier):
@@ -297,11 +307,18 @@ class SketchView:
             p = self.viewport.renderer.GetDisplayPoint()
             return p[:2] if 0 <= p[2] <= 1 else None
         scale = self.viewport.GetRenderWindow().GetSize()[1]/max(self.viewport.height(), 1)
+        references = None
+        if self.feature.parameters.attachment is not None:
+            edges = self.viewport.edges
+            if self._model_edges is not edges or self._model_frame != frame:
+                self._model_references = model_references(edges, frame)
+                self._model_edges, self._model_frame = edges, frame
+            references = self._model_references
         self.snap_result = snap_point(point, (x, y), project, self.guides.spacing,
                                       grid=self.guides.snap_grid, origin=self.guides.snap_origin,
                                       centers=center_targets(self.feature.parameters.entities) if self.guides.snap_center else (),
                                       endpoints=construction_endpoints(self.feature.parameters.entities) if self.guides.snap_center else (),
-                                      tolerance=8*scale)
+                                      tolerance=8*scale, model=references, previous=self.snap_result)
         point = self.snap_result.point
         self.show_snap(frame)
         entity = self.controller.handle(ToolEvent(phase, point, shift))
@@ -332,6 +349,7 @@ class SketchView:
     def clear_snap(self):
         self.snap_result = None
         self.snap_actor.VisibilityOff()
+        self.reference_actor.VisibilityOff()
 
     @property
     def precision_hint(self):
@@ -343,6 +361,9 @@ class SketchView:
 
     def show_snap(self, frame):
         result = self.snap_result
+        self.reference_actor.SetVisibility(result.edge_index is not None)
+        if result.edge_index is not None:
+            self.reference_mapper.SetInputData(selected_mesh(self.viewport.edge_mapper.GetInput(), 'edge_id', result.edge_index))
         self.snap_actor.SetVisibility(result.target != 'FREE')
         if result.target == 'FREE':
             return
@@ -362,9 +383,10 @@ class SketchView:
         if self.snap_result is None or self.snap_result.target == 'FREE':
             return
         target = self.snap_result.target
-        role = 'CENTER' if target == 'ENDPOINT' else target
+        role = 'CENTER' if target == 'ENDPOINT' or target.startswith('MODEL ') else target
         colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
         self.snap_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.' + role.lower(), colors[role]))
+        self.reference_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.center', colors['CENTER']))
 
     def hit(self, x, y):
         self.prepare_display()

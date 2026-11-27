@@ -14,6 +14,7 @@
 - `ui/display_geometry.py`: disposable double-precision VTK meshes with OCCT face/edge mappings.
 - `ui/picking.py`: screen-space distance to projected segments, independent of display width.
 - `ui/snapping.py`: local origin/grid target selection using projected screen distance.
+- `ui/model_references.py`: transient analytic model-edge acquisition in a face sketch's local frame.
 - `ui/guides.py`: session grid preferences and disposable major/minor/axis meshes.
 - `app.py`: QApplication lifecycle.
 
@@ -56,6 +57,20 @@ Saving uses a same-directory temporary file, flush/fsync and os.replace; cleanup
 One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature reordering, constraints, boolean operations and persistent solid-subshape references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.
 
 ## View guides
+
+Direct face-attached sketch tools acquire supported coplanar edges from the
+viewport's evaluated OCCT edge mapping. `model_references` extracts exact line
+endpoints/midpoints and circular centers/arc endpoints with a 1e-7 mm plane
+tolerance. Straight-edge locations interpolate analytic endpoints using their
+orthographic screen projection. The shared snap resolver ranks precise points,
+midpoints, edge locations and the existing grid, with bounded point retention.
+The cache keys the retained exact edge list and immutable sketch frame, so a
+new evaluated scene/frame invalidates it while hover and zoom reuse it. Only
+display feedback uses the existing tessellated edge mesh. Transient indices and
+snap caches do not enter features or persistence. Exact coordinates commit
+through the ordinary tool/entity transaction. The existing face attachment
+retains its semantics, and edge associativity is deferred. See
+[the supported references and limits](docs/GEOMETRY_REFERENCES.md).
 
 `ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; automatic major spacing uses 1/2/5 steps targeting about 100 logical pixels, with ten minor intervals per major and bounded display line counts. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
 

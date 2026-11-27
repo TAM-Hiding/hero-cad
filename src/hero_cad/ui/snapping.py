@@ -8,6 +8,7 @@ from hero_cad.sketch import Circle, Line, Slot
 class SnapResult:
     point: tuple
     target: str = 'FREE'
+    edge_index: int | None = None
 
 
 def center_targets(entities):
@@ -25,7 +26,8 @@ def construction_endpoints(entities):
             yield from entity.points
 
 
-def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, centers=(), endpoints=(), tolerance=8):
+def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, centers=(), endpoints=(),
+               tolerance=8, model=None, previous=None):
     """project(local_uv) returns screen XY or None for a clipped target.
 
     No feature/topology references or document edits are created here. The local
@@ -34,6 +36,31 @@ def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, cente
     def distance(local):
         projected = project(local)
         return hypot(projected[0]-cursor[0], projected[1]-cursor[1]) if projected else float('inf')
+
+    if model is not None:
+        # Choose the nearest precise point. Equal candidates keep traversal order.
+        # A two-logical-pixel preference retains an acquired point until another
+        # is materially closer, without extending the acquisition radius.
+        def choose(candidates):
+            accepted = [c for c in candidates if distance(c.point) <= tolerance]
+            return min(accepted, key=lambda c: distance(c.point) -
+                       (tolerance/4 if c == previous else 0), default=None)
+
+        precise = [SnapResult((0., 0.), 'ORIGIN')] if origin else []
+        precise.extend(SnapResult(p, 'CENTER') for p in centers)
+        precise.extend(SnapResult(p, 'ENDPOINT') for p in endpoints)
+        precise.extend(SnapResult(p.point, p.kind, p.edge_index) for p in model.points)
+        result = choose(precise)
+        if result is None:
+            result = choose(SnapResult(p.point, p.kind, p.edge_index) for p in model.midpoints)
+        if result is None:
+            edge_points = ((line, line.nearest(cursor, project)) for line in model.lines)
+            result = choose(SnapResult(p, 'MODEL EDGE', line.edge_index)
+                            for line,p in edge_points if p is not None)
+        if result is not None:
+            return result
+        # Precise targets were already tested. Fall through to the same grid.
+        origin, centers, endpoints = False, (), ()
 
     if origin and distance((0., 0.)) <= tolerance:
         return SnapResult((0., 0.), 'ORIGIN')

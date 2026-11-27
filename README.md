@@ -123,6 +123,16 @@ The browser and sketch properties identify the parent and semantic face. Changin
 
 A lost semantic side marks the sketch **UNRESOLVED**, preserves its entities and last resolved frame, and suppresses its display and downstream bodies. The browser tooltip/properties explain the failed reference; unresolved sketches cannot be entered. Restoring the supported source boundary (including Undo) resolves it again. Parent deletion is blocked while dependents survive. Reassign Sketch Plane is deferred; no substitute face is chosen automatically.
 
+While drawing in a face-attached sketch, HERO also acquires coplanar edges of
+displayed solids. Supported targets are straight/circular-edge endpoints,
+straight-edge midpoints and arbitrary points, and circular-edge centers,
+including hole boundaries. A blue point and edge highlight show the acquisition,
+and the status bar identifies its type. Exact points precede midpoints, then
+straight edges, grid points, and free placement within eight logical pixels.
+Placement stores exact local coordinates. The existing sketch attachment follows
+its support plane, while acquired points have no persistent edge constraint.
+See [supported references, limits, and acceptance checks](docs/GEOMETRY_REFERENCES.md).
+
 ### Construction geometry
 
 Select an origin plane, a supported planar face, or an existing construction
