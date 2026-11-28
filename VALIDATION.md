@@ -2255,3 +2255,126 @@ Supported geometry and the acceptance checklist are documented in
 local coordinates. The sketch retains its existing plane attachment and acquires
 no persistent edge constraint. Model snapping is limited to supported coplanar
 edges of displayed solids during directly face-attached sketch editing.
+
+## PR #51 supplement — snap symbols and numeric-overlay restoration
+
+Baseline was the existing draft at 43ffb127c03aa86b1fb3e691032fb724348f91dd.
+The supplemental code is split into d569ab5 (indicators) and f019478 (overlay).
+Verification uses the same locked Python 3.12.16 environment on Debian 13 with
+Qt xcb, Xvfb and software OpenGL. No dependency changes were needed.
+
+### Indicators and compatibility
+
+VTK 2D vector strokes identify supported endpoints, model midpoints, centers and
+straight-edge locations. Midpoints default to Triangle and can use an overlapping
+C/L mark. Logical-pixel size and stroke weight are independent of model zoom.
+Palette/Red/Green/Blue choices, optional source-edge highlighting and optional
+centerline guides use the existing Preferences catalogue. Four optional RGB
+roles inherit the original center color. Palette v1 exports include a validated
+optional snap_indicators object. Legacy files retain the existing noncolor
+options when imported. Native model serialization is unchanged.
+
+The guide at a model midpoint uses the edge's local perpendicular. At supported
+circle/slot centers it shows local U/V. Guides provide visual feedback and do
+not create snap targets, entities, constraints or feature references.
+
+### Overlay investigation and correction
+
+The operator screenshot showed residual amber numeric editors over island
+controls after Slot construction. A live native-window capture reproduced the
+same pattern while moving/resizing and hiding the popup over the island.
+
+Three diagnostic approaches were bounded to the reported compositing issue.
+
+1. Disable the graphics opacity effect. With it enabled or removed, the probe
+   retained exactly 6,688 changed island pixels after hiding the popup.
+2. Inspect native-window ownership and test native/hierarchy alternatives.
+   The viewport, popup and island are native windows. Explicit native flags
+   retained the same damage. A separate transient-window probe retained 17,026
+   changed pixels, so those alternatives were not adopted.
+3. Restore the exposed island region through ordinary Qt invalidation. Explicit
+   island repaint reduced the same comparison to zero changed pixels. The final
+   event filter schedules an update only for the intersection of old/new popup
+   bounds and the island. The final probe also returned zero changed pixels,
+   without an explicit repaint in the test.
+
+The installed QVTKRenderWindowInteractor sets WA_OpaquePaintEvent and
+WA_PaintOnScreen and obtains a native winId. Popup movement/resize/hide fails to
+invalidate exposed native-sibling island contents in this composition. The
+targeted dirty-region correction restores the island's normal Qt painting.
+Existing popup ownership, opacity effect, positioning, keyboard entry and
+stacking remain in their original paths. No timer, full-viewport repaint loop
+or model regeneration was added.
+
+### Automated results
+
+- Supplemental baseline command covered model references, numeric entry and the
+  island. It passed 71 tests with 5 upstream warnings in 71.89 s.
+- New indicator coverage passed 21 tests with 3 upstream warnings in 5.35 s.
+  It checks vector symbols, rendered fixed size at several zoom levels, palette
+  options, guide directions/cleanup and appearance/model isolation.
+- The native screenshot regression passed 28 cases in 44.67 s. It covers four
+  tools, three layouts, 50%/100% opacity, and completion/cancel cleanup. The
+  screenshot reads the live X window, because QWidget.grab can repaint and mask
+  the defect.
+- After review corrections, the targeted command below passed 78 tests with
+  4 upstream VTK/NumPy warnings in 40.26 s.
+
+```sh
+python -m pytest -q \
+  tests/test_dimension_overlay_ui.py::test_overlay_filter_survives_window_destruction \
+  tests/test_snap_indicators.py tests/test_precision.py \
+  tests/test_preferences_ui.py tests/test_palette_ui.py
+```
+
+- Full command `python -m pytest -q` under the documented xcb/Xvfb setup
+  finished locally with 1,088 passed, 1 failed and 233 warnings in 665.85 s.
+  The sole failure is the previously reproduced
+  `test_gesture_rejection_preserves_active_shift_slot` at test_face_view.py:231.
+  It expects No visible face but receives View aligned perpendicular to planar
+  face. The same local assertion failed on the original pristine main baseline.
+  Both Ubuntu jobs pass it. No face-view behavior or expectation was changed.
+- [Actions run 273](https://github.com/TAM-Hiding/hero-cad/actions/runs/46093263415)
+  verified code commit f0194786e39546fc5627eaa7f95022c6b5149b85 with all
+  1,089 tests passing on Ubuntu 22.04 in 406.17 s and Ubuntu 24.04 in 422.16 s.
+  Both jobs also passed locked installation and dependency checks. Each reported
+  233 upstream VTK/NumPy shape-assignment deprecation warnings.
+- Locked dependency consistency, Python compilation and patch whitespace checks
+  passed.
+
+### Independent review and follow-up
+
+One independent review found two product issues. Oversized integer options
+could raise OverflowError before range validation. Range checks now precede
+isfinite, and a huge integer is included in invalid-option coverage. The island
+filter accessed a parent's dimensions attribute during teardown, when PySide
+can expose a generic QWidget wrapper. It now retains and compares the popup
+reference. The initial review run had 53 passes and six failures sharing that
+teardown error.
+
+One follow-up confirmed both source corrections and all six recovered tests.
+Its 56 passes, one failure and two errors exposed a flaw in the new destruction
+test fixture. The fixture destroyed a pytest-qt registered window with an
+existing initialization callback pending. It now waits for island initialization
+and registers only the second, surviving window. The final targeted 78-test run
+passed. The pre-existing point-sprite size assertion was also updated to verify
+actual vector strokes and logical-pixel size after the requested symbol change.
+
+### Actual desktop verification and remaining operator checks
+
+In the running Linux application, entered a sketch on a box's +Z face and
+acquired its top-edge midpoint. Observed the default hollow triangle, changed
+Preferences to a green C/L symbol at 20 px, enabled a red dash-dot guide and
+observed that guide perpendicular to the edge. Status remained U=20, V=30 and
+MODEL MIDPOINT.
+
+Created a Slot near the visible Medium island. Its numeric editor overlapped
+the island during radius and center-distance stages. Cursor movement updated
+the live values. Completion removed the popup and restored the controls.
+Finish Sketch cleared temporary symbol/guide feedback and returned to model
+view. These were actual desktop inputs, separate from Qt automated tests.
+
+Ubuntu/NVIDIA workstation acceptance remains local to the operator, including
+Compact/Expanded overlap, lower opacity and pan/zoom/resize combinations. Very
+thin line appearance can depend on the OpenGL driver. The complete checklist is
+in [GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md).
