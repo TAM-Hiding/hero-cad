@@ -80,7 +80,9 @@ sketch plane, including construction geometry:
 
 The same vector symbols, colors, source-highlight toggle and optional guides apply
 to sketch and model targets. A sketch highlight outlines its source entity; a
-solid highlight outlines the contributing edge. Temporary preview entities never
+solid highlight outlines the contributing edge. If the sketch source is already
+selected, its orange selection outline takes priority over the blue source
+outline; the acquired-point symbol remains visible. Temporary preview entities never
 supply targets. Shared endpoints are supported; the existing region arrangement
 does not expose arbitrary intersection-point snaps, and none are added here.
 

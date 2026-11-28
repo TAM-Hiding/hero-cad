@@ -2378,3 +2378,154 @@ Ubuntu/NVIDIA workstation acceptance remains local to the operator, including
 Compact/Expanded overlap, lower opacity and pan/zoom/resize combinations. Very
 thin line appearance can depend on the OpenGL driver. The complete checklist is
 in [GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md).
+
+## PR #51 final operator refinements — adaptive entry and unified acquisition
+
+The clean baseline was draft head 973dac87050ab91be52917eb8c6e29f7e917832b.
+Current main was verified as b053d529c8cd32d07c5d37d060372b8bb0d85741
+(merged PR #50). Work remains on feature/sketch-geometry-references and the
+existing PR stays draft. No dependency, document-format or camera changes.
+
+### Baseline and automated checks
+
+Using locked Python 3.12.16, Debian 13, Qt xcb, Xvfb and software OpenGL,
+the detached clean baseline command was:
+
+```sh
+PYTHONPATH=/tmp/hero-51-accept-baseline/src python -m pytest /tmp/hero-51-accept-baseline/tests -q
+```
+
+It finished with **1,088 passed, 1 failed, 233 warnings in 633.85 s**.
+The failure is the same documented Debian-only face-view assertion at
+`test_face_view.py:231`: expected No visible face, actual View aligned
+perpendicular to planar face. Previous Ubuntu runs passed all 1,089 tests.
+The baseline was rerun rather than inferred from earlier counts.
+
+The new coverage comprises 10 adaptive-popup cases, 19 analytic-reference cases
+and eight unified-acquisition UI cases. Tests cover native popup-child movement,
+four tools, fixed numeric editing, resize/focus retention, exact high-precision
+commit, native island pixels in Compact/Expanded at 50%/100% opacity, ordinary/
+construction sources, trimmed slot arcs, oblique circle projection, slot centers
+at/away from the origin, cache invalidation, preview exclusion, mixed model/sketch
+input, planar loyalty on three face orientations, save/reopen, New Body/Join/Cut
+and STL/STEP export.
+
+Before final review, 46 popup/focus/overlay cases passed in 62.35 s and 32
+unified-acquisition/curve-center cases passed with four upstream warnings in
+23.64 s. The broader 163-test run initially found three grid-fixture failures:
+its circle radius endpoint now correctly acquired the nearby completed line,
+which intentionally precedes grid intersections. Moving the unrelated line
+clear of that radius point preserves the original grid/precision assertions.
+All 20 precision cases passed afterward in 22.92 s. The center-off regression
+now expects an ordinary line endpoint at a circle center, as required by the
+new independent endpoint acquisition; the Center toggle still controls centers.
+
+The final adaptive-popup confirmation passed all **10 tests in 12.56 s**,
+including numeric-entry resize with initial and retained focus. It reported one
+Qt deprecation warning for the explicit test-only setActiveWindow call.
+
+The recovery retained completed implementation and review. The first local full
+run had **1,121 passed, 5 failed, 233 warnings in 632.41 s**. Three failures came
+from the old precision fixture loaded before its correction; the corrected 20-test
+precision run passed. The known Debian face-view failure was unchanged. The fifth
+failure was a real visual regression: a blue source outline overpainted the orange
+selection on a newly completed line. Ubuntu 24.04 in Actions run 277 reproduced
+that single remaining failure (**1,125 passed, 1 failed, 233 warnings, 450.95 s**);
+Ubuntu 22.04 was cancelled by the matrix fail-fast policy.
+
+The correction suppresses the redundant source outline when its entity is already
+selected, retaining the orange selection and the independent acquired-point symbol.
+The existing live pixel test now asserts both actor states as well as visible
+orange pixels. The affected sketch/acquisition/indicator run passed **33 tests,
+6 upstream warnings in 35.43 s**. Code correction f891e0f follows implementation
+7e793c8. No geometry or acquisition-coordinate behavior changed.
+
+[Actions run 279](https://github.com/TAM-Hiding/hero-cad/actions/runs/46118979795)
+verified source commit f891e0f45cfbe27989d99fbc5af3cca697ca342f:
+
+| Environment | Final full-suite result | Duration |
+| --- | --- | --- |
+| Ubuntu 22.04 | 1,126 passed, 234 warnings | 452.37 s |
+| Ubuntu 24.04 | 1,126 passed, 234 warnings | 421.12 s |
+| Debian 13 | 1,125 passed, 1 known failure, 234 warnings | 611.57 s |
+
+The sole final Debian failure is the unchanged face-view assertion reproduced on
+the clean baseline. No new local failure remains. Both Ubuntu jobs passed locked installation and dependency checks. The 234 pytest
+warnings comprise 233 upstream VTK/NumPy shape-assignment deprecations and the one
+test-only Qt active-window deprecation. Actions also logs an infrastructure warning
+that checkout/setup-python v4/v5 target Node 20 and are forced to Node 24 by the
+runner; updating workflows is outside this work order.
+The final documentation-only commit records these verified source results.
+
+
+Dependency consistency (`uv pip check --python .venv/bin/python`), Python
+compilation and patch whitespace checks passed. The restored environment has no
+pip module; uv checked the same 23 installed packages successfully.
+
+### Independent review and targeted follow-up
+
+One independent source/UI review passed 54 targeted tests and checked the arc
+quartic against 500 random oblique queries (maximum positive discrepancy against
+dense independent verification about 6e-14). It found one product regression:
+numeric mode skipped positioning on resize and could leave the editor outside
+a smaller viewport. The correction clamps its current position on resize without
+cursor reanchoring or adaptive avoidance while editing.
+
+One targeted follow-up confirmed the source correction. Its 9 passes and one
+focus-test failure were investigated: bare Xvfb had no active window even before
+resizing. An explicit active-window probe retained input focus, text and editing
+state through resize. The final regression activates the window and asserts
+initial focus before checking retention. No further findings were reported in
+that bounded review. The later full-suite selection-color finding and its
+33-test correction run are recorded separately above.
+
+### Actual desktop verification
+
+These observations used the running Linux desktop application with actual pointer
+and keyboard input, separately from pytest/Qt events:
+
+- Entered a box +Z face sketch. Dragged a rectangle through the popup's original
+  location and completed it. Properties showed X=8, Y=-3, width=32, height=15 mm.
+- Moved a Slot radius cursor into its visible popup. The popup relocated while
+  the preview continued. Tab entered stationary numeric mode and accepted a
+  3.125 mm radius; Enter advanced to center-distance placement. The completed
+  slot's Properties retained radius 3.125 mm.
+- Held Ctrl before approaching a Circle field, clicked, entered 2.000001 and
+  confirmed with Enter. Properties retained radius 2.000001 mm. A bound-window
+  synthetic Ctrl-click without holding Ctrl during pointer approach moved the
+  popup first; the documented interaction requires Ctrl before approach.
+- A completed rectangle midpoint showed the triangle and SKETCH MIDPOINT at
+  U=24,V=-3. Started a line there, acquired the solid face midpoint with the same
+  triangle and MODEL MIDPOINT at U=0,V=15, then committed the line. Escape cleared
+  temporary feedback and retained the completed line.
+- Repeated popup relocation and cancellation around Compact and Expanded island
+  controls. Screenshots after removal showed clean controls and no amber trails.
+  Medium was also exercised during numeric slot and circle construction.
+
+### Semantics, limitations and operator acceptance
+
+Slot-center differences are explained by Origin Snap: a center coincident with
+the enabled origin uses ORIGIN. Both centers use the same circular-center class
+away from the origin or with Origin Snap disabled. No artificial defining-point
+class is introduced; future parametric editing may distinguish defining points.
+
+Planar loyalty is enforced by the existing ray/active-frame input path. Camera
+orientation remains separate from sketch placement and coplanar references.
+Completed-sketch references work on supported sketch planes; solid acquisition
+remains restricted to direct face sketches and displayed coplanar edges. No
+projected geometry, persistent associativity, snappable guides or dedicated Look
+at Sketch control is added. Arbitrary arrangement intersections are not existing
+snap targets; shared entity endpoints remain supported.
+
+There is no global configurable numeric precision setting to apply. Live readouts
+use the existing nine-decimal sketch editor precision with locale-aware trailing
+zero removal. Typed values and stored doubles retain their original precision.
+Analytic curve acquisition supports the current orthographic camera, including
+oblique views; nonunique/edge-on cases are rejected. Extremely small viewports
+may lack enough room to place a popup away from every cursor position.
+
+Software-rendered desktop checks do not replace Ubuntu/NVIDIA workstation testing.
+Operator checks remain for unusual display scaling/window managers, dense snaps,
+sloped-face interaction, pan/zoom/resize combinations and hardware compositing.
+The updated operator checklist is in
+[GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md). PR #51 remains draft.
