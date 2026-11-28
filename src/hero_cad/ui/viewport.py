@@ -574,7 +574,7 @@ class Viewport(QVTKRenderWindowInteractor):
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
             self.setFocus(Qt.MouseFocusReason)
             self.sketch.event('press', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
-            self.dimensions.update_values(event.position())
+            self.dimensions.update_values(event.position(), event.modifiers())
             return
         self._press = event.position().toPoint() if event.button() == Qt.LeftButton else None
         self._dragged = False
@@ -603,7 +603,7 @@ class Viewport(QVTKRenderWindowInteractor):
                 return
         if self.sketch.active_id and self.sketch.controller.tool and not (event.buttons() & (Qt.MiddleButton | Qt.RightButton)):
             self.sketch.event('move', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
-            self.dimensions.update_values(event.position())
+            self.dimensions.update_values(event.position(), event.modifiers())
             return
         if self._press is not None and (event.position().toPoint()-self._press).manhattanLength() > 4:
             self._dragged = True
@@ -638,7 +638,7 @@ class Viewport(QVTKRenderWindowInteractor):
             return
         if event.button() == Qt.LeftButton and self.sketch.active_id and self.sketch.controller.tool:
             self.sketch.event('release', *self.display_position(event), bool(event.modifiers() & Qt.ShiftModifier))
-            self.dimensions.update_values(event.position())
+            self.dimensions.update_values(event.position(), event.modifiers())
             return
         click = self._press is not None and not self._dragged
         self._press = None
@@ -718,6 +718,8 @@ class Viewport(QVTKRenderWindowInteractor):
         super().resizeEvent(event)
         if hasattr(self, 'sketch'):
             self.sketch.guides.update()
+            if hasattr(self, 'dimensions') and self.dimensions.isVisible():
+                self.dimensions.update_values()
             self.GetRenderWindow().Render()
 
     def focusNextPrevChild(self, next):
