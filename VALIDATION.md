@@ -2170,3 +2170,362 @@ The focused integration runs passed 142 kernel tests and 14 Qt/launcher
 tests. `pip check` and `git diff --check` passed. The user separately
 confirmed that STEP imports into OrcaSlicer and generates printable toolpaths.
 OrcaSlicer is optional and does not run in automated tests.
+
+## Existing geometry references and sketch snapping
+
+Baseline main was b053d529c8cd32d07c5d37d060372b8bb0d85741, the merge of
+PR #50. The environment used Python 3.12.16 and requirements-dev.lock on Debian
+13, Qt xcb and software OpenGL with four llvmpipe threads. Xvfb 21.1.16 was
+extracted locally from Debian's official package because system package
+installation is unavailable. It used TCP with a separate display per run.
+
+### Automated verification
+
+- Baseline geometry command `.venv/bin/pytest tests/test_document.py -q`
+  passed all 23 tests.
+- Focused command `python -m pytest -q tests/test_model_references.py
+  tests/test_model_references_ui.py tests/test_precision.py
+  tests/test_face_attachment_ui.py tests/test_curve_display_centers.py
+  tests/test_construction_geometry_ui.py tests/test_atomic_updates_042.py`
+  passed all 107 tests with 8 upstream VTK/NumPy deprecation warnings in 101.99 s.
+- The new tests cover coplanarity, inner boundaries, artificial seam exclusion,
+  rotated frames, screen-space priority and retention, exact coordinates,
+  actual Qt drawing gestures, multiple sketches, cache invalidation, zoom,
+  palette feedback, native persistence, Undo/Redo, New Body/Join/Cut and STL/STEP
+  export. The same xcb/Xvfb environment runs the complete suite below.
+- `uv pip check --python .venv/bin/python`, Python compilation and
+  `git diff --check` passed.
+
+### Full regression comparison
+
+Clean main command used `PYTHONPATH=/tmp/hero-baseline/src python -m pytest
+/tmp/hero-baseline/tests -q` in a detached baseline worktree. The candidate used
+`python -m pytest -q`. Both ran under the xcb/Xvfb environment described above.
+
+| Environment and revision | Result | Duration |
+| --- | --- | --- |
+| Debian 13, clean main b053d52 | 1,014 passed, 1 failed, 230 warnings | 657.98 s |
+| Debian 13, snapping implementation | 1,037 passed, 1 failed, 230 warnings | 636.75 s |
+| Ubuntu 22.04 CI, f6fbb838 | 1,038 passed, 230 warnings | 366.13 s |
+| Ubuntu 24.04 CI, f6fbb838 | 1,038 passed, 230 warnings | 369.54 s |
+
+Both Ubuntu jobs passed the locked installation, dependency consistency check
+and complete test suite in [Actions run 269](https://github.com/TAM-Hiding/hero-cad/actions/runs/46084393058).
+
+The sole local failure on both revisions was
+`tests/test_face_view.py::test_gesture_rejection_preserves_active_shift_slot`
+at line 231. While a Shift-slot is active on an origin-plane sketch, a
+Shift-right-double-click at the origin finds a planar face. The assertion expects
+No visible face, but the status is View aligned perpendicular to planar face.
+The same assertion and actual status reproduced on pristine main, and both Ubuntu
+jobs passed it. The new model-reference path is inactive for origin-plane
+sketches. This existing local face-view gesture discrepancy is recorded for a
+separate investigation. No test expectation or face-view behavior was changed.
+
+All 230 full-suite warnings are VTK's NumPy 2.5 shape-assignment deprecation.
+An initial Qt offscreen probe aborted during viewport initialization. Final UI
+runs used xcb under Xvfb. An overlapping display lock aborted one focused
+attempt before QApplication initialization, after which each run used its own
+display. These setup failures are separate from the final results above.
+
+### Independent review
+
+One independent agent reviewed extraction, snapping, cache invalidation, input
+routing, palette feedback and atomic publication. It reported no material product
+defects and caught one new test using unsupported mode text, Wireframe. The test
+now uses CAD Wireframe. The broader independent run had 83 passes and that single
+failure loaded before correction, with 8 upstream warnings in 67.55 s. One targeted
+follow-up of the corrected test passed in 3.89 s. The final focused 107-test run
+also includes the corrected case.
+
+### Actual desktop verification
+
+Using the running HERO-CAD application on the Linux desktop, selected a box's
++Z face, entered New Sketch, fitted the face and dragged a Rectangle between
+opposite acquired corners. Properties displayed X=0 mm, Y=0 mm, width=40 mm,
+height=30 mm and angle=0 degrees. Hover showed MODEL ENDPOINT at U=40, V=30,
+MODEL MIDPOINT at U=20, V=30 and MODEL EDGE at U=10.3836343, V=30. A blue snap
+marker and source edge highlight identified each reference. Finish Sketch
+restored model mode and cleared the reference feedback. This is separate from
+the automated Qt events. Circular-hole and rotated-face desktop checks remain
+part of operator acceptance, although automated tests cover both.
+
+Supported geometry and the acceptance checklist are documented in
+[GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md). Acquired points store exact
+local coordinates. The sketch retains its existing plane attachment and acquires
+no persistent edge constraint. Model snapping is limited to supported coplanar
+edges of displayed solids during directly face-attached sketch editing.
+
+## PR #51 supplement — snap symbols and numeric-overlay restoration
+
+Baseline was the existing draft at 43ffb127c03aa86b1fb3e691032fb724348f91dd.
+The supplemental code is split into d569ab5 (indicators) and f019478 (overlay).
+Verification uses the same locked Python 3.12.16 environment on Debian 13 with
+Qt xcb, Xvfb and software OpenGL. No dependency changes were needed.
+
+### Indicators and compatibility
+
+VTK 2D vector strokes identify supported endpoints, model midpoints, centers and
+straight-edge locations. Midpoints default to Triangle and can use an overlapping
+C/L mark. Logical-pixel size and stroke weight are independent of model zoom.
+Palette/Red/Green/Blue choices, optional source-edge highlighting and optional
+centerline guides use the existing Preferences catalogue. Four optional RGB
+roles inherit the original center color. Palette v1 exports include a validated
+optional snap_indicators object. Legacy files retain the existing noncolor
+options when imported. Native model serialization is unchanged.
+
+The guide at a model midpoint uses the edge's local perpendicular. At supported
+circle/slot centers it shows local U/V. Guides provide visual feedback and do
+not create snap targets, entities, constraints or feature references.
+
+### Overlay investigation and correction
+
+The operator screenshot showed residual amber numeric editors over island
+controls after Slot construction. A live native-window capture reproduced the
+same pattern while moving/resizing and hiding the popup over the island.
+
+Three diagnostic approaches were bounded to the reported compositing issue.
+
+1. Disable the graphics opacity effect. With it enabled or removed, the probe
+   retained exactly 6,688 changed island pixels after hiding the popup.
+2. Inspect native-window ownership and test native/hierarchy alternatives.
+   The viewport, popup and island are native windows. Explicit native flags
+   retained the same damage. A separate transient-window probe retained 17,026
+   changed pixels, so those alternatives were not adopted.
+3. Restore the exposed island region through ordinary Qt invalidation. Explicit
+   island repaint reduced the same comparison to zero changed pixels. The final
+   event filter schedules an update only for the intersection of old/new popup
+   bounds and the island. The final probe also returned zero changed pixels,
+   without an explicit repaint in the test.
+
+The installed QVTKRenderWindowInteractor sets WA_OpaquePaintEvent and
+WA_PaintOnScreen and obtains a native winId. Popup movement/resize/hide fails to
+invalidate exposed native-sibling island contents in this composition. The
+targeted dirty-region correction restores the island's normal Qt painting.
+Existing popup ownership, opacity effect, positioning, keyboard entry and
+stacking remain in their original paths. No timer, full-viewport repaint loop
+or model regeneration was added.
+
+### Automated results
+
+- Supplemental baseline command covered model references, numeric entry and the
+  island. It passed 71 tests with 5 upstream warnings in 71.89 s.
+- New indicator coverage passed 21 tests with 3 upstream warnings in 5.35 s.
+  It checks vector symbols, rendered fixed size at several zoom levels, palette
+  options, guide directions/cleanup and appearance/model isolation.
+- The native screenshot regression passed 28 cases in 44.67 s. It covers four
+  tools, three layouts, 50%/100% opacity, and completion/cancel cleanup. The
+  screenshot reads the live X window, because QWidget.grab can repaint and mask
+  the defect.
+- After review corrections, the targeted command below passed 78 tests with
+  4 upstream VTK/NumPy warnings in 40.26 s.
+
+```sh
+python -m pytest -q \
+  tests/test_dimension_overlay_ui.py::test_overlay_filter_survives_window_destruction \
+  tests/test_snap_indicators.py tests/test_precision.py \
+  tests/test_preferences_ui.py tests/test_palette_ui.py
+```
+
+- Full command `python -m pytest -q` under the documented xcb/Xvfb setup
+  finished locally with 1,088 passed, 1 failed and 233 warnings in 665.85 s.
+  The sole failure is the previously reproduced
+  `test_gesture_rejection_preserves_active_shift_slot` at test_face_view.py:231.
+  It expects No visible face but receives View aligned perpendicular to planar
+  face. The same local assertion failed on the original pristine main baseline.
+  Both Ubuntu jobs pass it. No face-view behavior or expectation was changed.
+- [Actions run 273](https://github.com/TAM-Hiding/hero-cad/actions/runs/46093263415)
+  verified code commit f0194786e39546fc5627eaa7f95022c6b5149b85 with all
+  1,089 tests passing on Ubuntu 22.04 in 406.17 s and Ubuntu 24.04 in 422.16 s.
+  Both jobs also passed locked installation and dependency checks. Each reported
+  233 upstream VTK/NumPy shape-assignment deprecation warnings.
+- Locked dependency consistency, Python compilation and patch whitespace checks
+  passed.
+
+### Independent review and follow-up
+
+One independent review found two product issues. Oversized integer options
+could raise OverflowError before range validation. Range checks now precede
+isfinite, and a huge integer is included in invalid-option coverage. The island
+filter accessed a parent's dimensions attribute during teardown, when PySide
+can expose a generic QWidget wrapper. It now retains and compares the popup
+reference. The initial review run had 53 passes and six failures sharing that
+teardown error.
+
+One follow-up confirmed both source corrections and all six recovered tests.
+Its 56 passes, one failure and two errors exposed a flaw in the new destruction
+test fixture. The fixture destroyed a pytest-qt registered window with an
+existing initialization callback pending. It now waits for island initialization
+and registers only the second, surviving window. The final targeted 78-test run
+passed. The pre-existing point-sprite size assertion was also updated to verify
+actual vector strokes and logical-pixel size after the requested symbol change.
+
+### Actual desktop verification and remaining operator checks
+
+In the running Linux application, entered a sketch on a box's +Z face and
+acquired its top-edge midpoint. Observed the default hollow triangle, changed
+Preferences to a green C/L symbol at 20 px, enabled a red dash-dot guide and
+observed that guide perpendicular to the edge. Status remained U=20, V=30 and
+MODEL MIDPOINT.
+
+Created a Slot near the visible Medium island. Its numeric editor overlapped
+the island during radius and center-distance stages. Cursor movement updated
+the live values. Completion removed the popup and restored the controls.
+Finish Sketch cleared temporary symbol/guide feedback and returned to model
+view. These were actual desktop inputs, separate from Qt automated tests.
+
+Ubuntu/NVIDIA workstation acceptance remains local to the operator, including
+Compact/Expanded overlap, lower opacity and pan/zoom/resize combinations. Very
+thin line appearance can depend on the OpenGL driver. The complete checklist is
+in [GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md).
+
+## PR #51 final operator refinements — adaptive entry and unified acquisition
+
+The clean baseline was draft head 973dac87050ab91be52917eb8c6e29f7e917832b.
+Current main was verified as b053d529c8cd32d07c5d37d060372b8bb0d85741
+(merged PR #50). Work remains on feature/sketch-geometry-references and the
+existing PR stays draft. No dependency, document-format or camera changes.
+
+### Baseline and automated checks
+
+Using locked Python 3.12.16, Debian 13, Qt xcb, Xvfb and software OpenGL,
+the detached clean baseline command was:
+
+```sh
+PYTHONPATH=/tmp/hero-51-accept-baseline/src python -m pytest /tmp/hero-51-accept-baseline/tests -q
+```
+
+It finished with **1,088 passed, 1 failed, 233 warnings in 633.85 s**.
+The failure is the same documented Debian-only face-view assertion at
+`test_face_view.py:231`: expected No visible face, actual View aligned
+perpendicular to planar face. Previous Ubuntu runs passed all 1,089 tests.
+The baseline was rerun rather than inferred from earlier counts.
+
+The new coverage comprises 10 adaptive-popup cases, 19 analytic-reference cases
+and eight unified-acquisition UI cases. Tests cover native popup-child movement,
+four tools, fixed numeric editing, resize/focus retention, exact high-precision
+commit, native island pixels in Compact/Expanded at 50%/100% opacity, ordinary/
+construction sources, trimmed slot arcs, oblique circle projection, slot centers
+at/away from the origin, cache invalidation, preview exclusion, mixed model/sketch
+input, planar loyalty on three face orientations, save/reopen, New Body/Join/Cut
+and STL/STEP export.
+
+Before final review, 46 popup/focus/overlay cases passed in 62.35 s and 32
+unified-acquisition/curve-center cases passed with four upstream warnings in
+23.64 s. The broader 163-test run initially found three grid-fixture failures:
+its circle radius endpoint now correctly acquired the nearby completed line,
+which intentionally precedes grid intersections. Moving the unrelated line
+clear of that radius point preserves the original grid/precision assertions.
+All 20 precision cases passed afterward in 22.92 s. The center-off regression
+now expects an ordinary line endpoint at a circle center, as required by the
+new independent endpoint acquisition; the Center toggle still controls centers.
+
+The final adaptive-popup confirmation passed all **10 tests in 12.56 s**,
+including numeric-entry resize with initial and retained focus. It reported one
+Qt deprecation warning for the explicit test-only setActiveWindow call.
+
+The recovery retained completed implementation and review. The first local full
+run had **1,121 passed, 5 failed, 233 warnings in 632.41 s**. Three failures came
+from the old precision fixture loaded before its correction; the corrected 20-test
+precision run passed. The known Debian face-view failure was unchanged. The fifth
+failure was a real visual regression: a blue source outline overpainted the orange
+selection on a newly completed line. Ubuntu 24.04 in Actions run 277 reproduced
+that single remaining failure (**1,125 passed, 1 failed, 233 warnings, 450.95 s**);
+Ubuntu 22.04 was cancelled by the matrix fail-fast policy.
+
+The correction suppresses the redundant source outline when its entity is already
+selected, retaining the orange selection and the independent acquired-point symbol.
+The existing live pixel test now asserts both actor states as well as visible
+orange pixels. The affected sketch/acquisition/indicator run passed **33 tests,
+6 upstream warnings in 35.43 s**. Code correction f891e0f follows implementation
+7e793c8. No geometry or acquisition-coordinate behavior changed.
+
+[Actions run 279](https://github.com/TAM-Hiding/hero-cad/actions/runs/46118979795)
+verified source commit f891e0f45cfbe27989d99fbc5af3cca697ca342f:
+
+| Environment | Final full-suite result | Duration |
+| --- | --- | --- |
+| Ubuntu 22.04 | 1,126 passed, 234 warnings | 452.37 s |
+| Ubuntu 24.04 | 1,126 passed, 234 warnings | 421.12 s |
+| Debian 13 | 1,125 passed, 1 known failure, 234 warnings | 611.57 s |
+
+The sole final Debian failure is the unchanged face-view assertion reproduced on
+the clean baseline. No new local failure remains. Both Ubuntu jobs passed locked installation and dependency checks. The 234 pytest
+warnings comprise 233 upstream VTK/NumPy shape-assignment deprecations and the one
+test-only Qt active-window deprecation. Actions also logs an infrastructure warning
+that checkout/setup-python v4/v5 target Node 20 and are forced to Node 24 by the
+runner; updating workflows is outside this work order.
+The final documentation-only commit records these verified source results.
+
+
+Dependency consistency (`uv pip check --python .venv/bin/python`), Python
+compilation and patch whitespace checks passed. The restored environment has no
+pip module; uv checked the same 23 installed packages successfully.
+
+### Independent review and targeted follow-up
+
+One independent source/UI review passed 54 targeted tests and checked the arc
+quartic against 500 random oblique queries (maximum positive discrepancy against
+dense independent verification about 6e-14). It found one product regression:
+numeric mode skipped positioning on resize and could leave the editor outside
+a smaller viewport. The correction clamps its current position on resize without
+cursor reanchoring or adaptive avoidance while editing.
+
+One targeted follow-up confirmed the source correction. Its 9 passes and one
+focus-test failure were investigated: bare Xvfb had no active window even before
+resizing. An explicit active-window probe retained input focus, text and editing
+state through resize. The final regression activates the window and asserts
+initial focus before checking retention. No further findings were reported in
+that bounded review. The later full-suite selection-color finding and its
+33-test correction run are recorded separately above.
+
+### Actual desktop verification
+
+These observations used the running Linux desktop application with actual pointer
+and keyboard input, separately from pytest/Qt events:
+
+- Entered a box +Z face sketch. Dragged a rectangle through the popup's original
+  location and completed it. Properties showed X=8, Y=-3, width=32, height=15 mm.
+- Moved a Slot radius cursor into its visible popup. The popup relocated while
+  the preview continued. Tab entered stationary numeric mode and accepted a
+  3.125 mm radius; Enter advanced to center-distance placement. The completed
+  slot's Properties retained radius 3.125 mm.
+- Held Ctrl before approaching a Circle field, clicked, entered 2.000001 and
+  confirmed with Enter. Properties retained radius 2.000001 mm. A bound-window
+  synthetic Ctrl-click without holding Ctrl during pointer approach moved the
+  popup first; the documented interaction requires Ctrl before approach.
+- A completed rectangle midpoint showed the triangle and SKETCH MIDPOINT at
+  U=24,V=-3. Started a line there, acquired the solid face midpoint with the same
+  triangle and MODEL MIDPOINT at U=0,V=15, then committed the line. Escape cleared
+  temporary feedback and retained the completed line.
+- Repeated popup relocation and cancellation around Compact and Expanded island
+  controls. Screenshots after removal showed clean controls and no amber trails.
+  Medium was also exercised during numeric slot and circle construction.
+
+### Semantics, limitations and operator acceptance
+
+Slot-center differences are explained by Origin Snap: a center coincident with
+the enabled origin uses ORIGIN. Both centers use the same circular-center class
+away from the origin or with Origin Snap disabled. No artificial defining-point
+class is introduced; future parametric editing may distinguish defining points.
+
+Planar loyalty is enforced by the existing ray/active-frame input path. Camera
+orientation remains separate from sketch placement and coplanar references.
+Completed-sketch references work on supported sketch planes; solid acquisition
+remains restricted to direct face sketches and displayed coplanar edges. No
+projected geometry, persistent associativity, snappable guides or dedicated Look
+at Sketch control is added. Arbitrary arrangement intersections are not existing
+snap targets; shared entity endpoints remain supported.
+
+There is no global configurable numeric precision setting to apply. Live readouts
+use the existing nine-decimal sketch editor precision with locale-aware trailing
+zero removal. Typed values and stored doubles retain their original precision.
+Analytic curve acquisition supports the current orthographic camera, including
+oblique views; nonunique/edge-on cases are rejected. Extremely small viewports
+may lack enough room to place a popup away from every cursor position.
+
+Software-rendered desktop checks do not replace Ubuntu/NVIDIA workstation testing.
+Operator checks remain for unusual display scaling/window managers, dense snaps,
+sloped-face interaction, pan/zoom/resize combinations and hardware compositing.
+The updated operator checklist is in
+[GEOMETRY_REFERENCES.md](docs/GEOMETRY_REFERENCES.md). PR #51 remains draft.

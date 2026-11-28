@@ -14,6 +14,7 @@
 - `ui/display_geometry.py`: disposable double-precision VTK meshes with OCCT face/edge mappings.
 - `ui/picking.py`: screen-space distance to projected segments, independent of display width.
 - `ui/snapping.py`: local origin/grid target selection using projected screen distance.
+- `ui/model_references.py`: transient analytic model-edge acquisition in a face sketch's local frame.
 - `ui/guides.py`: session grid preferences and disposable major/minor/axis meshes.
 - `app.py`: QApplication lifecycle.
 
@@ -56,6 +57,39 @@ Saving uses a same-directory temporary file, flush/fsync and os.replace; cleanup
 One box, origin-plane sketches and synchronous full regeneration keep this foundation small. Feature reordering, constraints, boolean operations and persistent solid-subshape references require their own designs/tests. No extrusion before physical acceptance of v0.0.4. No network, AI, accounts, telemetry, database, background workers or new dependencies.
 
 ## View guides
+
+Direct face-attached sketch tools acquire supported coplanar edges from the
+viewport's evaluated OCCT edge mapping. `model_references` extracts exact line
+endpoints/midpoints and circular centers/arc endpoints with a 1e-7 mm plane
+tolerance. Straight-edge locations interpolate analytic endpoints using their
+orthographic screen projection. The shared snap resolver ranks precise points,
+midpoints, edge locations and the existing grid, with bounded point retention.
+The cache keys the retained exact edge list and immutable sketch frame, so a
+new evaluated scene/frame invalidates it while hover and zoom reuse it. Only
+display feedback uses the existing tessellated edge mesh. Transient indices and
+snap caches do not enter features or persistence. Exact coordinates commit
+through the ordinary tool/entity transaction. The existing face attachment
+retains its semantics, and edge associativity is deferred. See
+[the supported references and limits](docs/GEOMETRY_REFERENCES.md).
+
+`ui/snap_indicators.py` draws temporary VTK 2D vector strokes in display pixels,
+using the acquired exact coordinate and frame solely for screen projection.
+Optional midpoint guides project the edge's perpendicular in sketch-local
+coordinates. Circle/slot center guides use local U/V. Symbol and guide buffers
+are disposable, unpickable and excluded from Fit. Settings use the existing
+typed Preferences catalogue and an optional `snap_indicators` palette-v1 field.
+Four optional snap color roles inherit `snap.center`; original color snapshots
+remain readable. These presentation settings never change acquisition coordinates or model parameters.
+
+The numeric popup and tool island are native Qt siblings under VTK's native
+paint-on-screen viewport. Popup move/resize/hide can leave copied pixels in the
+island's backing store without invalidating its controls. The island observes
+only popup geometry/visibility events and updates the intersecting old/new
+region. This restores ordinary Qt painting locally. The popup's opacity effect,
+ownership, focus routing and placement remain in their existing paths. The
+filter retains the popup reference so parent teardown cannot substitute a
+generic QWidget lacking viewport attributes. It adds no polling, CAD evaluation
+or full-viewport repaint loop.
 
 `ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; automatic major spacing uses 1/2/5 steps targeting about 100 logical pixels, with ten minor intervals per major and bounded display line counts. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
 
@@ -534,3 +568,41 @@ an enabled-state style, without completion changes. V1 accepts its 55 original
 required roles plus optional extensions and contrast metadata, preserving legacy
 override masks; exports contain current effective colors and explicit masks.
 No renderer, document, history or theme-system replacement. See docs/SKETCH_APPEARANCE_045.md.
+
+
+## PR #51 final refinements — unified references and planar loyalty
+
+`sketch_references` expands immutable completed Line/Rectangle/Circle/Slot
+parameters into the same transient point/line/arc targets as coplanar OCCT model
+edges. Construction status does not remove useful references. Source entity UUID
+and segment ordinal identify temporary feedback, never persistent constraints.
+The local target cache keys the completed-entity tuple; the combined cache also
+keys model-reference identity. Creation, editing, deletion, conversion, Undo and
+load replace those immutable inputs. Transient previews are not enumerated.
+
+Line acquisition interpolates analytic endpoints. Circular boundary acquisition
+minimizes screen distance on C+A cos(t)+B sin(t) using the stationary quartic in
+tan(t/2), checks real roots and trimmed endpoints, and returns an analytic local
+point. NumPy is already a locked VTK runtime dependency. Neither topology nor
+committed coordinates use display tessellation. Orthographic/oblique projection
+is supported; edge-on or nonunique acquisition is rejected. Resolver priorities
+are precise points, midpoints, boundaries, grid, free; origin/center bias and
+bounded previous-target retention stabilize small/nearby targets. Shared endpoints
+remain eligible; no general intersection-point acquisition is introduced.
+
+Planar loyalty separates active sketch frame, reference coordinates and camera.
+The existing ray-plane intersection remains the input authority; references
+return local UV only, and tools commit through the unchanged frame. A camera
+change cannot adopt another reference plane. The existing visible-face alignment
+changes camera state only. Future Look at Sketch and projected references remain
+separate capabilities. No native document/schema change or associative constraint
+is introduced.
+
+ConstructionDimensions keeps a stage-sized footprint and relocates around a
+14-logical-pixel cursor guard only in mouse mode. Popup-child mouse moves forward
+to the existing viewport handler. Tab/typing pins numeric entry; Ctrl before mouse
+approach permits deliberate field access. Numeric mode only clamps on viewport
+resize. Readouts share locale-aware trailing-zero formatting at the existing
+nine-decimal sketch-editor precision without mutating stored values. Popup moves
+continue through the bounded old/new island invalidation, without continuous
+repaints or solid regeneration.

@@ -1,7 +1,9 @@
 """Small reusable cursor readout/editor; values belong to construction tools only."""
-from PySide6.QtCore import Qt, QEvent, QPoint
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QGraphicsOpacityEffect
+from PySide6.QtCore import Qt, QEvent, QPoint, QPointF, QRect
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QGraphicsOpacityEffect, QApplication
 from hero_cad.ui.operation_appearance import INLINE_STYLE
+from hero_cad.ui.dimension_spinbox import format_dimension
 
 
 class ConstructionDimensions(QWidget):
@@ -19,9 +21,14 @@ class ConstructionDimensions(QWidget):
         self.opacity_effect.setOpacity(1.0)
         self.setGraphicsEffect(self.opacity_effect)
         self.label = QLabel()
+        self.label.setWordWrap(True)
         self.input = QLineEdit()
         self.input.setPlaceholderText('Type mm · Tab next · Enter place')
         self.input.installEventFilter(self)
+        for widget in (self, self.label):
+            widget.installEventFilter(self)
+        for widget in (self, self.label, self.input):
+            widget.setMouseTracking(True)
         self.input.textEdited.connect(self.preview_text)
         self.input.hide()
         layout = QVBoxLayout(self)
@@ -42,7 +49,7 @@ class ConstructionDimensions(QWidget):
         self.input.hide()
         self.hide()
 
-    def update_values(self, position=None):
+    def update_values(self, position=None, modifiers=None):
         tool = self.viewport.sketch.controller.tool
         values = tool.dimension_values() if tool else {}
         if 'Radius' in values:
@@ -60,21 +67,61 @@ class ConstructionDimensions(QWidget):
         if not values:
             self.reset()
             return
-        self.label.setText(' | '.join(f'{n}: {tool.dimensions.get(n, v):.12g} mm' + (' 🔒' if self.parameter_name(n) in tool.dimensions else '')
-                                      for n, v in values.items()) + '\nType or Tab to edit · Enter place · Esc cancel')
+        self.label.setText(' | '.join(f'{n}: {format_dimension(tool.dimensions.get(n, v), self.locale())} mm' + (' 🔒' if self.parameter_name(n) in tool.dimensions else '')
+                                      for n, v in values.items()) + '\nTab to edit · Ctrl-click field · Enter place · Esc cancel')
+        if stage_changed or self.width() > self.viewport.width():
+            # Reserve one stable readout footprint for the stage. Changing digit
+            # widths must not make the editor oscillate against a viewport edge.
+            width = min(360,self.viewport.width())
+            margins = self.layout().contentsMargins()
+            text = ' | '.join(n+': 1000000.999999999 mm 🔒' for n in names)
+            text += '\nTab to edit · Ctrl-click field · Enter place · Esc cancel'
+            available = max(1,width-margins.left()-margins.right())
+            height = self.label.fontMetrics().boundingRect(QRect(0,0,available,10000),Qt.TextWordWrap,text).height()
+            self.setFixedSize(width,height+self.input.sizeHint().height()+self.layout().spacing()+margins.top()+margins.bottom())
         self.input.show()
         if not self.editing:
             self.input.setPlaceholderText(self.names[self.index] + ' (mm) — click or type to enter')
-        # Keep the editor reachable instead of chasing the cursor. Re-anchor
-        # for each construction stage, then freeze while the user types.
+        # Re-anchor per stage, then move only when the drawing cursor approaches.
+        # Tab/typing enters stationary numeric mode; Ctrl permits a mouse entry.
         if position is not None and self.anchor_pending and not self.editing:
             self.cursor_position = position.toPoint() if hasattr(position, 'toPoint') else position
             self.anchor_pending = False
-        self.adjustSize()
-        self.move(max(0, min(self.cursor_position.x()+98, self.viewport.width()-self.width())),
-                  max(0, min(self.cursor_position.y()+68, self.viewport.height()-self.height())))
+        if not self.editing:
+            self.adjustSize()
+            self.move(max(0, min(self.cursor_position.x()+98, self.viewport.width()-self.width())),
+                      max(0, min(self.cursor_position.y()+68, self.viewport.height()-self.height())))
+            # Retain a viewport-clamped anchor when a later value gets shorter.
+            self.cursor_position = self.pos()-QPoint(98,68)
+            if position is not None:
+                self.avoid_cursor(position.toPoint() if hasattr(position, 'toPoint') else position,
+                                  QApplication.keyboardModifiers() if modifiers is None else modifiers)
+        else:
+            # Numeric entry stays pinned, except when a smaller viewport would
+            # make the field inaccessible. Never re-anchor it to the cursor.
+            self.move(max(0, min(self.x(), self.viewport.width()-self.width())),
+                      max(0, min(self.y(), self.viewport.height()-self.height())))
         self.setVisible(self.opacity > 0)
         self.raise_()
+
+    def avoid_cursor(self, point, modifiers):
+        if self.editing or modifiers & Qt.ControlModifier or not self.geometry().adjusted(-14,-14,14,14).contains(point):
+            return
+        width, height = self.width(), self.height()
+        positions = (QPoint(point.x()+40, point.y()+40),
+                     QPoint(point.x()-width-40, point.y()+40),
+                     QPoint(point.x()+40, point.y()-height-40),
+                     QPoint(point.x()-width-40, point.y()-height-40))
+        candidates = []
+        for position in positions:
+            position = QPoint(max(0,min(position.x(),self.viewport.width()-width)),
+                              max(0,min(position.y(),self.viewport.height()-height)))
+            if not QRect(position,self.size()).adjusted(-14,-14,14,14).contains(point):
+                candidates.append(position)
+        if candidates:
+            destination = min(candidates,key=lambda p:(p-self.pos()).manhattanLength())
+            self.move(destination)
+            self.cursor_position = destination-QPoint(98,68)
 
     def set_opacity(self, percent):
         self.opacity = max(0, min(100, int(percent)))
@@ -137,6 +184,20 @@ class ConstructionDimensions(QWidget):
         return True
 
     def eventFilter(self, watched, event):
+        if (event.type() == QEvent.MouseMove and not self.editing
+                and not event.modifiers() & Qt.ControlModifier and self.viewport.sketch.controller.tool):
+            # A fast cursor jump can land on a native popup child before the
+            # viewport sees a move. Relocate and route that same drawing input.
+            local = self.viewport.mapFromGlobal(event.globalPosition().toPoint())
+            self.avoid_cursor(local,event.modifiers())
+            forwarded = QMouseEvent(QEvent.MouseMove,QPointF(local),event.globalPosition(),
+                                    event.button(),event.buttons(),event.modifiers())
+            QApplication.sendEvent(self.viewport,forwarded)
+            return True
+        if watched is not self.input:
+            return super().eventFilter(watched,event)
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton and not self.editing:
+            self.begin(self.input.text())
         if event.type() == QEvent.FocusIn and not self.editing and self.names:
             self.begin(self.input.text())
         if event.type() == QEvent.KeyPress:

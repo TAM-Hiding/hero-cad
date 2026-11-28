@@ -137,7 +137,10 @@ def test_screen_tolerance_and_origin_priority(qtbot, scale, plane):
     origin = pixel(v, frame.to_world((0, 0)))
     hover(v, origin+QPoint(4, 0))
     assert v.sketch.snap_result.target == 'ORIGIN' and v.sketch.snap_result.point == (0, 0)
-    assert v.sketch.snap_actor.GetProperty().GetPointSize() == 9
+    assert v.sketch.snap_mapper.GetInput().GetNumberOfLines() == 2
+    bounds = v.sketch.snap_mapper.GetInput().GetBounds()
+    scale = v.GetRenderWindow().GetSize()[1]/v.height()
+    assert bounds[1]-bounds[0] == pytest.approx(v.sketch.indicators.options['size']*scale)
     w.snap_origin_action.setChecked(False)
     hover(v, origin)
     assert v.sketch.snap_result.target == 'FREE'
@@ -173,9 +176,11 @@ def test_snapped_tools_numeric_edits_and_persistence(qtbot, tmp_path, plane):
     def settle():
         QApplication.processEvents()
     w.tool_choice.setCurrentText('Line')
-    tap((2, 3)); tap((7, 9)); settle()
+    # Keep this grid/numeric fixture clear of the later circle's radius point.
+    # Completed analytic sketch boundaries now intentionally outrank the grid.
+    tap((-12, 3)); tap((-7, 9)); settle()
     line = w.document.feature(identifier).parameters.entities[-1]
-    assert line.points == ((2, 3), (7, 9))
+    assert line.points == ((-12, 3), (-7, 9))
     w.tool_choice.setCurrentText('Rectangle')
     press((-10, -8)); release((-4, -2)); settle()
     rectangle = w.document.feature(identifier).parameters.entities[-1]

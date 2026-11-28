@@ -150,7 +150,9 @@ def test_center_snapping_mouse_coordinates_and_independence(qtbot, plane, zoom):
     QApplication.processEvents()
     w.snap_center_action.setChecked(False)
     hover(v, pixel(v, frame.to_world(targets[0])))
-    assert sketch.snap_result.target == 'FREE'
+    # The newly committed line is now independently eligible even with centers off.
+    assert sketch.snap_result.target == 'ENDPOINT'
+    assert sketch.snap_result.entity_id == line.id
     w.snap_center_action.setChecked(True)
     # Edited centers must be picked up from current parameters, not a stale mesh.
     edited = replace(circle, x=30.123456789123)

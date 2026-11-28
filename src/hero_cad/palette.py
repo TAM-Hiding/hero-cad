@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import json
 import re
+from hero_cad.snap_appearance import validated_options
 
 PREFIX = 'palette/v1/'
 ENABLED = PREFIX+'enabled'
@@ -88,6 +89,11 @@ category('History & Diagnostics', (
 ))
 # Original PR44 exports have all 55 base roles; extensions are optional in v1.
 BASE_COLORS = frozenset(COLORS)
+SNAP_COLORS = {key: 'snap.center' for key in ('snap.endpoint', 'snap.midpoint', 'snap.edge', 'snap.guide')}
+for key, label in (('snap.endpoint', 'Endpoint / vertex indicator'),
+                   ('snap.midpoint', 'Midpoint indicator'), ('snap.edge', 'Edge-location indicator'),
+                   ('snap.guide', 'Temporary centerline guide')):
+    COLORS[key] = Color('Sketch', label, None)
 MODE_COLORS = {f'sketch.{mode}.{role}':f'sketch.{role}'
                for mode in ('orange', 'celadon') for role in ('normal', 'active', 'selected')}
 for key, base in MODE_COLORS.items():
@@ -108,7 +114,7 @@ def rgb(value):
     return tuple(int(value[i:i+2], 16)/255 for i in (1, 3, 5))
 
 
-def decode_palette(text, *, include_contrast=False):
+def decode_palette(text, *, include_contrast=False, include_snap=False):
     """Strict complete v1 snapshots; validate everything before publishing anything."""
     def unique(pairs):
         result = {}
@@ -122,7 +128,7 @@ def decode_palette(text, *, include_contrast=False):
     data = json.loads(text, object_pairs_hook=unique)
     required = {'format', 'version', 'colors'}
     if (not isinstance(data, dict) or not required.issubset(data)
-            or not set(data).issubset(required | {'overrides', 'text_contrast'})
+            or not set(data).issubset(required | {'overrides', 'text_contrast', 'snap_indicators'})
             or data['format'] != 'hero-ui-palette' or type(data['version']) is not int or data['version'] != 1):
         raise ValueError('Expected hero-ui-palette version 1 with known fields')
     if (not isinstance(data['colors'], dict) or not BASE_COLORS.issubset(data['colors'])
@@ -137,14 +143,19 @@ def decode_palette(text, *, include_contrast=False):
             or len(set(overrides)) != len(overrides)):
         raise ValueError('Overrides must be unique known color property names')
     result = {key:colors.get(key) if key in overrides else None for key in COLORS}
+    indicators = validated_options(data.get('snap_indicators', {}))
+    if include_snap:
+        return result, text_contrast, indicators
     return (result, text_contrast) if include_contrast else result
 
 
-def encode_palette(colors, overrides=None, *, text_contrast='Automatic'):
+def encode_palette(colors, overrides=None, *, text_contrast='Automatic', snap_indicators=None):
     data = {'format':'hero-ui-palette', 'version':1, 'colors':dict(sorted(colors.items())),
             'text_contrast':text_contrast}
     if overrides is not None:
         data['overrides'] = sorted(overrides)
+    if snap_indicators is not None:
+        data['snap_indicators'] = validated_options(snap_indicators)
     text = json.dumps(data, indent=2)+'\n'
     decode_palette(text)
     return text

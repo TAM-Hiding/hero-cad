@@ -1,7 +1,8 @@
 """Small appearance-only bridge from Preferences to existing widgets and actors."""
 from PySide6.QtCore import QObject, Signal, QSaveFile, QIODevice
 from PySide6.QtGui import QPalette
-from hero_cad.palette import COLORS, PREFIX, ENABLED, CONTRAST, MODE_COLORS, hex_color, rgb, decode_palette, encode_palette
+from hero_cad.palette import COLORS, PREFIX, ENABLED, CONTRAST, MODE_COLORS, SNAP_COLORS, hex_color, rgb, decode_palette, encode_palette
+from hero_cad.snap_appearance import OPTIONS, PREFIX as SNAP_PREFIX
 from hero_cad.ui.feature_icons import feature_icon
 
 
@@ -33,8 +34,8 @@ class PaletteController(QObject):
                  'controls.selection_text':QPalette.HighlightedText, 'controls.input':QPalette.Base,
                  'controls.input_text':QPalette.Text, 'history.selection':QPalette.Highlight}
         self.defaults = {key:spec.default or p.color(roles[key]).name().upper()
-                         for key,spec in COLORS.items() if key not in MODE_COLORS}
-        self.defaults.update({key:self.defaults[base] for key,base in MODE_COLORS.items()})
+                         for key,spec in COLORS.items() if key not in MODE_COLORS and key not in SNAP_COLORS}
+        self.defaults.update({key:self.defaults[base] for key,base in {**MODE_COLORS, **SNAP_COLORS}.items()})
         self.adjustments = set()
         self.base_styles = {widget:widget.styleSheet() for widget in (
             window, window.tool_island, window.operation_panel, window.viewport.dimensions)}
@@ -61,7 +62,7 @@ class PaletteController(QObject):
         colors = {**self.defaults, **overrides}
         if 'ui.background' in overrides and 'dialogs.background' not in overrides:
             colors['dialogs.background'] = overrides['ui.background']
-        for key, base in MODE_COLORS.items():
+        for key, base in {**MODE_COLORS, **SNAP_COLORS}.items():
             if key not in overrides:
                 colors[key] = colors[base]
         return colors
@@ -94,15 +95,17 @@ class PaletteController(QObject):
         self.store.set_many(values)
 
     def export_file(self, path):
-        data = encode_palette(self.colors(), self.overrides(), text_contrast=self.store.get(CONTRAST)).encode('utf-8')
+        data = encode_palette(self.colors(), self.overrides(), text_contrast=self.store.get(CONTRAST),
+                              snap_indicators={key:self.store.get(SNAP_PREFIX+key) for key in OPTIONS}).encode('utf-8')
         file = QSaveFile(str(path))
         if not file.open(QIODevice.WriteOnly) or file.write(data) != len(data) or not file.commit():
             raise OSError('Could not save palette: '+file.errorString())
 
     def import_file(self, path):
         with open(path, 'r', encoding='utf-8') as file:
-            colors, text_contrast = decode_palette(file.read(65537), include_contrast=True)
-        self.store.set_many({**{PREFIX+key:value for key,value in colors.items()}, ENABLED:True, CONTRAST:text_contrast})
+            colors, text_contrast, indicators = decode_palette(file.read(65537), include_snap=True)
+        self.store.set_many({**{PREFIX+key:value for key,value in colors.items()}, ENABLED:True, CONTRAST:text_contrast,
+                             **{SNAP_PREFIX+key:value for key,value in indicators.items()}})
 
     def preferences_changed(self, keys):
         if any(key.startswith(PREFIX) for key in keys):
