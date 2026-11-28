@@ -225,6 +225,9 @@ def test_sketch_render_preview_and_highlight(qtbot):
     green = (p[:, 1] > 100) & (p[:, 1]-p[:, 0] > 20) & (p[:, 1]-p[:, 2] > 15)
     assert np.count_nonzero(green) > 30, np.unique(p, axis=0)[-20:]
     click(qtbot, v, frame, (12, 8))
+    assert v.sketch.snap_result.entity_id == v.sketch.entity_id
+    assert v.sketch.snap_actor.GetVisibility()
+    assert not v.sketch.reference_actor.GetVisibility()
     p = pixels()
     orange = (p[:, 0] > 150) & (p[:, 0]-p[:, 1] > 40) & (p[:, 1]-p[:, 2] > 40)
     assert np.count_nonzero(orange) > 30, np.unique(p, axis=0)[-20:]

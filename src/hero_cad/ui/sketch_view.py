@@ -372,6 +372,9 @@ class SketchView:
     def show_snap(self, frame):
         result = self.snap_result
         highlight = (result.edge_index is not None or result.entity_id is not None) and self.indicators.options['highlight']
+        # Selection already identifies this source. Do not paint a blue outline
+        # over its orange selection; keep the acquired-point symbol independent.
+        highlight = highlight and result.entity_id not in self.entity_ids
         self.reference_actor.SetVisibility(highlight)
         if highlight and result.entity_id is not None:
             entity = next(e for e in self.feature.parameters.entities if e.id == result.entity_id)
