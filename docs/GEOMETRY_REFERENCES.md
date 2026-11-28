@@ -4,7 +4,7 @@ Enter a sketch attached directly to a planar solid face, then choose Line,
 Rectangle, Circle, or Slot. Move near an edge of a displayed solid lying on
 the active plane. A temporary geometric symbol shows the exact placement
 point and an optional edge highlight identifies the contributing model boundary.
-The status bar reports MODEL ENDPOINT, MODEL CENTER, MODEL MIDPOINT, or MODEL EDGE.
+The status bar reports MODEL ENDPOINT, MODEL CENTER, MODEL MIDPOINT, MODEL EDGE, or MODEL CURVE.
 The same acquisition works when drawing construction lines and circles.
 
 ## Snap appearance
@@ -18,9 +18,9 @@ Palette uses the existing experimental palette's RGB controls.
 | Acquired reference | Default symbol |
 | --- | --- |
 | Supported endpoint or vertex | Hollow square |
-| Model straight-edge midpoint | Hollow triangle |
+| Straight-edge midpoint | Hollow triangle |
 | Circular or slot center | Circled crosshair |
-| Arbitrary straight-edge location | Hollow diamond |
+| Arbitrary analytic boundary location | Hollow diamond |
 | Grid or sketch origin | Crosshair |
 
 The midpoint can instead use the traditional overlapping C/L centerline mark
@@ -45,27 +45,49 @@ are rejected before any preferences change. Appearance settings are stored with
 application preferences and never in native model documents.
 
 Supported references include straight-edge endpoints, circular-arc endpoints,
-straight-edge midpoints, arbitrary positions along straight segments, and centers
-of analytic circular edges or arcs. Inner hole boundaries are eligible. A full
+straight-edge midpoints, arbitrary positions along straight segments and analytic
+circular arcs, and centers of analytic circular edges or arcs. Inner hole boundaries are eligible. A full
 circle's artificial seam vertex is excluded. Geometry is read from current OCCT
 edges, independent of the viewport's tessellation and edge thickness.
 
 Acquisition uses an eight-logical-pixel radius at any zoom and accounts for the
 viewport's physical pixel scale. On a face sketch, the priority is
 
-1. Nearest precise point among the enabled sketch origin, enabled active-sketch
-   circle/slot centers and construction-line endpoints, and supported model
-   endpoints and centers.
-2. Straight model-edge midpoints.
-3. Nearest projected point on a straight model edge.
+1. Precise points: enabled origin, enabled completed-sketch centers, endpoints,
+   and supported model endpoints/centers.
+2. Straight-edge midpoints from either source.
+3. Nearest analytic straight or circular boundary location from either source.
 4. Enabled grid intersections.
 5. Free cursor placement.
 
-Within a priority group, an acquired point has a two-logical-pixel retention
-preference. This reduces switching between nearby candidates while keeping the
-original acquisition radius. Ties use stable traversal order within the unchanged
-evaluated scene. Model references are independent of grid and Center Snap toggles.
-Outside direct face-sketch editing, existing origin/center/grid behavior applies.
+Within a priority group, the previously acquired point has a two-logical-pixel
+retention preference. Origin and centers also have a two-pixel preference to keep
+small circles/slots usable beside nearby endpoints. Candidates must still lie
+within the original eight-pixel radius. Stable source order breaks ties, with the
+origin first. Model references are independent of grid and Center Snap toggles.
+Center Snap controls active-sketch centers; endpoints, midpoints and boundaries
+remain available independently.
+
+Completed entities in the active sketch supply these references on any supported
+sketch plane, including construction geometry:
+
+| Entity | References |
+| --- | --- |
+| Line | Endpoints, midpoint, straight boundary |
+| Rectangle | Corners, four edge midpoints, boundaries, geometric center |
+| Circle | Center, analytic circumference |
+| Slot | Both arc centers, straight-edge midpoints, tangent endpoints, trimmed boundaries |
+
+The same vector symbols, colors, source-highlight toggle and optional guides apply
+to sketch and model targets. A sketch highlight outlines its source entity; a
+solid highlight outlines the contributing edge. Temporary preview entities never
+supply targets. Shared endpoints are supported; the existing region arrangement
+does not expose arbitrary intersection-point snaps, and none are added here.
+
+A slot's first center has no special snap class. If it coincides with the origin,
+Origin Snap explains the different crosshair. Tests cover solid and sketch slots
+at/away from the origin with Origin Snap on/off. Defining-point differentiation
+is a possible future entity-editing feature, not current snapping semantics.
 
 Snapping feeds all construction stages through the existing tool controller.
 For an edge-first rectangle, the depth point still controls perpendicular depth.
@@ -79,8 +101,9 @@ including trimmed arcs. Parallel edges on other planes and edges crossing the
 plane are excluded. Direct solid-face sketches acquire edges of the currently
 displayed bodies. Hidden/historical bodies, origin-plane sketches and
 construction-plane sketches do not supply model acquisition in this release.
-Arbitrary curved-edge locations, ellipse centers, and off-plane projection are
-outside the supported target set.
+Noncircular curved-edge locations, ellipse centers, and off-plane projection
+remain outside the supported target set. Orthographic projection, including
+oblique camera views, is supported; edge-on/nonunique curve acquisition is rejected.
 
 ## Persistence and future constraints
 
@@ -96,26 +119,61 @@ existing attachment/history system and store it as an explicit constraint with
 its own unresolved behavior. A viewport edge index has no persistent identity.
 The native format and schema are unchanged by this work.
 
+## Adaptive numeric popup
+
+During mouse drawing, the popup keeps one stable footprint per tool stage and
+relocates only when the pointer enters a 14-pixel guard around it. Movement picks
+an available nearby corner away from the pointer. Mouse moves that land directly
+on a popup child are forwarded to the existing drawing handler after relocation.
+Tiny viewports may lack enough room to avoid every point.
+
+Press **Tab** or type to enter stationary numeric mode. For mouse entry, **hold
+Ctrl before moving toward the field**, then click it. Tab switches fields, Enter
+confirms the stage, and Escape cancels. Resizing keeps the field accessible.
+Readouts use the sketch editors' existing nine decimal places and remove trailing
+zeros. There is no global configurable decimal-precision setting in this version.
+Formatting never rounds the stored tool dimension or committed parameter.
+The existing bounded island dirty-region repair remains in place.
+
+## Planar loyalty
+
+The active sketch frame determines where geometry exists. References supply local
+coordinates within it. The camera only determines observation. Input continues
+through the existing camera-ray/sketch-plane intersection and frame transforms;
+rotating the camera does not change the frame. Coplanar model acquisition cannot
+attach a sketch to another face. Exact coordinates are committed through normal
+entity transactions. Regression tests cover oblique views on +X, +Y and +Z faces.
+
+The current Shift + double-right-click gesture still aligns to a visible planar
+face, including during sketching; it changes the camera only. A dedicated Look at
+Sketch recovery control and off-plane Projected Geometry Snap are future work.
+
 ## Operator acceptance checks
 
-1. On a box face, draw a rectangle between opposite corners. Check its local
-   dimensions against the face and repeat with grid snapping disabled.
-2. Start a line at an edge midpoint, then at another location along the edge.
-   Check MODEL MIDPOINT and MODEL EDGE feedback. Move away and switch tools to
-   check that the marker/highlight clear.
-3. On a face containing a circular hole, start a circle or construction circle
-   at MODEL CENTER. Check its exact center in Properties.
-4. Mix an acquired model point, an existing sketch center, a grid point, and
-   free placement. Repeat at ordinary near/far zoom levels and on a sloped face.
-5. Save/reopen and use the resulting profile in New Body, Join, or Cut. Try
-   Undo/Redo and STL/STEP export. Confirm ordinary selection after Finish Sketch.
-6. Choose the Triangle and C/L midpoint symbols, try Red and Green, and adjust
-   size/weight. Toggle source highlighting and enable a colored centerline guide.
-   Check that zoom preserves apparent symbol size and acquisition coordinates.
-7. Create a Slot near the visible island so the numeric popup overlaps it.
-   Move through radius and second-center stages, then complete or cancel. Check
-   that the controls restore cleanly. Repeat in Compact, Medium and Expanded
-   layouts, with lower popup opacity, and after pan/zoom/resize.
+1. On a box face, draw a rectangle between opposite corners, then acquire its
+   corners, midpoint, edge and center while drawing more geometry. Disable grid
+   snapping and check exact Properties coordinates and matching symbols.
+2. Start one construction line at a completed-sketch midpoint and end it at a
+   model midpoint. Test ordinary line endpoints, circle circumference and both
+   slot centers. Construction entities must remain excluded from profiles.
+3. Compare slots at/away from the origin with Origin Snap on/off. Only a center
+   coincident with the enabled origin should use origin feedback.
+4. Draw a rectangle through the popup's initial position. Repeat Slot radius and
+   second-center placement. Confirm uninterrupted tracking, calm relocation and
+   cleanup on completion, Escape and tool changes.
+5. Enter radius 2.000001 with Tab, then by holding Ctrl before approaching the
+   field. Move the cursor while editing, use Tab/Enter/Escape and resize the
+   window. Check the stationary accessible field and preserved exact value.
+6. Repeat popup/island overlap in Compact, Medium and Expanded layouts, at
+   50%/100% opacity, and after pan/zoom/resize. Check readable controls with no
+   amber residuals. Try triangle/C/L, colors, weight and temporary guides.
+7. Mix model, sketch, grid and free placement at ordinary zooms and on a sloped
+   face. Rotate away from normal; confirm the active sketch frame is unchanged.
+   Off-plane references must remain unavailable.
+8. Save/reopen, Undo/Redo and use the acquired geometry in New Body, Join and Cut.
+   Export STL/STEP and confirm normal face/edge selection after Finish Sketch.
 
-Automated results and the separate desktop verification are recorded in
-[VALIDATION.md](../VALIDATION.md).
+Automated results and separate actual desktop verification are recorded in
+[VALIDATION.md](../VALIDATION.md). Repeat the checklist on the operator's Linux/
+NVIDIA workstation; software-rendered verification does not establish every GPU
+or display-server combination.

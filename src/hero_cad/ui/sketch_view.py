@@ -8,8 +8,8 @@ from hero_cad.tools import ToolController, ToolEvent
 from hero_cad.ui.camera_alignment import deterministic_up
 from hero_cad.ui.display_geometry import paths_mesh, selected_mesh
 from hero_cad.ui.guides import ViewGuides
-from hero_cad.ui.snapping import center_targets, construction_endpoints, snap_point
-from hero_cad.ui.model_references import model_references
+from hero_cad.ui.snapping import snap_point
+from hero_cad.ui.model_references import ModelReferences, model_references, sketch_references
 from hero_cad.ui.snap_indicators import SnapIndicators
 from hero_cad.ui.curve_display import dashed_paths, display_points, segment_count
 
@@ -30,6 +30,10 @@ class SketchView:
         self._model_edges = None
         self._model_frame = None
         self._model_references = None
+        self._reference_entities = None
+        self._reference_model = None
+        self._references = ModelReferences()
+        self._sketch_references = ModelReferences()
         self.reference_mapper, self.reference_actor = viewport.add_actor((.35, .65, 1.))
         self.reference_actor.GetProperty().LightingOff()
         self.reference_actor.GetProperty().SetLineWidth(2)
@@ -217,7 +221,7 @@ class SketchView:
         for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor, self.reference_actor):
             self.viewport.sketch_foreground(actor, bool(self.active_id))
         if self.feature and self.snap_result is not None:
-            self.indicators.show(self.snap_result, self.feature.parameters.frame, self._model_references)
+            self.indicators.show(self.snap_result, self.feature.parameters.frame, self._references)
 
     def enter(self, identifier):
         self.viewport.profiles.clear()
@@ -313,11 +317,18 @@ class SketchView:
                 self._model_references = model_references(edges, frame)
                 self._model_edges, self._model_frame = edges, frame
             references = self._model_references
+        entities = self.feature.parameters.entities
+        if self._reference_entities is not entities:
+            self._sketch_references = sketch_references(entities)
+        if self._reference_entities is not entities or self._reference_model is not references:
+            local, solid = self._sketch_references, references or ModelReferences()
+            self._references = ModelReferences(local.points+solid.points,local.midpoints+solid.midpoints,
+                                                local.lines+solid.lines,local.arcs+solid.arcs)
+            self._reference_entities, self._reference_model = entities, references
         self.snap_result = snap_point(point, (x, y), project, self.guides.spacing,
                                       grid=self.guides.snap_grid, origin=self.guides.snap_origin,
-                                      centers=center_targets(self.feature.parameters.entities) if self.guides.snap_center else (),
-                                      endpoints=construction_endpoints(self.feature.parameters.entities) if self.guides.snap_center else (),
-                                      tolerance=8*scale, model=references, previous=self.snap_result)
+                                      tolerance=8*scale, model=self._references, previous=self.snap_result,
+                                      sketch_centers=self.guides.snap_center)
         point = self.snap_result.point
         self.show_snap(frame)
         entity = self.controller.handle(ToolEvent(phase, point, shift))
@@ -360,11 +371,15 @@ class SketchView:
 
     def show_snap(self, frame):
         result = self.snap_result
-        highlight = result.edge_index is not None and self.indicators.options['highlight']
+        highlight = (result.edge_index is not None or result.entity_id is not None) and self.indicators.options['highlight']
         self.reference_actor.SetVisibility(highlight)
-        if highlight:
+        if highlight and result.entity_id is not None:
+            entity = next(e for e in self.feature.parameters.entities if e.id == result.entity_id)
+            path = self.world_path(self.feature,entity,segment_count(entity,self.pixels_per_mm))
+            self.reference_mapper.SetInputData(paths_mesh([path]))
+        elif highlight:
             self.reference_mapper.SetInputData(selected_mesh(self.viewport.edge_mapper.GetInput(), 'edge_id', result.edge_index))
-        self.indicators.show(result,frame,self._model_references)
+        self.indicators.show(result,frame,self._references)
         self.apply_snap_color()
 
     def apply_snap_color(self):

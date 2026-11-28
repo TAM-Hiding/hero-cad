@@ -79,7 +79,7 @@ coordinates. Circle/slot center guides use local U/V. Symbol and guide buffers
 are disposable, unpickable and excluded from Fit. Settings use the existing
 typed Preferences catalogue and an optional `snap_indicators` palette-v1 field.
 Four optional snap color roles inherit `snap.center`; original color snapshots
-remain readable. No acquisition priorities or model parameters change.
+remain readable. These presentation settings never change acquisition coordinates or model parameters.
 
 The numeric popup and tool island are native Qt siblings under VTK's native
 paint-on-screen viewport. Popup move/resize/hide can leave copied pixels in the
@@ -568,3 +568,41 @@ an enabled-state style, without completion changes. V1 accepts its 55 original
 required roles plus optional extensions and contrast metadata, preserving legacy
 override masks; exports contain current effective colors and explicit masks.
 No renderer, document, history or theme-system replacement. See docs/SKETCH_APPEARANCE_045.md.
+
+
+## PR #51 final refinements — unified references and planar loyalty
+
+`sketch_references` expands immutable completed Line/Rectangle/Circle/Slot
+parameters into the same transient point/line/arc targets as coplanar OCCT model
+edges. Construction status does not remove useful references. Source entity UUID
+and segment ordinal identify temporary feedback, never persistent constraints.
+The local target cache keys the completed-entity tuple; the combined cache also
+keys model-reference identity. Creation, editing, deletion, conversion, Undo and
+load replace those immutable inputs. Transient previews are not enumerated.
+
+Line acquisition interpolates analytic endpoints. Circular boundary acquisition
+minimizes screen distance on C+A cos(t)+B sin(t) using the stationary quartic in
+tan(t/2), checks real roots and trimmed endpoints, and returns an analytic local
+point. NumPy is already a locked VTK runtime dependency. Neither topology nor
+committed coordinates use display tessellation. Orthographic/oblique projection
+is supported; edge-on or nonunique acquisition is rejected. Resolver priorities
+are precise points, midpoints, boundaries, grid, free; origin/center bias and
+bounded previous-target retention stabilize small/nearby targets. Shared endpoints
+remain eligible; no general intersection-point acquisition is introduced.
+
+Planar loyalty separates active sketch frame, reference coordinates and camera.
+The existing ray-plane intersection remains the input authority; references
+return local UV only, and tools commit through the unchanged frame. A camera
+change cannot adopt another reference plane. The existing visible-face alignment
+changes camera state only. Future Look at Sketch and projected references remain
+separate capabilities. No native document/schema change or associative constraint
+is introduced.
+
+ConstructionDimensions keeps a stage-sized footprint and relocates around a
+14-logical-pixel cursor guard only in mouse mode. Popup-child mouse moves forward
+to the existing viewport handler. Tab/typing pins numeric entry; Ctrl before mouse
+approach permits deliberate field access. Numeric mode only clamps on viewport
+resize. Readouts share locale-aware trailing-zero formatting at the existing
+nine-decimal sketch-editor precision without mutating stored values. Popup moves
+continue through the bounded old/new island invalidation, without continuous
+repaints or solid regeneration.

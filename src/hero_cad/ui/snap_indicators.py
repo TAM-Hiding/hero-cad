@@ -15,11 +15,11 @@ def symbol_paths(target, midpoint):
     """Normalized glyphs use strokes, including the overlapping C/L mark."""
     if target in ('ENDPOINT', 'MODEL ENDPOINT'):
         return (((-1,-1),(1,-1),(1,1),(-1,1),(-1,-1)),)
-    if target == 'MODEL MIDPOINT':
+    if target in ('MODEL MIDPOINT','SKETCH MIDPOINT'):
         if midpoint == 'Centerline (C/L)':
             return (circle_path(pi/4,7*pi/4,.8), ((.1,1),(.1,-1),(1,-1)))
         return (((0,1),(-1,-1),(1,-1),(0,1)),)
-    if target == 'MODEL EDGE':
+    if target in ('MODEL EDGE','SKETCH EDGE','MODEL CURVE','SKETCH CURVE'):
         return (((0,1),(1,0),(0,-1),(-1,0),(0,1)),)
     cross = (((-1,0),(1,0)), ((0,-1),(0,1)))
     if target in ('CENTER', 'MODEL CENTER'):
@@ -84,7 +84,8 @@ class SnapIndicators:
 
     def recolor(self, result):
         role = {'GRID':'grid', 'ORIGIN':'origin', 'MODEL ENDPOINT':'endpoint',
-                'ENDPOINT':'endpoint', 'MODEL MIDPOINT':'midpoint', 'MODEL EDGE':'edge'}.get(result.target,'center')
+                'ENDPOINT':'endpoint', 'MODEL MIDPOINT':'midpoint', 'SKETCH MIDPOINT':'midpoint',
+                'MODEL EDGE':'edge', 'SKETCH EDGE':'edge', 'MODEL CURVE':'edge', 'SKETCH CURVE':'edge'}.get(result.target,'center')
         self.actor.GetProperty().SetColor(*self.color(role))
         self.guide_actor.GetProperty().SetColor(*self.color('guide',guide=True))
 
@@ -115,8 +116,9 @@ class SnapIndicators:
         self.recolor(result)
         directions = []
         if self.options['centerline']:
-            if result.target == 'MODEL MIDPOINT' and references is not None:
-                line = next((line for line in references.lines if line.edge_index == result.edge_index),None)
+            if result.target in ('MODEL MIDPOINT','SKETCH MIDPOINT') and references is not None:
+                line = next((line for line in references.lines if (line.edge_index,line.entity_id,line.segment)
+                             == (result.edge_index,result.entity_id,result.segment)),None)
                 if line is not None:
                     directions.append((line.a[1]-line.b[1],line.b[0]-line.a[0]))
             elif result.target in ('CENTER','MODEL CENTER'):

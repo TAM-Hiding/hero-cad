@@ -1,6 +1,7 @@
 """Local construction-point snapping with projected screen-distance acceptance."""
 from dataclasses import dataclass
 from math import floor, hypot
+from itertools import chain
 from hero_cad.sketch import Circle, Line, Slot
 
 
@@ -9,6 +10,8 @@ class SnapResult:
     point: tuple
     target: str = 'FREE'
     edge_index: int | None = None
+    entity_id: str | None = None
+    segment: int | None = None
 
 
 def center_targets(entities):
@@ -27,7 +30,7 @@ def construction_endpoints(entities):
 
 
 def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, centers=(), endpoints=(),
-               tolerance=8, model=None, previous=None):
+               tolerance=8, model=None, previous=None, sketch_centers=True):
     """project(local_uv) returns screen XY or None for a clipped target.
 
     No feature/topology references or document edits are created here. The local
@@ -44,19 +47,25 @@ def snap_point(point, cursor, project, spacing, *, grid=True, origin=True, cente
         def choose(candidates):
             accepted = [c for c in candidates if distance(c.point) <= tolerance]
             return min(accepted, key=lambda c: distance(c.point) -
-                       (tolerance/4 if c == previous else 0), default=None)
+                       (tolerance/4 if c == previous else 0) -
+                       (tolerance/4 if c.target in ('ORIGIN','CENTER','MODEL CENTER') else 0), default=None)
 
         precise = [SnapResult((0., 0.), 'ORIGIN')] if origin else []
         precise.extend(SnapResult(p, 'CENTER') for p in centers)
         precise.extend(SnapResult(p, 'ENDPOINT') for p in endpoints)
-        precise.extend(SnapResult(p.point, p.kind, p.edge_index) for p in model.points)
+        precise.extend(SnapResult(p.point,p.kind,p.edge_index,p.entity_id,p.segment) for p in model.points
+                       if sketch_centers or p.entity_id is None or p.kind != 'CENTER')
         result = choose(precise)
         if result is None:
-            result = choose(SnapResult(p.point, p.kind, p.edge_index) for p in model.midpoints)
+            result = choose(SnapResult(p.point,p.kind,p.edge_index,p.entity_id,p.segment) for p in model.midpoints)
         if result is None:
             edge_points = ((line, line.nearest(cursor, project)) for line in model.lines)
-            result = choose(SnapResult(p, 'MODEL EDGE', line.edge_index)
-                            for line,p in edge_points if p is not None)
+            curve_points = ((arc,arc.nearest(cursor,project)) for arc in model.arcs)
+            straight = (SnapResult(p,'SKETCH EDGE' if line.entity_id else 'MODEL EDGE',line.edge_index,line.entity_id,line.segment)
+                        for line,p in edge_points if p is not None)
+            curved = (SnapResult(p,'SKETCH CURVE' if arc.entity_id else 'MODEL CURVE',arc.edge_index,arc.entity_id,arc.segment)
+                      for arc,p in curve_points if p is not None)
+            result = choose(chain(straight,curved))
         if result is not None:
             return result
         # Precise targets were already tested. Fall through to the same grid.

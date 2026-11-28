@@ -176,9 +176,11 @@ def test_snapped_tools_numeric_edits_and_persistence(qtbot, tmp_path, plane):
     def settle():
         QApplication.processEvents()
     w.tool_choice.setCurrentText('Line')
-    tap((2, 3)); tap((7, 9)); settle()
+    # Keep this grid/numeric fixture clear of the later circle's radius point.
+    # Completed analytic sketch boundaries now intentionally outrank the grid.
+    tap((-12, 3)); tap((-7, 9)); settle()
     line = w.document.feature(identifier).parameters.entities[-1]
-    assert line.points == ((2, 3), (7, 9))
+    assert line.points == ((-12, 3), (-7, 9))
     w.tool_choice.setCurrentText('Rectangle')
     press((-10, -8)); release((-4, -2)); settle()
     rectangle = w.document.feature(identifier).parameters.entities[-1]
