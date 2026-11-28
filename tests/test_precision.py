@@ -137,7 +137,10 @@ def test_screen_tolerance_and_origin_priority(qtbot, scale, plane):
     origin = pixel(v, frame.to_world((0, 0)))
     hover(v, origin+QPoint(4, 0))
     assert v.sketch.snap_result.target == 'ORIGIN' and v.sketch.snap_result.point == (0, 0)
-    assert v.sketch.snap_actor.GetProperty().GetPointSize() == 9
+    assert v.sketch.snap_mapper.GetInput().GetNumberOfLines() == 2
+    bounds = v.sketch.snap_mapper.GetInput().GetBounds()
+    scale = v.GetRenderWindow().GetSize()[1]/v.height()
+    assert bounds[1]-bounds[0] == pytest.approx(v.sketch.indicators.options['size']*scale)
     w.snap_origin_action.setChecked(False)
     hover(v, origin)
     assert v.sketch.snap_result.target == 'FREE'

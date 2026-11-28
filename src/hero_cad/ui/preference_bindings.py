@@ -1,5 +1,6 @@
 """Keep existing QAction/widget callbacks as the sole application behavior paths."""
 from PySide6.QtCore import QPoint
+from hero_cad.snap_appearance import OPTIONS, PREFIX as SNAP_PREFIX
 
 
 def bind_preferences(w):
@@ -58,6 +59,14 @@ def bind_preferences(w):
         w.viewport.GetRenderWindow().Render()
 
     setters['viewport/v1/xray_opacity'] = general_opacity
+    def snap_appearance(_):
+        sketch = w.viewport.sketch
+        sketch.indicators.options = {key:store.get(SNAP_PREFIX+key) for key in OPTIONS}
+        if sketch.feature and sketch.snap_result is not None:
+            sketch.show_snap(sketch.feature.parameters.frame)
+        w.viewport.GetRenderWindow().Render()
+    for key in OPTIONS:
+        setters[SNAP_PREFIX+key] = snap_appearance
     for key in ('viewport/v1/sketch_xray', 'viewport/v1/sketch_opacity', 'viewport/v1/sketch_face'):
         setters[key] = sketch_presentation
     setters.update({'viewport/v1/contrast': contrast, 'viewport/v1/display_mode': display,

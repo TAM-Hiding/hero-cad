@@ -72,6 +72,15 @@ through the ordinary tool/entity transaction. The existing face attachment
 retains its semantics, and edge associativity is deferred. See
 [the supported references and limits](docs/GEOMETRY_REFERENCES.md).
 
+`ui/snap_indicators.py` draws temporary VTK 2D vector strokes in display pixels,
+using the acquired exact coordinate and frame solely for screen projection.
+Optional midpoint guides project the edge's perpendicular in sketch-local
+coordinates. Circle/slot center guides use local U/V. Symbol and guide buffers
+are disposable, unpickable and excluded from Fit. Settings use the existing
+typed Preferences catalogue and an optional `snap_indicators` palette-v1 field.
+Four optional snap color roles inherit `snap.center`; original color snapshots
+remain readable. No acquisition priorities or model parameters change.
+
 `ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; automatic major spacing uses 1/2/5 steps targeting about 100 logical pixels, with ten minor intervals per major and bounded display line counts. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
 
 The loader accepts v1/v2 files; v2 permits only its original line and rectangle types. V3 extends the entity set with circles and slots and retains all prior validation and atomic saving.

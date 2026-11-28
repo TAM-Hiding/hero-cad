@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from math import isfinite
 from PySide6.QtCore import QObject, Signal
 from hero_cad.palette import COLORS, PREFIX, ENABLED, CONTRAST, hex_color
+from hero_cad.snap_appearance import OPTIONS, PREFIX as SNAP_PREFIX
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,9 @@ PREFERENCES = {
     'tool_island/v1/y': Preference('Interface', 'Island vertical position', None, int, minimum=-10000000, maximum=10000000, exposed=False),
 }
 
+PREFERENCES.update({SNAP_PREFIX+key: Preference('Appearance', label, default, kind, choices,
+                                             minimum=minimum, maximum=maximum)
+                    for key, (label, default, kind, choices, minimum, maximum) in OPTIONS.items()})
 PREFERENCES[CONTRAST] = Preference('Experimental Palette', 'Text Contrast', 'Automatic', str, ('Automatic', 'Manual'), exposed=False)
 PREFERENCES[ENABLED] = Preference('Experimental Palette', 'Use Custom palette', False, bool, exposed=False)
 PREFERENCES.update({PREFIX+key:Preference('Experimental Palette', spec.label, None, str, exposed=False, color=True)

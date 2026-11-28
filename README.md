@@ -126,8 +126,10 @@ A lost semantic side marks the sketch **UNRESOLVED**, preserves its entities and
 While drawing in a face-attached sketch, HERO also acquires coplanar edges of
 displayed solids. Supported targets are straight/circular-edge endpoints,
 straight-edge midpoints and arbitrary points, and circular-edge centers,
-including hole boundaries. A blue point and edge highlight show the acquisition,
-and the status bar identifies its type. Exact points precede midpoints, then
+including hole boundaries. Configurable geometric symbols and an optional edge
+highlight show acquisition, and the status bar identifies its type. Preferences
+→ Appearance provides midpoint Triangle/C/L, colors, size, stroke weight and
+temporary centerline guides. Exact points precede midpoints, then
 straight edges, grid points, and free placement within eight logical pixels.
 Placement stores exact local coordinates. The existing sketch attachment follows
 its support plane, while acquired points have no persistent edge constraint.

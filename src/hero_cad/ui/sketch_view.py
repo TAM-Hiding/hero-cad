@@ -10,6 +10,7 @@ from hero_cad.ui.display_geometry import paths_mesh, selected_mesh
 from hero_cad.ui.guides import ViewGuides
 from hero_cad.ui.snapping import center_targets, construction_endpoints, snap_point
 from hero_cad.ui.model_references import model_references
+from hero_cad.ui.snap_indicators import SnapIndicators
 from hero_cad.ui.curve_display import dashed_paths, display_points, segment_count
 
 
@@ -24,12 +25,8 @@ class SketchView:
         self.controller = ToolController()
         self.saved_camera = None
         self.snap_result = None
-        self.snap_mapper, self.snap_actor = viewport.add_actor((1.0, 0.85, 0.25))
-        self.snap_actor.GetProperty().SetPointSize(7)
-        self.snap_actor.GetProperty().LightingOff()
-        self.snap_actor.PickableOff()
-        self.snap_actor.UseBoundsOff()
-        self.snap_actor.VisibilityOff()
+        self.indicators = SnapIndicators(viewport)
+        self.snap_mapper, self.snap_actor = self.indicators.mapper, self.indicators.actor
         self._model_edges = None
         self._model_frame = None
         self._model_references = None
@@ -219,6 +216,8 @@ class SketchView:
         self.install_display(self.prepare_features(self.features))
         for actor in (self.highlight_actor, self.preview_actor, self.snap_actor, self.origin_actor, self.reference_actor):
             self.viewport.sketch_foreground(actor, bool(self.active_id))
+        if self.feature and self.snap_result is not None:
+            self.indicators.show(self.snap_result, self.feature.parameters.frame, self._model_references)
 
     def enter(self, identifier):
         self.viewport.profiles.clear()
@@ -348,7 +347,7 @@ class SketchView:
 
     def clear_snap(self):
         self.snap_result = None
-        self.snap_actor.VisibilityOff()
+        self.indicators.clear()
         self.reference_actor.VisibilityOff()
 
     @property
@@ -361,32 +360,18 @@ class SketchView:
 
     def show_snap(self, frame):
         result = self.snap_result
-        self.reference_actor.SetVisibility(result.edge_index is not None)
-        if result.edge_index is not None:
+        highlight = result.edge_index is not None and self.indicators.options['highlight']
+        self.reference_actor.SetVisibility(highlight)
+        if highlight:
             self.reference_mapper.SetInputData(selected_mesh(self.viewport.edge_mapper.GetInput(), 'edge_id', result.edge_index))
-        self.snap_actor.SetVisibility(result.target != 'FREE')
-        if result.target == 'FREE':
-            return
-        points, cells = vtkPoints(), vtkCellArray()
-        points.SetDataTypeToDouble()
-        points.InsertNextPoint(*frame.to_world(result.point))
-        cells.InsertNextCell(1)
-        cells.InsertCellPoint(0)
-        mesh = vtkPolyData()
-        mesh.SetPoints(points)
-        mesh.SetVerts(cells)
-        self.snap_mapper.SetInputData(mesh)
+        self.indicators.show(result,frame,self._model_references)
         self.apply_snap_color()
-        self.snap_actor.GetProperty().SetPointSize(7 if result.target == 'GRID' else 9)
 
     def apply_snap_color(self):
         if self.snap_result is None or self.snap_result.target == 'FREE':
             return
-        target = self.snap_result.target
-        role = 'CENTER' if target == 'ENDPOINT' or target.startswith('MODEL ') else target
-        colors = {'ORIGIN': (1., .35, .9), 'CENTER': (.35, .65, 1.), 'GRID': (1., .85, .25)}
-        self.snap_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.' + role.lower(), colors[role]))
-        self.reference_actor.GetProperty().SetColor(*self.viewport.palette_rgb('snap.center', colors['CENTER']))
+        self.indicators.recolor(self.snap_result)
+        self.reference_actor.GetProperty().SetColor(*self.snap_actor.GetProperty().GetColor())
 
     def hit(self, x, y):
         self.prepare_display()
