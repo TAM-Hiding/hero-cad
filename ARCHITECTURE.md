@@ -81,6 +81,16 @@ typed Preferences catalogue and an optional `snap_indicators` palette-v1 field.
 Four optional snap color roles inherit `snap.center`; original color snapshots
 remain readable. No acquisition priorities or model parameters change.
 
+The numeric popup and tool island are native Qt siblings under VTK's native
+paint-on-screen viewport. Popup move/resize/hide can leave copied pixels in the
+island's backing store without invalidating its controls. The island observes
+only popup geometry/visibility events and updates the intersecting old/new
+region. This restores ordinary Qt painting locally. The popup's opacity effect,
+ownership, focus routing and placement remain in their existing paths. The
+filter retains the popup reference so parent teardown cannot substitute a
+generic QWidget lacking viewport attributes. It adds no polling, CAD evaluation
+or full-viewport repaint loop.
+
 `ui/guides.py` owns session-only grid/axis visibility. Grid lines lie in the active sketch frame and follow the camera focal point; automatic major spacing uses 1/2/5 steps targeting about 100 logical pixels, with ten minor intervals per major and bounded display line counts. Camera modifications update the disposable guide meshes. Origin axes pass through world zero in red X/yellow Y/blue Z. All guides are unlit, unpickable and excluded from camera-fit bounds. Grid lines receive a depth offset behind sketch entities. Guides never enter document history or persistence. Axes remain available outside sketch mode; grid visibility is restricted to an active sketch.
 
 The loader accepts v1/v2 files; v2 permits only its original line and rectangle types. V3 extends the entity set with circles and slots and retains all prior validation and atomic saving.

@@ -137,6 +137,9 @@ class ToolIsland(QFrame):
             self.buttons[identifier] = button
             button.hide()
         viewport.installEventFilter(self)
+        self._dimension_popup = viewport.dimensions
+        self._dimension_rect = self._dimension_popup.geometry()
+        self._dimension_popup.installEventFilter(self)
         self.set_context('model')
         self.apply_collapsed_state()
         self.setVisible(self.requested_visible)
@@ -190,6 +193,15 @@ class ToolIsland(QFrame):
     def eventFilter(self, watched, event):
         if watched is self.parentWidget() and event.type() in (QEvent.Resize, QEvent.Show):
             self.apply_geometry()
+        if watched is self._dimension_popup and event.type() in (QEvent.Move, QEvent.Resize, QEvent.Show, QEvent.Hide):
+            # VTK's native paint-on-screen parent does not restore Qt sibling
+            # contents exposed by the moving native numeric overlay. Mark only
+            # the intersecting island pixels dirty, including its child controls.
+            damaged = self._dimension_rect.united(watched.geometry())
+            self._dimension_rect = watched.geometry()
+            damaged = damaged.intersected(self.geometry()).translated(-self.pos())
+            if self.isVisible() and not damaged.isEmpty():
+                self.update(damaged)
         return super().eventFilter(watched, event)
 
     def resizeEvent(self, event):
